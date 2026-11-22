@@ -22,14 +22,9 @@ jobs:
           gradle-version: '8.11.1'
       - name: Code prüfen (ohne Signatur)
         run: gradle compileReleaseJavaWithJavac --no-daemon
-      - name: Namen der Secrets (ohne Werte)
-        env:
-          ALL: ${{ toJSON(secrets) }}
-        run: |
-          echo "$ALL" | jq -r 'keys[]' | sed 's/^/SECRETNAME=[/; s/$/]/'
       - name: Passwort vorhanden?
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || secrets.KEYSTORE_PASSWORT || secrets.KEYSTORE_PASWORD || secrets.KEYSTORE_PASSWORD_ }}
         run: |
           if [ -z "$KEYSTORE_PASSWORD" ]; then
             echo "::error::Das Secret KEYSTORE_PASSWORD fehlt (Settings > Secrets and variables > Actions)."
@@ -37,7 +32,7 @@ jobs:
           fi
       - name: APK bauen
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || secrets.KEYSTORE_PASSWORT || secrets.KEYSTORE_PASWORD || secrets.KEYSTORE_PASSWORD_ }}
         run: gradle assembleRelease --no-daemon --stacktrace
       - name: APK umbenennen
         run: cp app/build/outputs/apk/release/app-release.apk Nachrichten.apk
