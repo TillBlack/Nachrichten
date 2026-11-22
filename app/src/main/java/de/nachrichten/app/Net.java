@@ -44,7 +44,7 @@ final class Net {
     private final List<Listener> listeners = new CopyOnWriteArrayList<>();
     private final Map<String, byte[]> convKeys = new HashMap<>();
     private final Set<String> seen = new HashSet<>();
-    private long lastSeenAtStart;
+    private long lastSeenAtStart, startedAt;
     /** Gerade geöffneter Chat: dafür keine Benachrichtigung. */
     volatile String openChat;
 
@@ -97,7 +97,10 @@ final class Net {
                 c.stop();
             }
         }
-        if (want && conns.isEmpty()) lastSeenAtStart = app.prefs.getLong("lastSeen", 0);
+        if (want && conns.isEmpty()) {
+            lastSeenAtStart = app.prefs.getLong("lastSeen", 0);
+            startedAt = System.currentTimeMillis() / 1000;
+        }
         for (String u : urls) if (!conns.containsKey(u)) {
             Conn c = new Conn(u);
             conns.put(u, c);
@@ -267,7 +270,9 @@ final class Net {
             app.prefs.edit().putLong("lastSeen", createdAt).apply();
         }
         changed(peer);
-        if (!outgoing && lastSeenAtStart > 0 && !peer.equals(openChat)) {
+        // beim ersten Abruf (Wiederherstellung) nur wirklich neue Nachrichten melden
+        boolean fresh = lastSeenAtStart > 0 || createdAt > startedAt - 120;
+        if (!outgoing && fresh && !peer.equals(openChat)) {
             main.post(() -> Notifs.message(app, peer, body));
         }
     }

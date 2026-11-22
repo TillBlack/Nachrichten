@@ -39,6 +39,7 @@ final class Db extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE messages (id TEXT PRIMARY KEY, peer TEXT NOT NULL, outgoing INTEGER NOT NULL, body TEXT NOT NULL, ts INTEGER NOT NULL, status INTEGER NOT NULL, raw TEXT)");
         db.execSQL("CREATE INDEX messages_peer_ts ON messages(peer, ts)");
         db.execSQL("CREATE INDEX messages_status ON messages(status)");
+        db.execSQL("CREATE TABLE deleted (id TEXT PRIMARY KEY)");
     }
 
     @Override
@@ -72,6 +73,7 @@ final class Db extends SQLiteOpenHelper {
 
     synchronized void deleteContact(String pub) {
         SQLiteDatabase db = getWritableDatabase();
+        db.execSQL("INSERT OR IGNORE INTO deleted (id) SELECT id FROM messages WHERE peer = ?", new String[]{pub});
         db.delete("messages", "peer = ?", new String[]{pub});
         db.delete("contacts", "pub = ?", new String[]{pub});
     }
@@ -109,7 +111,7 @@ final class Db extends SQLiteOpenHelper {
     // ------------------------------------------------------------------ Nachrichten
 
     synchronized boolean hasMessage(String id) {
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT 1 FROM messages WHERE id = ?", new String[]{id})) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT 1 FROM messages WHERE id = ? UNION SELECT 1 FROM deleted WHERE id = ?", new String[]{id, id})) {
             return c.moveToFirst();
         }
     }
@@ -163,6 +165,8 @@ final class Db extends SQLiteOpenHelper {
     }
 
     synchronized void deleteMessage(String id) {
-        getWritableDatabase().delete("messages", "id = ?", new String[]{id});
+        SQLiteDatabase db = getWritableDatabase();
+        db.execSQL("INSERT OR IGNORE INTO deleted (id) VALUES (?)", new String[]{id});
+        db.delete("messages", "id = ?", new String[]{id});
     }
 }

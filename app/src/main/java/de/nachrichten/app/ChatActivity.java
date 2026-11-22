@@ -48,6 +48,12 @@ public class ChatActivity extends Base implements Net.Listener {
     }
 
     @Override
+    public void finish() {
+        if (isTaskRoot()) startActivity(new Intent(this, MainActivity.class));
+        super.finish();
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         String p = intent.getStringExtra("peer");
