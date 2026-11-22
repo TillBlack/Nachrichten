@@ -25,7 +25,8 @@ jobs:
       - name: Namen der Secrets (ohne Werte)
         env:
           ALL: ${{ toJSON(secrets) }}
-        run: echo "$ALL" | jq -r 'keys[]' | sed 's/^/Secret: [/; s/$/]/'
+        run: |
+          echo "$ALL" | jq -r 'keys[]' | sed 's/^/SECRETNAME=[/; s/$/]/'
       - name: Passwort vorhanden?
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
