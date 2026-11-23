@@ -61,6 +61,7 @@ public class MainActivity extends Base implements Net.Listener {
             app.net.acquire("ui");
             app.applyBackground();
             refresh();
+            Updater.checkOnStart(this);
         }
     }
 
@@ -570,6 +571,26 @@ public class MainActivity extends Base implements Net.Listener {
         TextView hidei = text(T.hideStatusInfo(), 13, Pal.dim, false);
         hidei.setPadding(0, dp(6), 0, 0);
         box.addView(hidei);
+
+        // Updates
+        LinearLayout up = new LinearLayout(this);
+        up.setGravity(Gravity.CENTER_VERTICAL);
+        up.setPadding(0, dp(18), 0, 0);
+        up.addView(text(T.autoUpdate(), 16, Pal.text, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        Ico ut = new Ico(this, Ico.TOGGLE);
+        ut.on = app.prefs.getBoolean("updates", true);
+        up.addView(ut, new LinearLayout.LayoutParams(dp(52), dp(40)));
+        up.setOnClickListener(v -> {
+            boolean on = !app.prefs.getBoolean("updates", true);
+            app.prefs.edit().putBoolean("updates", on).apply();
+            ut.on = on;
+            ut.invalidate();
+        });
+        ut.setOnClickListener(v -> up.performClick());
+        box.addView(up);
+        TextView uti = text(T.autoUpdateInfo(Updater.installedVersion(this)), 13, Pal.dim, false);
+        uti.setPadding(0, dp(4), 0, 0);
+        box.addView(uti);
 
         // Relays
         box.addView(label(T.relays()));

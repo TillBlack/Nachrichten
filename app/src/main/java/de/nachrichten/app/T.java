@@ -130,6 +130,27 @@ final class T {
             "Android требует его, пока приложение получает в фоне. Выключи \"Фоновое соединение\" на следующем экране. Сообщения всё равно будут приходить с уведомлениями.",
             "Android je zahtijeva dok aplikacija prima u pozadini. Na sljedećem zaslonu isključi \"Pozadinska veza\". Poruke i dalje stižu s obavijestima."); }
 
+    // Updates
+    static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }
+    static String updateText(long v, long cur) { return s(
+            "Version " + v + " is ready (you have " + cur + "). Your chats stay as they are.",
+            "Version " + v + " ist da (du hast " + cur + "). Deine Chats bleiben erhalten.",
+            "La versión " + v + " está lista (tienes la " + cur + "). Tus chats se conservan.",
+            "Версия " + v + " готова (у тебя " + cur + "). Чаты сохранятся.",
+            "Verzija " + v + " je spremna (imaš " + cur + "). Razgovori ostaju."); }
+    static String later() { return s("Later", "Später", "Más tarde", "Позже", "Kasnije"); }
+    static String updateNow() { return s("Update", "Aktualisieren", "Actualizar", "Обновить", "Ažuriraj"); }
+    static String downloading() { return s("Downloading…", "Wird geladen…", "Descargando…", "Загрузка…", "Preuzimanje…"); }
+    static String updateFailed() { return s("Update failed. Try again later.", "Update fehlgeschlagen. Versuch es später nochmal.", "La actualización falló. Inténtalo más tarde.", "Не удалось обновить. Попробуй позже.", "Ažuriranje nije uspjelo. Pokušaj kasnije."); }
+    static String allowInstall() { return s("Allow \"Install unknown apps\" for Nachrichten, then tap Update again.", "Erlaube \"Unbekannte Apps installieren\" für Nachrichten und tippe dann nochmal auf Aktualisieren.", "Permite \"Instalar apps desconocidas\" para Nachrichten y vuelve a tocar Actualizar.", "Разреши \"Установку неизвестных приложений\" для Nachrichten и снова нажми Обновить.", "Dopusti \"Instaliranje nepoznatih aplikacija\" za Nachrichten pa ponovno dodirni Ažuriraj."); }
+    static String autoUpdate() { return s("Check for updates at start", "Beim Start nach Updates suchen", "Buscar actualizaciones al iniciar", "Проверять обновления при запуске", "Provjeri ažuriranja pri pokretanju"); }
+    static String autoUpdateInfo(long v) { return s(
+            "Asks GitHub for a newer version. Installed version: " + v,
+            "Fragt bei GitHub nach einer neueren Version. Installierte Version: " + v,
+            "Pregunta a GitHub por una versión nueva. Versión instalada: " + v,
+            "Спрашивает у GitHub о новой версии. Установлена версия: " + v,
+            "Pita GitHub za noviju verziju. Instalirana verzija: " + v); }
+
     // Benachrichtigungen
     static String chMessages() { return s("Messages", "Nachrichten", "Mensajes", "Сообщения", "Poruke"); }
     static String chService() { return s("Background connection", "Hintergrundverbindung", "Conexión en segundo plano", "Фоновое соединение", "Pozadinska veza"); }
