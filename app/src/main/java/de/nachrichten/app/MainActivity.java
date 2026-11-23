@@ -349,7 +349,8 @@ public class MainActivity extends Base implements Net.Listener {
         if (app.isDev()) list.addView(suggestionsRow());
         list.addView(discoverRow());
         List<Db.Contact> cs = app.db.contacts();
-        if (cs.isEmpty()) {
+        List<Db.Group> gs = app.db.groupList();
+        if (cs.isEmpty() && gs.isEmpty()) {
             TextView e = text(T.noChats(), 16, Pal.dim, false);
             e.setGravity(Gravity.CENTER);
             e.setLineSpacing(0, 1.25f);
@@ -358,7 +359,78 @@ public class MainActivity extends Base implements Net.Listener {
             list.addView(e, lp);
             return;
         }
-        for (Db.Contact c : cs) list.addView(row(c));
+        List<Object> items = new java.util.ArrayList<>();
+        items.addAll(gs);
+        items.addAll(cs);
+        items.sort((a, b) -> Long.compare(itemTs(b), itemTs(a)));
+        for (Object it : items)
+            list.addView(it instanceof Db.Group ? groupRow((Db.Group) it) : row((Db.Contact) it));
+    }
+
+    private static long itemTs(Object o) {
+        return o instanceof Db.Group ? ((Db.Group) o).lastTs : ((Db.Contact) o).lastTs;
+    }
+
+    private void openGroup(String gid) {
+        startActivity(new Intent(this, GroupChatActivity.class).putExtra("gid", gid));
+    }
+
+    private View groupRow(Db.Group g) {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        r.setBackground(round(Pal.bg, 0, 12));
+        Avatar ga = new Avatar(g.gid, g.name == null || g.name.isEmpty() ? "#" : g.name);
+        ga.silhouette = false;
+        r.addView(ga, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+        LinearLayout mid = new LinearLayout(this);
+        mid.setOrientation(LinearLayout.VERTICAL);
+        mid.setPadding(dp(14), 0, dp(8), 0);
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView nv = text(g.name, 17, Pal.text, true);
+        nv.setSingleLine(true);
+        nv.setEllipsize(TextUtils.TruncateAt.END);
+        top.addView(nv, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView tv = text(g.lastText != null ? shortWhen(g.lastTs) : "", 12, g.unread > 0 ? Pal.accent : Pal.dim, false);
+        top.addView(tv);
+        mid.addView(top);
+
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setGravity(Gravity.CENTER_VERTICAL);
+        String preview;
+        if (g.lastText == null) preview = T.groupMembers(g.memberCount);
+        else {
+            String who = g.lastOutgoing ? T.you() : (g.lastSender != null ? app.nameOf(g.lastSender) + ": " : "");
+            preview = who + g.lastText.replace('\n', ' ');
+        }
+        TextView pv = text(preview, 14, Pal.dim, false);
+        pv.setSingleLine(true);
+        pv.setEllipsize(TextUtils.TruncateAt.END);
+        bottom.addView(pv, new LinearLayout.LayoutParams(0, -2, 1f));
+        if (g.unread > 0) {
+            TextView badge = text(g.unread > 99 ? "99+" : String.valueOf(g.unread), 12, Pal.onAccent, true);
+            badge.setGravity(Gravity.CENTER);
+            badge.setMinWidth(dp(22));
+            badge.setPadding(dp(6), dp(1), dp(6), dp(1));
+            badge.setBackground(round(Pal.accent, 0, 11));
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, dp(22));
+            bp.setMargins(dp(8), 0, 0, 0);
+            bottom.addView(badge, bp);
+        }
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, -2);
+        blp.setMargins(0, dp(3), 0, 0);
+        mid.addView(bottom, blp);
+        r.addView(mid, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        r.setOnClickListener(v -> openGroup(g.gid));
+        r.setOnLongClickListener(v -> {
+            menu(g.name, new String[]{T.leaveGroup()}, new int[]{Pal.red}, i ->
+                    confirm(T.leaveGroupQ(), T.leaveGroup(), () -> { app.net.leaveGroup(g.gid); refresh(); }));
+            return true;
+        });
+        return r;
     }
 
     private void shareApp() {
@@ -650,10 +722,64 @@ public class MainActivity extends Base implements Net.Listener {
     // ------------------------------------------------------------------ Kontakt hinzufügen
 
     private void addContactMenu() {
-        menu(T.addContact(), new String[]{T.scanQr(), T.enterCode()}, null, i -> {
+        menu(T.addContact(), new String[]{T.scanQr(), T.enterCode(), T.newGroup()}, null, i -> {
             if (i == 0) startActivityForResult(new Intent(this, ScanActivity.class), REQ_SCAN);
-            else enterCodeDialog(null, "");
+            else if (i == 1) enterCodeDialog(null, "");
+            else openCreateGroup();
         });
+    }
+
+    /** Neue Gruppe anlegen: Name + Mitglieder aus den eigenen Kontakten. */
+    private void openCreateGroup() {
+        List<Db.Contact> cs = app.db.contacts();
+        if (cs.isEmpty()) { toast(T.groupNeedContacts()); return; }
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(text(T.newGroup(), 20, Pal.text, true));
+        EditText nameF = field(T.groupName(), false);
+        LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
+        np.setMargins(0, dp(10), 0, dp(6));
+        box.addView(nameF, np);
+        box.addView(label(T.groupAddMembers()));
+        final java.util.Set<String> sel = new java.util.HashSet<>();
+        LinearLayout listBox = new LinearLayout(this);
+        listBox.setOrientation(LinearLayout.VERTICAL);
+        for (Db.Contact c : cs) {
+            String nm = app.nameOf(c.pub);
+            LinearLayout rr = new LinearLayout(this);
+            rr.setGravity(Gravity.CENTER_VERTICAL);
+            rr.setPadding(dp(4), dp(8), dp(4), dp(8));
+            android.widget.CheckBox cb = new android.widget.CheckBox(this);
+            cb.setOnCheckedChangeListener((b, on) -> { if (on) sel.add(c.pub); else sel.remove(c.pub); });
+            rr.addView(cb, new LinearLayout.LayoutParams(dp(36), -2));
+            rr.addView(avatarWithDot(c.pub, nm, c.avatar, false, 36, c.accBehind, c.accFront, c.accFrame),
+                    new LinearLayout.LayoutParams(dp(36), dp(36)));
+            TextView tn = text(nm, 16, Pal.text, false);
+            tn.setPadding(dp(10), 0, 0, 0);
+            tn.setSingleLine(true);
+            tn.setEllipsize(TextUtils.TruncateAt.END);
+            rr.addView(tn, new LinearLayout.LayoutParams(0, -2, 1f));
+            rr.setOnClickListener(v -> cb.setChecked(!cb.isChecked()));
+            listBox.addView(rr, new LinearLayout.LayoutParams(-1, -2));
+        }
+        box.addView(listBox, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout buttons = buttonRow();
+        TextView cancel = button(T.cancel(), false);
+        cancel.setOnClickListener(v -> dlg.dismiss());
+        addTo(buttons, cancel, true);
+        TextView create = button(T.create(), true);
+        create.setOnClickListener(v -> {
+            String nm = nameF.getText().toString().trim();
+            if (nm.isEmpty()) { toast(T.groupNameNeeded()); return; }
+            if (sel.isEmpty()) { toast(T.groupPickOne()); return; }
+            String gid = app.net.createGroup(nm, new java.util.ArrayList<>(sel));
+            dlg.dismiss();
+            refresh();
+            openGroup(gid);
+        });
+        addTo(buttons, create, false);
+        addRow(box, buttons, 18);
+        showScrollDialog(dlg, box);
     }
 
     @Override

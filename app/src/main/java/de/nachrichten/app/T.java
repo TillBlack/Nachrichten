@@ -205,6 +205,32 @@ final class T {
     static String suggestNone() { return s("No suggestions yet", "Noch keine Vorschläge", "Aún no hay sugerencias", "Пока нет предложений", "Još nema prijedloga"); }
     static String suggestAnon() { return s("Anonymous", "Anonym", "Anónimo", "Аноним", "Anonimno"); }
     static String suggestDelete() { return s("Delete this suggestion?", "Diesen Vorschlag löschen?", "¿Eliminar esta sugerencia?", "Удалить это предложение?", "Obrisati ovaj prijedlog?"); }
+    // ---- Gruppen ----
+    static String newGroup() { return s("New group", "Neue Gruppe", "Nuevo grupo", "Новая группа", "Nova grupa"); }
+    static String groupName() { return s("Group name", "Gruppenname", "Nombre del grupo", "Название группы", "Naziv grupe"); }
+    static String groupAddMembers() { return s("Add members", "Mitglieder hinzufügen", "Añadir miembros", "Добавить участников", "Dodaj članove"); }
+    static String groupAdd() { return s("Add", "Hinzufügen", "Añadir", "Добавить", "Dodaj"); }
+    static String create() { return s("Create", "Erstellen", "Crear", "Создать", "Stvori"); }
+    static String groupMembers(int n) {
+        switch (lang) {
+            case 1: return n == 1 ? "1 Mitglied" : n + " Mitglieder";
+            case 2: return n == 1 ? "1 miembro" : n + " miembros";
+            case 3: return "Участников: " + n;
+            case 4: return n == 1 ? "1 član" : n + " članova";
+            default: return n == 1 ? "1 member" : n + " members";
+        }
+    }
+    static String groupOwner() { return s("Owner", "Ersteller", "Creador", "Создатель", "Vlasnik"); }
+    static String groupAdmin() { return s("Admin", "Admin", "Admin", "Админ", "Admin"); }
+    static String groupNowAdmin() { return s("Now an admin", "Jetzt Admin", "Ahora es admin", "Теперь админ", "Sada je admin"); }
+    static String groupNoAdmin() { return s("Admin removed", "Admin entfernt", "Admin quitado", "Админ снят", "Admin uklonjen"); }
+    static String leaveGroup() { return s("Leave group", "Gruppe verlassen", "Salir del grupo", "Покинуть группу", "Napusti grupu"); }
+    static String leaveGroupQ() { return s("Leave this group?", "Diese Gruppe verlassen?", "¿Salir de este grupo?", "Покинуть эту группу?", "Napustiti ovu grupu?"); }
+    static String groupNeedContacts() { return s("Add some contacts first", "Füge zuerst Kontakte hinzu", "Añade contactos primero", "Сначала добавь контакты", "Prvo dodaj kontakte"); }
+    static String groupNameNeeded() { return s("Enter a group name", "Gib einen Gruppennamen ein", "Escribe un nombre", "Введите название", "Unesi naziv"); }
+    static String groupPickOne() { return s("Pick at least one member", "Wähle mindestens ein Mitglied", "Elige al menos un miembro", "Выбери хотя бы одного", "Odaberi barem jednog"); }
+    static String groupNoneToAdd() { return s("No contacts left to add", "Keine Kontakte zum Hinzufügen", "No quedan contactos", "Нет контактов для добавления", "Nema kontakata za dodati"); }
+
     static String devSetupTitle() { return s("Suggestions inbox", "Vorschläge-Postfach", "Buzón de sugerencias", "Почтовый ящик предложений", "Pretinac za prijedloge"); }
     static String devSetupInfo() { return s(
             "This is a separate inbox for anonymous suggestions, independent of your contact code. Send this ID to the developer so it can be added to the app. Only keep it if you are the developer.",

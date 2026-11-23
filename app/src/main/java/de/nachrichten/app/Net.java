@@ -246,11 +246,19 @@ final class Net {
         String suggest = app.isDev()
                 ? ",{\"kinds\":[" + Proto.KIND_SUGGEST + "],\"#p\":[\"" + App.SUGGEST_PUBKEY + "\"],\"limit\":1000}"
                 : "";
+        String groups = "";
+        java.util.List<String> gids = app.db.gids();
+        if (!gids.isEmpty()) {
+            StringBuilder gb = new StringBuilder(",{\"kinds\":[" + Proto.KIND_GROUP + "],\"#g\":[");
+            for (int i = 0; i < gids.size(); i++) { if (i > 0) gb.append(','); gb.append('"').append(gids.get(i)).append('"'); }
+            gb.append("]" + sinceJson + ",\"limit\":1000}");
+            groups = gb.toString();
+        }
         String req = "[\"REQ\",\"dm\","
                 + "{\"kinds\":[4," + Proto.KIND_RECEIPT + "],\"#p\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
                 + "{\"kinds\":[4],\"authors\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
                 + "{\"kinds\":[" + Proto.KIND_TYPING + "," + Proto.KIND_PRESENCE + "],\"#p\":[\"" + me + "\"],\"since\":" + (System.currentTimeMillis() / 1000 - 120) + "}"
-                + suggest + "]";
+                + suggest + groups + "]";
         w.send(req);
     }
 
@@ -289,14 +297,16 @@ final class Net {
     private void handleEvent(JSONObject o) throws Exception {
         int kind = o.optInt("kind");
         if (kind != 4 && kind != Proto.KIND_RECEIPT && kind != Proto.KIND_TYPING
-                && kind != Proto.KIND_PRESENCE && kind != Proto.KIND_SUGGEST) return;
+                && kind != Proto.KIND_PRESENCE && kind != Proto.KIND_SUGGEST && kind != Proto.KIND_GROUP) return;
         String id = o.getString("id");
         if (seen.contains(id)) return;
         seen.add(id);
-        if (kind == 4 && app.db.hasMessage(id)) return;
+        if ((kind == 4 || kind == Proto.KIND_GROUP) && app.db.hasMessage(id)) return;
 
         String me = app.keys.pubHex();
         String author = o.getString("pubkey");
+
+        if (kind == Proto.KIND_GROUP) { handleGroupMessage(o, id, author, me); return; }
         String p = null;
         JSONArray tags = o.optJSONArray("tags");
         if (tags != null) for (int i = 0; i < tags.length(); i++) {
@@ -360,6 +370,13 @@ final class Net {
             } catch (Exception ignored) { }
             return;
         }
+        if (plain.startsWith("{\"nx\"")) {
+            try {
+                JSONObject env0 = new JSONObject(plain);
+                if ("group".equals(env0.optString("t"))) { if (!outgoing) handleGroupControl(author, env0); return; }
+            } catch (Exception ignored) { }
+        }
+
         if (app.db.contact(peer) == null) app.db.addContact(peer, "");
         updateLastSeen(createdAt);
 
@@ -778,6 +795,197 @@ final class Net {
     private void broadcast(String raw) {
         String msg = "[\"EVENT\"," + raw + "]";
         for (Conn c : new ArrayList<>(conns.values())) if (c.open) c.enqueue(msg);
+    }
+
+    // ------------------------------------------------------------------ Gruppen
+
+    void resubscribeAll() {
+        for (Conn c : new ArrayList<>(conns.values())) {
+            Ws w = c.ws;
+            if (c.open && w != null) subscribe(w);
+        }
+    }
+
+    /** Eingehende Gruppennachricht (mit dem Gruppenschlüssel entschlüsseln). */
+    private void handleGroupMessage(JSONObject o, String id, String author, String me) {
+        try {
+            String gid = null;
+            JSONArray tags = o.optJSONArray("tags");
+            if (tags != null) for (int i = 0; i < tags.length(); i++) {
+                JSONArray t = tags.optJSONArray(i);
+                if (t != null && t.length() >= 2 && "g".equals(t.optString(0))) { gid = t.optString(1); break; }
+            }
+            if (gid == null || !author.matches("[0-9a-f]{64}")) return;
+            Db.Group g = app.db.group(gid);
+            if (g == null || !app.db.isMember(gid, author)) return;
+            byte[] gk = Event.unhex(g.gkey);
+            if (gk == null) return;
+            String plain = Nip44.decrypt(o.optString("content"), gk);
+            if (plain == null) return;
+            boolean outgoing = author.equals(me);
+            String body = plain, replyTo = null;
+            if (plain.startsWith("{\"nx\"")) {
+                try {
+                    JSONObject env = new JSONObject(plain);
+                    String t = env.optString("t");
+                    if (t.equals("text")) { body = env.optString("b"); replyTo = cleanId(env.optString("r", null)); }
+                    else body = "[" + T.unsupported() + "]";
+                } catch (Exception ignored) { }
+            }
+            long createdAt = o.optLong("created_at");
+            Db.Msg m = new Db.Msg();
+            m.id = id; m.peer = gid; m.sender = author; m.outgoing = outgoing;
+            m.body = body; m.replyTo = replyTo; m.ts = createdAt * 1000L; m.status = Db.SENT;
+            if (!app.db.insert(m)) return;
+            changed(gid);
+            if (!outgoing) notifyGroup(gid, g.name, body);
+        } catch (Exception ignored) { }
+    }
+
+    /** Gruppen-Steuernachricht (Stand einer Gruppe) anwenden. */
+    private void handleGroupControl(String author, JSONObject env) {
+        try {
+            if (!"sync".equals(env.optString("op"))) return;
+            String gid = env.optString("gid", "");
+            String gkey = env.optString("gkey", "");
+            if (!gid.matches("[0-9a-f]{64}") || !gkey.matches("[0-9a-f]{64}")) return;
+            String name = env.optString("name", "");
+            String owner = env.optString("owner", "");
+            if (!owner.matches("[0-9a-f]{64}")) owner = author;
+            JSONArray mem = env.optJSONArray("members");
+            if (mem == null) return;
+            java.util.List<String> members = new ArrayList<>();
+            for (int i = 0; i < mem.length(); i++) { String x = mem.optString(i); if (x.matches("[0-9a-f]{64}")) members.add(x); }
+            java.util.Set<String> admins = new HashSet<>();
+            JSONArray adm = env.optJSONArray("admins");
+            if (adm != null) for (int i = 0; i < adm.length(); i++) { String x = adm.optString(i); if (x.matches("[0-9a-f]{64}")) admins.add(x); }
+            String me = app.keys.pubHex();
+            Db.Group existing = app.db.group(gid);
+            if (!members.contains(me)) {
+                if (existing != null) { app.db.deleteGroup(gid); resubscribeAll(); changed(gid); notifyListChanged(); }
+                return;
+            }
+            // Vertrauen: neue Gruppe nur per Einladung eines Kontakts; Änderungen nur von einem bisherigen Admin.
+            if (existing == null) {
+                if (!author.equals(me) && app.db.contact(author) == null) return;
+            } else {
+                if (!author.equals(me) && !app.db.isAdmin(gid, author)) return;
+            }
+            admins.add(owner);
+            app.db.upsertGroup(gid, name, gkey, owner, existing == null ? System.currentTimeMillis() : existing.created);
+            app.db.setMembers(gid, members, admins);
+            resubscribeAll();
+            changed(gid);
+            notifyListChanged();
+        } catch (Exception ignored) { }
+    }
+
+    private void notifyListChanged() { main.post(() -> { for (Listener l : listeners) l.onChanged(null); }); }
+
+    private void notifyGroup(String gid, String name, String body) {
+        main.post(() -> { for (Listener l : listeners) l.onChanged(gid); });
+    }
+
+    /** Erstellt eine Gruppe (ich bin Ersteller und Admin) und verteilt den Stand an die Mitglieder. */
+    String createGroup(String name, java.util.List<String> memberPubs) {
+        String me = app.keys.pubHex();
+        String gid = Event.hex(Secp.newPrivateKey());
+        String gkey = Event.hex(Secp.newPrivateKey());
+        java.util.List<String> members = new ArrayList<>();
+        members.add(me);
+        for (String p : memberPubs) if (!members.contains(p)) members.add(p);
+        java.util.Set<String> admins = new HashSet<>();
+        admins.add(me);
+        app.db.upsertGroup(gid, name, gkey, me, System.currentTimeMillis());
+        app.db.setMembers(gid, members, admins);
+        resubscribeAll();
+        syncGroup(gid, members);
+        return gid;
+    }
+
+    /** Verteilt den aktuellen Stand einer Gruppe 1:1-verschlüsselt an die angegebenen Mitglieder. */
+    private void syncGroup(String gid, java.util.List<String> recipients) {
+        Db.Group g = app.db.group(gid);
+        if (g == null) return;
+        java.util.List<String> members = app.db.memberPubs(gid);
+        java.util.Set<String> admins = new HashSet<>();
+        for (Db.Member m : app.db.members(gid)) if (m.admin) admins.add(m.pub);
+        String envelope = Proto.groupSync(gid, g.name, g.gkey, g.owner, members, admins);
+        String me = app.keys.pubHex();
+        for (String r : recipients) {
+            if (r.equals(me)) continue;
+            final String rr = r;
+            worker.post(() -> {
+                try {
+                    Event e = event(rr, envelope, System.currentTimeMillis());
+                    seen.add(e.id);
+                    broadcast(e.toJson());
+                } catch (Exception ignored) { }
+            });
+        }
+    }
+
+    /** Mitglieder hinzufügen (nur Admins). */
+    void addGroupMembers(String gid, java.util.List<String> pubs) {
+        String me = app.keys.pubHex();
+        if (!app.db.isAdmin(gid, me)) return;
+        java.util.List<String> members = app.db.memberPubs(gid);
+        for (String p : pubs) if (!members.contains(p)) members.add(p);
+        java.util.Set<String> admins = new HashSet<>();
+        for (Db.Member m : app.db.members(gid)) if (m.admin) admins.add(m.pub);
+        app.db.setMembers(gid, members, admins);
+        syncGroup(gid, members);
+        changed(gid);
+    }
+
+    /** Admin-Rolle setzen (nur der Ersteller/Eigentümer). */
+    void setGroupAdmin(String gid, String pub, boolean admin) {
+        Db.Group g = app.db.group(gid);
+        String me = app.keys.pubHex();
+        if (g == null || !g.owner.equals(me)) return;
+        java.util.List<String> members = app.db.memberPubs(gid);
+        java.util.Set<String> admins = new HashSet<>();
+        for (Db.Member m : app.db.members(gid)) if (m.admin) admins.add(m.pub);
+        if (admin) admins.add(pub); else admins.remove(pub);
+        admins.add(g.owner);
+        app.db.setMembers(gid, members, admins);
+        syncGroup(gid, members);
+        changed(gid);
+    }
+
+    /** Gruppe verlassen (nur lokal; andere behalten die Gruppe). */
+    void leaveGroup(String gid) {
+        app.db.deleteGroup(gid);
+        resubscribeAll();
+        changed(gid);
+        notifyListChanged();
+    }
+
+    /** Verschlüsselt und verschickt eine Gruppennachricht. */
+    void sendGroup(String gid, String text, String replyTo) {
+        worker.post(() -> {
+            try {
+                Db.Group g = app.db.group(gid);
+                if (g == null) return;
+                byte[] gk = Event.unhex(g.gkey);
+                if (gk == null) return;
+                long now = System.currentTimeMillis();
+                Event e = new Event();
+                e.kind = Proto.KIND_GROUP;
+                e.createdAt = now / 1000;
+                e.tags = new String[][]{{"g", gid}};
+                e.content = Nip44.encrypt(Proto.text(text, replyTo), gk);
+                e.sign(app.keys.priv());
+                Db.Msg m = new Db.Msg();
+                m.id = e.id; m.peer = gid; m.sender = app.keys.pubHex(); m.outgoing = true;
+                m.body = text; m.replyTo = replyTo; m.ts = now; m.status = Db.PENDING;
+                seen.add(e.id);
+                app.db.insert(m);
+                app.countMessage();
+                changed(gid);
+                broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
     }
 
     /**

@@ -51,6 +51,23 @@ public final class Proto {
     public static final int KIND_RECEIPT = 4445, KIND_TYPING = 25044, KIND_PRESENCE = 20002;
     /** Anonymer Verbesserungsvorschlag an den Entwickler (von einem Wegwerf-Schlüssel signiert). */
     public static final int KIND_SUGGEST = 4446;
+    /** Gruppennachricht (mit dem gemeinsamen Gruppenschlüssel verschlüsselt, Tag "g"). */
+    public static final int KIND_GROUP = 4447;
+
+    /** Steuernachricht (über 1:1 verschickt): voller Stand einer Gruppe – Name, Schlüssel, Mitglieder, Admins. */
+    public static String groupSync(String gid, String name, String gkey, String owner, java.util.List<String> members, java.util.Set<String> admins) {
+        StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"group\",\"op\":\"sync\",\"gid\":");
+        Event.str(sb, gid);
+        sb.append(",\"name\":"); Event.str(sb, name);
+        sb.append(",\"gkey\":"); Event.str(sb, gkey);
+        sb.append(",\"owner\":"); Event.str(sb, owner);
+        sb.append(",\"members\":[");
+        int i = 0; for (String m : members) { if (i++ > 0) sb.append(','); Event.str(sb, m); }
+        sb.append("],\"admins\":[");
+        i = 0; for (String a : admins) { if (i++ > 0) sb.append(','); Event.str(sb, a); }
+        sb.append("]}");
+        return sb.toString();
+    }
 
     public static String receipt(int status, java.util.List<String> ids) {
         StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"receipt\",\"s\":").append(status).append(",\"ids\":[");

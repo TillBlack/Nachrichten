@@ -29,6 +29,8 @@ final class Db extends SQLiteOpenHelper {
 
     static final class Msg {
         String id, peer, body, raw, replyTo;
+        /** Bei Gruppen: öffentlicher Schlüssel des Absenders (sonst null). */
+        String sender;
         boolean outgoing;
         long ts;
         int status, kind;
@@ -42,7 +44,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 7); }
+    Db(Context c) { super(c, "nachrichten.db", null, 8); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -57,11 +59,19 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo5(db);
         upgradeTo6(db);
         upgradeTo7(db);
+        upgradeTo8(db);
     }
 
     /** Anonyme Verbesserungsvorschläge (nur beim Entwickler befüllt). */
     private static void upgradeTo7(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE suggestions (id TEXT PRIMARY KEY, body TEXT NOT NULL, ts INTEGER NOT NULL)");
+    }
+
+    /** Gruppen: Absender-Spalte für Nachrichten + Gruppen- und Mitgliedertabellen. */
+    private static void upgradeTo8(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE messages ADD COLUMN sender TEXT");
+        db.execSQL("CREATE TABLE groups (gid TEXT PRIMARY KEY, name TEXT NOT NULL, gkey TEXT NOT NULL, owner TEXT NOT NULL, created INTEGER NOT NULL, last_read INTEGER NOT NULL DEFAULT 0)");
+        db.execSQL("CREATE TABLE group_members (gid TEXT NOT NULL, pub TEXT NOT NULL, admin INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (gid, pub))");
     }
 
     private static void upgradeTo6(SQLiteDatabase db) {
@@ -96,6 +106,7 @@ final class Db extends SQLiteOpenHelper {
         if (o < 5) upgradeTo5(db);
         if (o < 6) upgradeTo6(db);
         if (o < 7) upgradeTo7(db);
+        if (o < 8) upgradeTo8(db);
     }
 
     // ------------------------------------------------------------------ Vorschläge
@@ -131,6 +142,122 @@ final class Db extends SQLiteOpenHelper {
 
     synchronized void deleteSuggestion(String id) {
         getWritableDatabase().delete("suggestions", "id = ?", new String[]{id});
+    }
+
+    // ------------------------------------------------------------------ Gruppen
+
+    static final class Group {
+        String gid, name, gkey, owner;
+        long created, lastRead, lastTs;
+        String lastText, lastSender;
+        boolean lastOutgoing;
+        int memberCount, unread;
+    }
+
+    static final class Member { String pub; boolean admin; }
+
+    synchronized void upsertGroup(String gid, String name, String gkey, String owner, long created) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues v = new ContentValues();
+        v.put("name", name); v.put("gkey", gkey); v.put("owner", owner);
+        if (db.update("groups", v, "gid = ?", new String[]{gid}) == 0) {
+            v.put("gid", gid); v.put("created", created); v.put("last_read", 0);
+            db.insertWithOnConflict("groups", null, v, SQLiteDatabase.CONFLICT_REPLACE);
+        }
+    }
+
+    synchronized void setMembers(String gid, java.util.List<String> members, java.util.Set<String> admins) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete("group_members", "gid = ?", new String[]{gid});
+        for (String pub : members) {
+            ContentValues v = new ContentValues();
+            v.put("gid", gid); v.put("pub", pub); v.put("admin", admins.contains(pub) ? 1 : 0);
+            db.insertWithOnConflict("group_members", null, v, SQLiteDatabase.CONFLICT_REPLACE);
+        }
+    }
+
+    synchronized Group group(String gid) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT gid,name,gkey,owner,created,last_read FROM groups WHERE gid = ?", new String[]{gid})) {
+            if (!c.moveToFirst()) return null;
+            Group g = new Group();
+            g.gid = c.getString(0); g.name = c.getString(1); g.gkey = c.getString(2); g.owner = c.getString(3);
+            g.created = c.getLong(4); g.lastRead = c.getLong(5);
+            return g;
+        }
+    }
+
+    synchronized java.util.List<Member> members(String gid) {
+        java.util.List<Member> out = new java.util.ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, admin FROM group_members WHERE gid = ?", new String[]{gid})) {
+            while (c.moveToNext()) { Member m = new Member(); m.pub = c.getString(0); m.admin = c.getInt(1) == 1; out.add(m); }
+        }
+        return out;
+    }
+
+    synchronized java.util.List<String> memberPubs(String gid) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub FROM group_members WHERE gid = ?", new String[]{gid})) {
+            while (c.moveToNext()) out.add(c.getString(0));
+        }
+        return out;
+    }
+
+    synchronized boolean isAdmin(String gid, String pub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT admin FROM group_members WHERE gid=? AND pub=?", new String[]{gid, pub})) {
+            return c.moveToFirst() && c.getInt(0) == 1;
+        }
+    }
+
+    synchronized boolean isMember(String gid, String pub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT 1 FROM group_members WHERE gid=? AND pub=?", new String[]{gid, pub})) {
+            return c.moveToFirst();
+        }
+    }
+
+    synchronized java.util.List<Group> groupList() {
+        java.util.List<Group> out = new java.util.ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        try (Cursor c = db.rawQuery("SELECT gid,name,gkey,owner,created,last_read FROM groups", null)) {
+            while (c.moveToNext()) {
+                Group g = new Group();
+                g.gid = c.getString(0); g.name = c.getString(1); g.gkey = c.getString(2); g.owner = c.getString(3);
+                g.created = c.getLong(4); g.lastRead = c.getLong(5); g.lastTs = g.created;
+                out.add(g);
+            }
+        }
+        for (Group g : out) {
+            try (Cursor c = db.rawQuery("SELECT COUNT(*) FROM group_members WHERE gid=?", new String[]{g.gid})) {
+                if (c.moveToFirst()) g.memberCount = c.getInt(0);
+            }
+            try (Cursor c = db.rawQuery("SELECT body, ts, outgoing, sender FROM messages WHERE peer=? ORDER BY ts DESC LIMIT 1", new String[]{g.gid})) {
+                if (c.moveToFirst()) { g.lastText = c.getString(0); g.lastTs = c.getLong(1); g.lastOutgoing = c.getInt(2) == 1; g.lastSender = c.getString(3); }
+            }
+            try (Cursor c = db.rawQuery("SELECT COUNT(*) FROM messages WHERE peer=? AND outgoing=0 AND ts>?", new String[]{g.gid, String.valueOf(g.lastRead)})) {
+                if (c.moveToFirst()) g.unread = c.getInt(0);
+            }
+        }
+        return out;
+    }
+
+    synchronized void markGroupRead(String gid) {
+        ContentValues v = new ContentValues();
+        v.put("last_read", System.currentTimeMillis() + 1000);
+        getWritableDatabase().update("groups", v, "gid = ?", new String[]{gid});
+    }
+
+    synchronized void deleteGroup(String gid) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete("messages", "peer = ?", new String[]{gid});
+        db.delete("group_members", "gid = ?", new String[]{gid});
+        db.delete("groups", "gid = ?", new String[]{gid});
+    }
+
+    synchronized java.util.List<String> gids() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT gid FROM groups", null)) {
+            while (c.moveToNext()) out.add(c.getString(0));
+        }
+        return out;
     }
 
     private static void upgradeTo2(SQLiteDatabase db) {
@@ -293,17 +420,18 @@ final class Db extends SQLiteOpenHelper {
         v.put("have", m.have);
         v.put("total", m.total);
         v.put("receipt", m.receipt);
+        v.put("sender", m.sender);
         return getWritableDatabase().insertWithOnConflict("messages", null, v, SQLiteDatabase.CONFLICT_IGNORE) != -1;
     }
 
-    private static final String COLS = "id, peer, outgoing, body, ts, status, kind, reply_to, file_name, file_mime, file_size, file_path, have, total";
+    private static final String COLS = "id, peer, outgoing, body, ts, status, kind, reply_to, file_name, file_mime, file_size, file_path, have, total, sender";
 
     private static Msg read(Cursor c) {
         Msg m = new Msg();
         m.id = c.getString(0); m.peer = c.getString(1); m.outgoing = c.getInt(2) == 1; m.body = c.getString(3);
         m.ts = c.getLong(4); m.status = c.getInt(5); m.kind = c.getInt(6); m.replyTo = c.getString(7);
         m.fileName = c.getString(8); m.fileMime = c.getString(9); m.fileSize = c.getLong(10); m.filePath = c.getString(11);
-        m.have = c.getInt(12); m.total = c.getInt(13);
+        m.have = c.getInt(12); m.total = c.getInt(13); m.sender = c.getString(14);
         return m;
     }
 
