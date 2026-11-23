@@ -186,34 +186,74 @@ final class Ico extends View {
                 break;
             }
             case BAG: {
-                p.setStrokeWidth(2f * d);
-                android.graphics.RectF bag = new android.graphics.RectF(cx - 7f * d, cy - 3f * d, cx + 7f * d, cy + 8f * d);
-                c.drawRoundRect(bag, 2f * d, 2f * d, p);
-                path.reset();
-                path.moveTo(cx - 4f * d, cy - 3f * d);
-                path.cubicTo(cx - 4f * d, cy - 9f * d, cx + 4f * d, cy - 9f * d, cx + 4f * d, cy - 3f * d);
-                c.drawPath(path, p);
+                // Laden mit Markise (Bögen), Fenster links, Bogentür rechts.
+                p.setStrokeWidth(1.6f * d);
+                float topY = -8.2f, baseY = -4.0f, topL = -6.2f, topR = 6.2f, baseL = -8.6f, baseR = 8.6f;
+                int nSc = 5;
+                float sw = (baseR - baseL) / nSc, rad = sw / 2f, drop = rad * 0.95f;
+                // Markisen-Trapez (Oberkante + schräge Seiten)
+                c.drawLine(cx + topL * d, cy + topY * d, cx + topR * d, cy + topY * d, p);
+                c.drawLine(cx + topL * d, cy + topY * d, cx + baseL * d, cy + baseY * d, p);
+                c.drawLine(cx + topR * d, cy + topY * d, cx + baseR * d, cy + baseY * d, p);
+                // Nahtlinien im Trapez
+                for (int i = 0; i <= nSc; i++) {
+                    float xb = baseL + i * sw;
+                    float t = (xb - baseL) / (baseR - baseL);
+                    float xt = topL + (topR - topL) * t;
+                    c.drawLine(cx + xt * d, cy + topY * d, cx + xb * d, cy + baseY * d, p);
+                }
+                // Bögen (nach unten gewölbt)
+                for (int i = 0; i < nSc; i++) {
+                    float x0 = baseL + i * sw, x1 = x0 + sw;
+                    r.set(cx + x0 * d, cy + (baseY - drop) * d, cx + x1 * d, cy + (baseY + drop) * d);
+                    c.drawArc(r, 0, 180, false, p);
+                }
+                // Wände + Boden
+                float wallL = -6.8f, wallR = 6.8f, botY = 8.8f, wallTop = baseY + drop;
+                c.drawLine(cx + wallL * d, cy + wallTop * d, cx + wallL * d, cy + botY * d, p);
+                c.drawLine(cx + wallR * d, cy + wallTop * d, cx + wallR * d, cy + botY * d, p);
+                c.drawLine(cx + wallL * d, cy + botY * d, cx + wallR * d, cy + botY * d, p);
+                // Fenster (links, quadratisch)
+                r.set(cx - 5.0f * d, cy + 0.6f * d, cx - 0.6f * d, cy + 6.0f * d);
+                c.drawRect(r, p);
+                // Bogentür (rechts)
+                float dxl = 1.6f * d, dxr = 5.2f * d, archTop = 0.4f, archR = 1.8f;
+                c.drawLine(cx + dxl, cy + botY * d, cx + dxl, cy + (archTop + archR) * d, p);
+                c.drawLine(cx + dxr, cy + botY * d, cx + dxr, cy + (archTop + archR) * d, p);
+                r.set(cx + dxl, cy + archTop * d, cx + dxr, cy + (archTop + 2 * archR) * d);
+                c.drawArc(r, 180, 180, false, p);
                 break;
             }
             case SHARE: {
-                // Geschwungener Weiterleiten-Pfeil (gefüllt, abgerundete Ecken).
+                // Geschwungener Weiterleiten-Pfeil, 1:1 aus der Vorlage getract (hohler Umriss).
                 path.reset();
-                path.moveTo(cx - 6f * d, cy + 7f * d);
-                path.lineTo(cx - 7f * d, cy + 2f * d);
-                path.lineTo(cx - 2.5f * d, cy - 2f * d);
-                path.lineTo(cx + 2f * d, cy - 2f * d);
-                path.lineTo(cx + 2f * d, cy - 5.5f * d);
-                path.lineTo(cx + 8f * d, cy - 1f * d);
-                path.lineTo(cx + 2f * d, cy + 3.5f * d);
-                path.lineTo(cx + 2f * d, cy + 1f * d);
-                path.lineTo(cx - 2f * d, cy + 1f * d);
-                path.lineTo(cx - 4.5f * d, cy + 3f * d);
-                path.lineTo(cx - 4.5f * d, cy + 7f * d);
+                path.setFillType(Path.FillType.EVEN_ODD);
+                // Außenkontur
+                path.moveTo(cx + 8.11f * d, cy - 0.20f * d);
+                path.lineTo(cx - 1.01f * d, cy - 7.50f * d);
+                path.lineTo(cx - 1.62f * d, cy - 3.65f * d);
+                path.lineTo(cx - 4.86f * d, cy - 2.64f * d);
+                path.lineTo(cx - 6.89f * d, cy - 0.61f * d);
+                path.lineTo(cx - 8.31f * d, cy + 6.69f * d);
+                path.lineTo(cx - 5.07f * d, cy + 3.85f * d);
+                path.lineTo(cx - 1.82f * d, cy + 3.24f * d);
+                path.lineTo(cx - 1.62f * d, cy + 6.69f * d);
+                path.lineTo(cx - 0.61f * d, cy + 7.30f * d);
+                path.close();
+                // Innenkontur (Loch)
+                path.moveTo(cx + 5.88f * d, cy - 0.20f * d);
+                path.lineTo(cx + 0.20f * d, cy + 4.86f * d);
+                path.lineTo(cx - 0.20f * d, cy + 1.82f * d);
+                path.lineTo(cx - 6.49f * d, cy + 2.84f * d);
+                path.lineTo(cx - 4.46f * d, cy - 1.22f * d);
+                path.lineTo(cx - 0.20f * d, cy - 2.23f * d);
+                path.lineTo(cx + 0.00f * d, cy - 5.07f * d);
                 path.close();
                 p.setStyle(Paint.Style.FILL);
-                p.setPathEffect(new android.graphics.CornerPathEffect(1.6f * d));
+                p.setPathEffect(new android.graphics.CornerPathEffect(0.6f * d));
                 c.drawPath(path, p);
                 p.setPathEffect(null);
+                path.setFillType(Path.FillType.WINDING);
                 break;
             }
             case LOCK: {
