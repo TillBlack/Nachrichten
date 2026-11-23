@@ -150,19 +150,27 @@ final class T {
             "Версия " + v + " готова (у тебя " + cur + "). Чаты сохранятся.",
             "Verzija " + v + " je spremna (imaš " + cur + "). Razgovori ostaju."); }
     static String updateHow() { return s(
-            "\"Update\" downloads it in your browser. Then open the downloaded file and tap Install.",
-            "\"Aktualisieren\" lädt sie im Browser herunter. Danach die heruntergeladene Datei öffnen und auf Installieren tippen.",
-            "\"Actualizar\" la descarga en el navegador. Luego abre el archivo y toca Instalar.",
-            "\"Обновить\" скачает её в браузере. Затем открой файл и нажми Установить.",
-            "\"Ažuriraj\" je preuzima u pregledniku. Zatim otvori preuzetu datoteku i dodirni Instaliraj."); }
-    static String helperTitle() { return s("Install Updater too?", "Updater mitinstallieren?", "¿Instalar también Updater?", "Установить ещё Updater?", "Instalirati i Updater?"); }
+            "Android downloads it for you. When it is done, tap the \"Nachrichten\" download notification and then Install.",
+            "Android lädt es für dich herunter. Danach auf die Download-Benachrichtigung \"Nachrichten\" und dann auf Installieren tippen.",
+            "Android lo descarga por ti. Luego toca la notificación de descarga \"Nachrichten\" y después Instalar.",
+            "Android скачает его. Затем нажми на уведомление о загрузке \"Nachrichten\" и на Установить.",
+            "Android ga preuzima za tebe. Zatim dodirni obavijest o preuzimanju \"Nachrichten\" pa Instaliraj."); }
+    static String updateHowObtainium() { return s(
+            "\"Update\" opens Nachrichten in Obtainium. The first time, tap Add there.",
+            "\"Aktualisieren\" öffnet Nachrichten in Obtainium. Beim ersten Mal dort auf Hinzufügen tippen.",
+            "\"Actualizar\" abre Nachrichten en Obtainium. La primera vez, toca Añadir allí.",
+            "\"Обновить\" откроет Nachrichten в Obtainium. В первый раз нажми там Добавить.",
+            "\"Ažuriraj\" otvara Nachrichten u Obtainiumu. Prvi put tamo dodirni Dodaj."); }
+    static String downloadStarted() { return s("Download started. Tap the notification when it is done.", "Download läuft. Tippe danach auf die Benachrichtigung.", "Descarga iniciada. Toca la notificación al terminar.", "Загрузка началась. Потом нажми на уведомление.", "Preuzimanje je počelo. Zatim dodirni obavijest."); }
+    static String downloadTap() { return s("Tap to install", "Zum Installieren antippen", "Toca para instalar", "Нажми для установки", "Dodirni za instalaciju"); }
+    static String helperTitle() { return s("Easier updates with Obtainium?", "Bequemere Updates mit Obtainium?", "¿Actualizaciones más fáciles con Obtainium?", "Обновления проще с Obtainium?", "Lakša ažuriranja s Obtainiumom?"); }
     static String helperText() { return s(
-            "Updater is a small helper by the same developer. With it, updates are installed with one tap right from the app, without the browser. It only updates TillBlack's apps and never installs anything without asking.",
-            "Updater ist ein kleiner Helfer vom selben Entwickler. Damit werden Updates mit einem Tipp direkt aus der App installiert, ohne Umweg über den Browser. Er aktualisiert nur Apps von TillBlack und installiert nie etwas ohne Nachfrage.",
-            "Updater es un pequeño ayudante del mismo desarrollador. Con él, las actualizaciones se instalan con un toque desde la app, sin navegador. Solo actualiza apps de TillBlack y nunca instala nada sin preguntar.",
-            "Updater — небольшой помощник от того же разработчика. С ним обновления ставятся одним нажатием прямо из приложения, без браузера. Он обновляет только приложения TillBlack и никогда ничего не ставит без спроса.",
-            "Updater je mali pomoćnik istog razvojnog programera. S njim se ažuriranja instaliraju jednim dodirom izravno iz aplikacije, bez preglednika. Ažurira samo TillBlackove aplikacije i nikad ništa ne instalira bez pitanja."); }
-    static String helperInstall() { return s("Download", "Herunterladen", "Descargar", "Скачать", "Preuzmi"); }
+            "Obtainium is a free, open-source app that installs updates straight from GitHub. If you have it, \"Update\" opens Nachrichten in Obtainium. Without it, Android downloads updates for you and you tap the notification to install.",
+            "Obtainium ist eine kostenlose, quelloffene App, die Updates direkt von GitHub installiert. Wenn du sie hast, öffnet \"Aktualisieren\" Nachrichten in Obtainium. Ohne Obtainium lädt Android Updates herunter, und du tippst zum Installieren auf die Benachrichtigung.",
+            "Obtainium es una app gratuita y de código abierto que instala actualizaciones directamente desde GitHub. Si la tienes, \"Actualizar\" abre Nachrichten en Obtainium. Sin ella, Android descarga la actualización y tocas la notificación para instalar.",
+            "Obtainium — бесплатное приложение с открытым кодом, которое ставит обновления прямо с GitHub. Если оно есть, \"Обновить\" откроет Nachrichten в Obtainium. Без него Android скачает обновление, и ты нажмёшь на уведомление для установки.",
+            "Obtainium je besplatna aplikacija otvorenog koda koja instalira ažuriranja izravno s GitHuba. Ako je imaš, \"Ažuriraj\" otvara Nachrichten u Obtainiumu. Bez nje Android preuzima ažuriranje, a ti dodirneš obavijest za instalaciju."); }
+    static String helperInstall() { return s("Get Obtainium", "Obtainium holen", "Obtener Obtainium", "Скачать Obtainium", "Preuzmi Obtainium"); }
     static String github() { return s("Developer on GitHub", "Entwickler auf GitHub", "Desarrollador en GitHub", "Разработчик на GitHub", "Razvojni programer na GitHubu"); }
     static String later() { return s("Later", "Später", "Más tarde", "Позже", "Kasnije"); }
     static String updateNow() { return s("Update", "Aktualisieren", "Actualizar", "Обновить", "Ažuriraj"); }

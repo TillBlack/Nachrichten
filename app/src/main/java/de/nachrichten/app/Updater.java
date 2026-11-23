@@ -26,8 +26,8 @@ final class Updater {
 
     static final String RELEASE_API = "https://api.github.com/repos/TillBlack/Nachrichten/releases/tags/neueste";
     static final String ASSET = "Nachrichten.apk";
-    static final String HELPER = "de.tillblack.updater";
-    static final String HELPER_APK = "https://github.com/TillBlack/updater/releases/download/neueste/Updater.apk";
+    static final String REPO = "https://github.com/TillBlack/Nachrichten";
+    static final String OBTAINIUM_DOWNLOAD = "https://github.com/ImranR98/Obtainium/releases/latest";
     private static boolean checkedThisRun;
 
     static long installedVersion(Context c) {
@@ -38,19 +38,33 @@ final class Updater {
         }
     }
 
-    static boolean helperInstalled(Context c) {
+    /** Ist Obtainium installiert (kann es obtainium://-Links öffnen)? */
+    static boolean obtainium(Context c) {
+        Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://add/" + REPO));
+        return i.resolveActivity(c.getPackageManager()) != null;
+    }
+
+    /** Ohne Obtainium: Android lädt die Datei selbst herunter; ein Tipp auf die Benachrichtigung installiert. */
+    private static void download(Base a, String url, long version) {
         try {
-            c.getPackageManager().getPackageInfo(HELPER, 0);
-            return true;
+            android.app.DownloadManager dm = (android.app.DownloadManager) a.getSystemService(Context.DOWNLOAD_SERVICE);
+            android.app.DownloadManager.Request r = new android.app.DownloadManager.Request(Uri.parse(url))
+                    .setTitle("Nachrichten " + version)
+                    .setDescription(T.downloadTap())
+                    .setMimeType("application/vnd.android.package-archive")
+                    .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    .setDestinationInExternalFilesDir(a, android.os.Environment.DIRECTORY_DOWNLOADS, "Nachrichten-" + version + ".apk");
+            dm.enqueue(r);
+            a.toast(T.downloadStarted());
         } catch (Exception e) {
-            return false;
+            try { a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception e2) { a.toast(T.noApp()); }
         }
     }
 
-    /** Nach der Installation einmal fragen, ob der Helfer mitinstalliert werden soll. */
+    /** Nach der Installation einmal Obtainium empfehlen (bequemere Updates). */
     static void offerHelper(Base a) {
-        if (helperInstalled(a) || a.app.prefs.getBoolean("helperAsked", false)) return;
-        a.app.prefs.edit().putBoolean("helperAsked", true).apply();
+        if (obtainium(a) || a.app.prefs.getBoolean("obtainiumAsked", false)) return;
+        a.app.prefs.edit().putBoolean("obtainiumAsked", true).apply();
         Dialog dlg = a.dialog();
         LinearLayout box = a.panel();
         box.addView(a.text(T.helperTitle(), 19, Pal.text, true));
@@ -65,7 +79,7 @@ final class Updater {
         TextView yes = a.button(T.helperInstall(), true);
         yes.setOnClickListener(v -> {
             dlg.dismiss();
-            try { a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(HELPER_APK))); } catch (Exception e) { a.toast(T.noApp()); }
+            try { a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(OBTAINIUM_DOWNLOAD))); } catch (Exception e) { a.toast(T.noApp()); }
         });
         a.addTo(buttons, yes, false);
         a.addRow(box, buttons, 18);
@@ -100,7 +114,7 @@ final class Updater {
         Dialog dlg = a.dialog();
         LinearLayout box = a.panel();
         box.addView(a.text(T.updateTitle(), 19, Pal.text, true));
-        TextView info = a.text(T.updateText(version, installedVersion(a)) + (helperInstalled(a) ? "" : "\n\n" + T.updateHow()), 15, Pal.dim, false);
+        TextView info = a.text(T.updateText(version, installedVersion(a)) + "\n\n" + (obtainium(a) ? T.updateHowObtainium() : T.updateHow()), 15, Pal.dim, false);
         info.setPadding(0, a.dp(8), 0, 0);
         info.setLineSpacing(0, 1.15f);
         box.addView(info);
@@ -111,19 +125,14 @@ final class Updater {
         TextView go = a.button(T.updateNow(), true);
         go.setOnClickListener(v -> {
             dlg.dismiss();
-            if (helperInstalled(a)) {
-                // der Helfer lädt, prüft und übergibt an Android; danach schließt er sich
+            if (obtainium(a)) {
+                // Obtainium öffnet sich bei Nachrichten (beim ersten Mal: "Hinzufügen" bestätigen)
                 try {
-                    a.startActivity(new Intent("de.tillblack.updater.INSTALL").setPackage(HELPER)
-                            .putExtra("url", url).putExtra("package", a.getPackageName()).putExtra("name", "Nachrichten"));
+                    a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://add/" + REPO)));
                     return;
                 } catch (Exception ignored) { }
             }
-            try {
-                a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-            } catch (Exception e) {
-                a.toast(T.noApp());
-            }
+            download(a, url, version);
         });
         a.addTo(buttons, go, false);
         a.addRow(box, buttons, 18);
