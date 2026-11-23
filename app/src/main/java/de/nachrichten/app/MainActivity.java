@@ -235,7 +235,8 @@ public class MainActivity extends Base implements Net.Listener {
         header.addView(set, new LinearLayout.LayoutParams(dp(48), dp(48)));
         hSet = set;
         java.io.File mine = app.myAvatar();
-        Avatar me = new Avatar(app.keys.has() ? app.keys.pubHex() : "x", "?", mine != null ? mine.getAbsolutePath() : null);
+        Avatar me = new Avatar(app.keys.has() ? app.keys.pubHex() : "x", "?", mine != null ? mine.getAbsolutePath() : null)
+                .accessories(app.accBehind(), app.accFront(), app.accFrame());
         me.setContentDescription(T.profile());
         me.setOnClickListener(v -> editProfile());
         FrameLayout meBox = new FrameLayout(this);
@@ -462,7 +463,7 @@ public class MainActivity extends Base implements Net.Listener {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         r.setBackground(round(Pal.bg, 0, 12));
-        View av = avatarWithDot(c.pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar, app.net.isOnline(c.pub), 48);
+        View av = avatarWithDot(c.pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar, app.net.isOnline(c.pub), 48, c.accBehind, c.accFront, c.accFrame);
         av.setOnClickListener(v -> showProfile(c.pub, true));
         r.addView(av, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
@@ -956,7 +957,8 @@ public class MainActivity extends Base implements Net.Listener {
         LinearLayout pr = new LinearLayout(this);
         pr.setGravity(Gravity.CENTER_VERTICAL);
         java.io.File mine = app.myAvatar();
-        Avatar me = new Avatar(app.keys.pubHex(), app.myName().isEmpty() ? "?" : app.myName(), mine != null ? mine.getAbsolutePath() : null);
+        Avatar me = new Avatar(app.keys.pubHex(), app.myName().isEmpty() ? "?" : app.myName(), mine != null ? mine.getAbsolutePath() : null)
+                .accessories(app.accBehind(), app.accFront(), app.accFrame());
         pr.addView(me, new LinearLayout.LayoutParams(dp(64), dp(64)));
         TextView pick = button(T.choose(), true);
         LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, -2);
@@ -970,6 +972,23 @@ public class MainActivity extends Base implements Net.Listener {
             pr.addView(rm, rp2);
         }
         box.addView(pr);
+        LinearLayout shop = new LinearLayout(this);
+        shop.setGravity(Gravity.CENTER_VERTICAL);
+        shop.setPadding(dp(12), dp(10), dp(12), dp(10));
+        shop.setBackground(round(Pal.field, Pal.line, 12));
+        Ico bag = new Ico(this, Ico.BAG);
+        bag.color = Pal.accent;
+        shop.addView(bag, new LinearLayout.LayoutParams(dp(28), dp(28)));
+        TextView st = text(T.accessories(), 16, Pal.text, true);
+        st.setPadding(dp(12), 0, 0, 0);
+        shop.addView(st, new LinearLayout.LayoutParams(0, -2, 1f));
+        Ico arr = new Ico(this, Ico.BACK);
+        arr.color = Pal.dim; arr.setRotation(180);
+        shop.addView(arr, new LinearLayout.LayoutParams(dp(22), dp(22)));
+        shop.setOnClickListener(v -> { dlg.dismiss(); startActivity(new Intent(this, ShopActivity.class)); });
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, -2);
+        slp.setMargins(0, dp(10), 0, 0);
+        box.addView(shop, slp);
 
         box.addView(label(T.yourName()));
         EditText name = field(T.yourName(), false);

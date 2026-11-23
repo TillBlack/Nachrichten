@@ -269,6 +269,8 @@ final class Net {
         } catch (Exception ignored) { }
     }
 
+    private static int clampAcc(int v) { return (v >= 0 && v < Accessories.COUNT) ? v : -1; }
+
     private byte[] convKey(String peerHex) {
         byte[] k = convKeys.get(peerHex);
         if (k == null) {
@@ -474,7 +476,8 @@ final class Net {
         String bio = env.optString("bio").trim(), pron = env.optString("pron").trim();
         if (bio.length() > 500) bio = bio.substring(0, 500);
         if (pron.length() > 40) pron = pron.substring(0, 40);
-        app.db.setProfile(peer, path, ts, bio.isEmpty() ? null : bio, pron.isEmpty() ? null : pron);
+        int ab = clampAcc(env.optInt("ab", -1)), af = clampAcc(env.optInt("af", -1)), ar = clampAcc(env.optInt("ar", -1));
+        app.db.setProfile(peer, path, ts, bio.isEmpty() ? null : bio, pron.isEmpty() ? null : pron, ab, af, ar);
         String name = env.optString("name").trim();
         if (name.length() > 40) name = name.substring(0, 40);
         if ((c.name == null || c.name.trim().isEmpty()) && !name.isEmpty()) app.db.rename(peer, name);
@@ -492,10 +495,10 @@ final class Net {
             byte[] jpg = null;
             java.io.File f = app.myAvatar();
             if (f != null) try { jpg = java.nio.file.Files.readAllBytes(f.toPath()); } catch (Exception ignored) { }
-            plain = Proto.profile(ts, app.myName(), jpg, app.prefs.getString("bio", ""), app.prefs.getString("pronouns", ""));
+            plain = Proto.profile(ts, app.myName(), jpg, app.prefs.getString("bio", ""), app.prefs.getString("pronouns", ""), app.accBehind(), app.accFront(), app.accFrame());
         } else {
             // privat und nicht ausgewählt: leeres Profil (löscht ein früher geschicktes)
-            plain = Proto.profile(ts, "", null, "", "");
+            plain = Proto.profile(ts, "", null, "", "", -1, -1, -1);
         }
         Event e = event(peer, plain, System.currentTimeMillis());
         seen.add(e.id);
@@ -516,6 +519,7 @@ final class Net {
         byte[] thumb;
         long seen;
         boolean showStatus = true;
+        int accBehind = -1, accFront = -1, accFrame = -1;
     }
 
     interface DirListener {
@@ -596,6 +600,9 @@ final class Net {
             d.bio = trim(c.optString("bio"), 500);
             d.pronouns = trim(c.optString("pron"), 40);
             d.showStatus = c.optInt("st", 1) == 1;
+            d.accBehind = clampAcc(c.optInt("ab", -1));
+            d.accFront = clampAcc(c.optInt("af", -1));
+            d.accFrame = clampAcc(c.optInt("ar", -1));
             String img = c.optString("img");
             if (!img.isEmpty() && img.length() < 20000) {
                 try { d.thumb = java.util.Base64.getDecoder().decode(img); } catch (Exception ignored) { }
@@ -638,6 +645,7 @@ final class Net {
                     sb.append(",\"img\":");
                     Event.str(sb, thumbBase64());
                     sb.append(",\"st\":").append(showOnline ? 1 : 0);
+                    sb.append(",\"ab\":").append(app.accBehind()).append(",\"af\":").append(app.accFront()).append(",\"ar\":").append(app.accFrame());
                     content = sb.append('}').toString();
                 }
                 Event e = new Event();

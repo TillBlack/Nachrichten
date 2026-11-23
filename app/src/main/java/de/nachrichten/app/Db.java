@@ -18,6 +18,7 @@ final class Db extends SQLiteOpenHelper {
     static final class Contact {
         String pub, name, avatar, bio, pronouns;
         long lastRead, avatarTs, profileSent;
+        int accBehind = -1, accFront = -1, accFrame = -1;
         // für die Liste
         String lastText;
         long lastTs;
@@ -41,7 +42,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 5); }
+    Db(Context c) { super(c, "nachrichten.db", null, 6); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -54,6 +55,13 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo3(db);
         upgradeTo4(db);
         upgradeTo5(db);
+        upgradeTo6(db);
+    }
+
+    private static void upgradeTo6(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE contacts ADD COLUMN accb INTEGER NOT NULL DEFAULT -1");
+        db.execSQL("ALTER TABLE contacts ADD COLUMN accf INTEGER NOT NULL DEFAULT -1");
+        db.execSQL("ALTER TABLE contacts ADD COLUMN accr INTEGER NOT NULL DEFAULT -1");
     }
 
     private static void upgradeTo5(SQLiteDatabase db) {
@@ -80,6 +88,7 @@ final class Db extends SQLiteOpenHelper {
         if (o < 3) upgradeTo3(db);
         if (o < 4) upgradeTo4(db);
         if (o < 5) upgradeTo5(db);
+        if (o < 6) upgradeTo6(db);
     }
 
     private static void upgradeTo2(SQLiteDatabase db) {
@@ -99,12 +108,13 @@ final class Db extends SQLiteOpenHelper {
     // ------------------------------------------------------------------ Kontakte
 
     synchronized Contact contact(String pub) {
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, name, last_read, avatar, avatar_ts, profile_sent, bio, pronouns FROM contacts WHERE pub = ?", new String[]{pub})) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, name, last_read, avatar, avatar_ts, profile_sent, bio, pronouns, accb, accf, accr FROM contacts WHERE pub = ?", new String[]{pub})) {
             if (!c.moveToFirst()) return null;
             Contact k = new Contact();
             k.pub = c.getString(0); k.name = c.getString(1); k.lastRead = c.getLong(2);
             k.avatar = c.getString(3); k.avatarTs = c.getLong(4); k.profileSent = c.getLong(5);
             k.bio = c.getString(6); k.pronouns = c.getString(7);
+            k.accBehind = c.getInt(8); k.accFront = c.getInt(9); k.accFrame = c.getInt(10);
             return k;
         }
     }
@@ -139,12 +149,15 @@ final class Db extends SQLiteOpenHelper {
         return files;
     }
 
-    synchronized void setProfile(String pub, String path, long ts, String bio, String pronouns) {
+    synchronized void setProfile(String pub, String path, long ts, String bio, String pronouns, int ab, int af, int ar) {
         ContentValues v = new ContentValues();
         v.put("avatar", path);
         v.put("avatar_ts", ts);
         v.put("bio", bio);
         v.put("pronouns", pronouns);
+        v.put("accb", ab);
+        v.put("accf", af);
+        v.put("accr", ar);
         getWritableDatabase().update("contacts", v, "pub = ?", new String[]{pub});
     }
 
@@ -152,6 +165,13 @@ final class Db extends SQLiteOpenHelper {
         ContentValues v = new ContentValues();
         v.put("profile_sent", ts);
         getWritableDatabase().update("contacts", v, "pub = ?", new String[]{pub});
+    }
+
+    /** Zahl der von mir gesendeten Nachrichten (für Accessoire-Freischaltung). */
+    synchronized int sentCount() {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM messages WHERE outgoing = 1", null)) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        }
     }
 
     synchronized List<String> contactKeys() {
@@ -172,11 +192,12 @@ final class Db extends SQLiteOpenHelper {
     synchronized List<Contact> contacts() {
         List<Contact> out = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT pub, name, last_read, created, avatar FROM contacts", null)) {
+        try (Cursor c = db.rawQuery("SELECT pub, name, last_read, created, avatar, accb, accf, accr FROM contacts", null)) {
             while (c.moveToNext()) {
                 Contact k = new Contact();
                 k.pub = c.getString(0); k.name = c.getString(1); k.lastRead = c.getLong(2);
                 k.lastTs = c.getLong(3); k.avatar = c.getString(4);
+                k.accBehind = c.getInt(5); k.accFront = c.getInt(6); k.accFrame = c.getInt(7);
                 out.add(k);
             }
         }

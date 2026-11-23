@@ -259,6 +259,37 @@ final class T {
     static String tuSettings() { return s("Language, theme, updates and relays.", "Sprache, Design, Updates und Relays.", "Idioma, tema, actualizaciones y relés.", "Язык, тема, обновления и релеи.", "Jezik, tema, ažuriranja i releji."); }
     static String tuProfile() { return s("Your profile: picture, name and bio.", "Dein Profil: Bild, Name und Biografie.", "Tu perfil: foto, nombre y biografía.", "Твой профиль: фото, имя и описание.", "Tvoj profil: slika, ime i biografija."); }
 
+    static String accessories() { return s("Accessories", "Accessoires", "Accesorios", "Аксессуары", "Dodaci"); }
+    static String shopSub(int sent, int need) {
+        switch (lang) {
+            case 1: return sent + " Nachrichten · nächstes Teil in " + need;
+            case 2: return sent + " mensajes · siguiente en " + need;
+            case 3: return "Сообщений: " + sent + " · следующее через " + need;
+            case 4: return sent + " poruka · sljedeći za " + need;
+            default: return sent + " messages · next in " + need;
+        }
+    }
+    static String allUnlocked(int sent) {
+        switch (lang) {
+            case 1: return sent + " Nachrichten · alles freigeschaltet";
+            case 2: return sent + " mensajes · todo desbloqueado";
+            case 3: return "Сообщений: " + sent + " · всё открыто";
+            case 4: return sent + " poruka · sve otključano";
+            default: return sent + " messages · all unlocked";
+        }
+    }
+    static String equipped() { return s("Equipped", "Angelegt", "Puesto", "Надето", "Nošeno"); }
+    static String tapToEquip() { return s("Tap to wear", "Antippen zum Anlegen", "Toca para poner", "Нажми, чтобы надеть", "Dodirni za nošenje"); }
+    static String needMore(int n) {
+        switch (lang) {
+            case 1: return "noch " + n + " Nachrichten";
+            case 2: return n + " mensajes más";
+            case 3: return "ещё " + n;
+            case 4: return "još " + n;
+            default: return n + " more messages";
+        }
+    }
+
     // Updates
     static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }
     static String updateText(long v, long cur) { return s(

@@ -162,7 +162,8 @@ public class ChatActivity extends Base implements Net.Listener {
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(48)));
         Db.Contact c = app.db.contact(peer);
-        View av = avatarWithDot(peer, c != null && c.name != null && !c.name.isEmpty() ? c.name : "?", c != null ? c.avatar : null, app.net.isOnline(peer), 38);
+        View av = avatarWithDot(peer, c != null && c.name != null && !c.name.isEmpty() ? c.name : "?", c != null ? c.avatar : null, app.net.isOnline(peer), 38,
+                c != null ? c.accBehind : -1, c != null ? c.accFront : -1, c != null ? c.accFrame : -1);
         av.setOnClickListener(v -> showProfile(peer, false));
         headerAvatar = av;
         header.addView(av, new LinearLayout.LayoutParams(dp(38), dp(38)));
@@ -309,7 +310,8 @@ public class ChatActivity extends Base implements Net.Listener {
             if (i >= 0) {
                 Db.Contact c = app.db.contact(peer);
                 header.removeViewAt(i);
-                View av = avatarWithDot(peer, c != null && c.name != null && !c.name.isEmpty() ? c.name : "?", c != null ? c.avatar : null, app.net.isOnline(peer), 38);
+                View av = avatarWithDot(peer, c != null && c.name != null && !c.name.isEmpty() ? c.name : "?", c != null ? c.avatar : null, app.net.isOnline(peer), 38,
+                        c != null ? c.accBehind : -1, c != null ? c.accFront : -1, c != null ? c.accFrame : -1);
                 av.setOnClickListener(v -> showProfile(peer, false));
                 headerAvatar = av;
                 header.addView(av, i, new LinearLayout.LayoutParams(dp(38), dp(38)));

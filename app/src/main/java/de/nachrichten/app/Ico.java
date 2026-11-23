@@ -11,7 +11,7 @@ import android.view.View;
 final class Ico extends View {
 
     static final int PLUS = 0, SETTINGS = 1, BACK = 2, SEND = 3, QR = 4, MORE = 5, CLOCK = 6, CHECK = 7,
-            RADIO = 8, TOGGLE = 9, LOCK = 10, ATTACH = 11, CLOSE = 12, FILE = 13, CHECK2 = 14, SHARE = 15;
+            RADIO = 8, TOGGLE = 9, LOCK = 10, ATTACH = 11, CLOSE = 12, FILE = 13, CHECK2 = 14, SHARE = 15, BAG = 16;
 
     final int kind;
     boolean on;
@@ -183,6 +183,16 @@ final class Ico extends View {
                 c.drawPath(path, p);
                 c.drawLine(l + 3.5f * d, cy + 1f * d, rr - 3.5f * d, cy + 1f * d, p);
                 c.drawLine(l + 3.5f * d, cy + 4.5f * d, rr - 3.5f * d, cy + 4.5f * d, p);
+                break;
+            }
+            case BAG: {
+                p.setStrokeWidth(2f * d);
+                android.graphics.RectF bag = new android.graphics.RectF(cx - 7f * d, cy - 3f * d, cx + 7f * d, cy + 8f * d);
+                c.drawRoundRect(bag, 2f * d, 2f * d, p);
+                path.reset();
+                path.moveTo(cx - 4f * d, cy - 3f * d);
+                path.cubicTo(cx - 4f * d, cy - 9f * d, cx + 4f * d, cy - 9f * d, cx + 4f * d, cy - 3f * d);
+                c.drawPath(path, p);
                 break;
             }
             case SHARE: {

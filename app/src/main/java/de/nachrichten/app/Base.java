@@ -272,7 +272,7 @@ abstract class Base extends Activity {
         Dialog dlg = dialog();
         LinearLayout box = panel();
         box.setGravity(Gravity.CENTER_HORIZONTAL);
-        Avatar av = new Avatar(pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar);
+        Avatar av = new Avatar(pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar).accessories(c.accBehind, c.accFront, c.accFrame);
         if (c.avatar != null) av.setOnClickListener(v -> bigImage(c.avatar));
         LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(112), dp(112));
         ap.setMargins(0, dp(4), 0, dp(12));
@@ -312,8 +312,12 @@ abstract class Base extends Activity {
 
     /** Avatar mit grünem Online-Punkt unten rechts (Discord-Stil). */
     View avatarWithDot(String pub, String name, String path, boolean online, int sizeDp) {
+        return avatarWithDot(pub, name, path, online, sizeDp, -1, -1, -1);
+    }
+
+    View avatarWithDot(String pub, String name, String path, boolean online, int sizeDp, int ab, int af, int ar) {
         FrameLayout f = new FrameLayout(this);
-        f.addView(new Avatar(pub, name, path), new FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp)));
+        f.addView(new Avatar(pub, name, path).accessories(ab, af, ar), new FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp)));
         if (online) {
             int ds = Math.max(10, Math.round(sizeDp * 0.30f));
             View dot = new View(this);
@@ -358,6 +362,9 @@ abstract class Base extends Activity {
 
         /** Ohne Bild: neutrale Person statt Anfangsbuchstabe. */
         boolean silhouette = true;
+        int accBehind = -1, accFront = -1, accFrame = -1;
+
+        Avatar accessories(int b, int f, int fr) { accBehind = b; accFront = f; accFrame = fr; return this; }
 
         Avatar(String pub, String name) { this(pub, name, null); }
 
@@ -371,21 +378,24 @@ abstract class Base extends Activity {
 
         @Override
         protected void onDraw(Canvas c) {
-            float w = getWidth(), h = getHeight(), r = Math.min(w, h) / 2f;
+            float w = getWidth(), h = getHeight(), cx = w / 2f, cy = h / 2f;
+            float rFull = Math.min(w, h) / 2f;
+            boolean any = accBehind >= 0 || accFront >= 0 || accFrame >= 0;
+            float maxE = Math.max(Accessories.extent(accBehind), Math.max(Accessories.extent(accFront), Accessories.extent(accFrame)));
+            float r = any ? rFull / maxE : rFull;
+            Accessories.drawBehind(c, cx, cy, r, accBehind, p);
+            p.setShader(null);
+            p.setStyle(Paint.Style.FILL);
             if (img != null) {
                 clip.reset();
-                clip.addCircle(w / 2, h / 2, r, android.graphics.Path.Direction.CW);
+                clip.addCircle(cx, cy, r, android.graphics.Path.Direction.CW);
                 c.save();
                 c.clipPath(clip);
-                android.graphics.RectF dst = new android.graphics.RectF(w / 2 - r, h / 2 - r, w / 2 + r, h / 2 + r);
+                android.graphics.RectF dst = new android.graphics.RectF(cx - r, cy - r, cx + r, cy + r);
                 p.setFilterBitmap(true);
                 c.drawBitmap(img, null, dst, p);
                 c.restore();
-                return;
-            }
-            if (silhouette) {
-                float cx = w / 2, cy = h / 2;
-                p.setStyle(Paint.Style.FILL);
+            } else if (silhouette) {
                 p.setColor(0xFF000000);
                 c.drawCircle(cx, cy, r, p);
                 p.setColor(Pal.light ? 0xFFC9CCD0 : 0xFF3A3E42);
@@ -397,17 +407,18 @@ abstract class Base extends Activity {
                 android.graphics.RectF body = new android.graphics.RectF(cx - r * 0.66f, cy + r * 0.3f, cx + r * 0.66f, cy + r * 1.62f);
                 c.drawOval(body, p);
                 c.restore();
-                return;
+            } else {
+                p.setColor(color);
+                c.drawCircle(cx, cy, r, p);
+                p.setColor(0xFFFFFFFF);
+                p.setTextAlign(Paint.Align.CENTER);
+                p.setTextSize(r * 0.9f);
+                p.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                Paint.FontMetrics fm = p.getFontMetrics();
+                c.drawText(letter, cx, cy - (fm.ascent + fm.descent) / 2, p);
             }
-            p.setStyle(Paint.Style.FILL);
-            p.setColor(color);
-            c.drawCircle(w / 2, h / 2, r, p);
-            p.setColor(0xFFFFFFFF);
-            p.setTextAlign(Paint.Align.CENTER);
-            p.setTextSize(r * 0.9f);
-            p.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-            Paint.FontMetrics fm = p.getFontMetrics();
-            c.drawText(letter, w / 2, h / 2 - (fm.ascent + fm.descent) / 2, p);
+            Accessories.drawFrame(c, cx, cy, r, accFrame, p);
+            Accessories.drawFront(c, cx, cy, r, accFront, p);
         }
     }
 }

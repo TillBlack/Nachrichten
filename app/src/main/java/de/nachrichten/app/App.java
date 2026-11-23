@@ -87,6 +87,10 @@ public final class App extends Application {
         return prefs.getStringSet("profileAllowed", java.util.Collections.emptySet()).contains(pub);
     }
 
+    int accBehind() { return prefs.getInt("accBehind", -1); }
+    int accFront() { return prefs.getInt("accFront", -1); }
+    int accFrame() { return prefs.getInt("accFrame", -1); }
+
     /** Erscheine ich selbst in der öffentlichen Nutzerliste? */
     boolean selfListed() {
         return prefs.getBoolean("dirConsent", false) && !prefs.getBoolean("profilePrivate", false) && !myName().isEmpty();

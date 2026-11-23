@@ -144,7 +144,7 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
-        r.addView(new Avatar(e.pub, e.name, thumbPath(e)), new LinearLayout.LayoutParams(dp(48), dp(48)));
+        r.addView(new Avatar(e.pub, e.name, thumbPath(e)).accessories(e.accBehind, e.accFront, e.accFrame), new LinearLayout.LayoutParams(dp(48), dp(48)));
 
         LinearLayout mid = new LinearLayout(this);
         mid.setOrientation(LinearLayout.VERTICAL);
@@ -174,7 +174,7 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         LinearLayout box = panel();
         box.setGravity(Gravity.CENTER_HORIZONTAL);
         String path = thumbPath(e);
-        Avatar av = new Avatar(e.pub, e.name, path);
+        Avatar av = new Avatar(e.pub, e.name, path).accessories(e.accBehind, e.accFront, e.accFrame);
         LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(112), dp(112));
         ap.setMargins(0, dp(4), 0, dp(12));
         box.addView(av, ap);
