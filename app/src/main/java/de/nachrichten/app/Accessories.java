@@ -36,7 +36,7 @@ final class Accessories {
             FRONT, FRONT, FRONT, FRAME, FRAME,
             FRONT, FRAME, BEHIND, FRAME, FRAME,
             FRAME, FRONT, FRAME, FRAME, BEHIND,
-            FRAME, FRAME, FRAME, FRAME, BEHIND};
+            FRAME, FRAME, FRAME, FRAME, FRONT};
     /** Drawable-Name des Bildes (leer = Code-Glitzer). */
     private static final String[] RES = {
             "", "acc_ears", "acc_paws", "frame_hearts", "frame_flowers",
@@ -69,6 +69,13 @@ final class Accessories {
     }
 
     static boolean unlocked(int i, int sent) { return sent >= unlockAt(i); }
+
+    /** Anzahl der durch Nachrichten freigeschalteten Teile (0 … COUNT). */
+    static int unlockedCount(int sent) {
+        int n = 0;
+        for (int i = 0; i < COUNT; i++) if (sent >= unlockAt(i)) n++;
+        return n;
+    }
 
     /** Nächstes noch gesperrtes Teil (oder -1). */
     static int nextLocked(int sent) {

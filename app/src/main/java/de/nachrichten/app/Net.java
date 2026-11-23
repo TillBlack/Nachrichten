@@ -778,6 +778,7 @@ final class Net {
                 m.raw = raw;
                 seen.add(e.id);
                 app.db.insert(m);
+                app.countMessage();
                 changed(peer);
                 broadcast(raw);
             } catch (Exception ignored) { }
@@ -820,6 +821,7 @@ final class Net {
                     raws.add(raw);
                 }
                 app.db.insert(m);
+                app.countMessage();
                 changed(peer);
                 for (String raw : raws) broadcast(raw);
             } catch (Exception ignored) { }

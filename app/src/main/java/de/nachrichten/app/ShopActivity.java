@@ -15,7 +15,7 @@ public class ShopActivity extends Base {
     private static final int COLS = 3;
     private LinearLayout header, grid;
     private TextView sub;
-    private int sent;
+    private int sent, eff;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -68,10 +68,10 @@ public class ShopActivity extends Base {
     }
 
     private void build() {
-        sent = app.db.sentCount();
-        int nx = Accessories.nextLocked(sent);
-        if (nx < 0) sub.setText(T.allUnlocked(sent));
-        else sub.setText(T.shopSub(sent, Accessories.unlockAt(nx) - sent));
+        sent = app.countedMsgs();
+        eff = Math.min(Accessories.COUNT, Math.max(Accessories.unlockedCount(sent), app.shopDaysUsed()));
+        if (eff >= Accessories.COUNT) sub.setText(T.allUnlocked(sent));
+        else sub.setText(T.shopSub(sent, Accessories.unlockAt(eff) - sent));
 
         grid.removeAllViews();
         LinearLayout rowView = null;
@@ -87,7 +87,7 @@ public class ShopActivity extends Base {
     }
 
     private View cell(int i, int w) {
-        boolean unlocked = Accessories.unlocked(i, sent);
+        boolean unlocked = i < eff;
         int cat = Accessories.category(i);
         int equipped = cat == Accessories.BEHIND ? app.accBehind() : cat == Accessories.FRONT ? app.accFront() : app.accFrame();
         boolean on = equipped == i;

@@ -91,6 +91,40 @@ public final class App extends Application {
     int accFront() { return prefs.getInt("accFront", -1); }
     int accFrame() { return prefs.getInt("accFrame", -1); }
 
+    /** Takt fürs Zählen: höchstens alle 10 Sekunden zählt eine Nachricht. */
+    static final long COUNT_INTERVAL_MS = 10_000L;
+
+    /**
+     * Gezählte Nachrichten für den Shop. Höchstens eine pro 10 Sekunden.
+     * Vorhandener Fortschritt wird beim ersten Mal übernommen.
+     */
+    int countedMsgs() {
+        if (!prefs.contains("countedMsgs")) {
+            int seed = db != null ? db.sentCount() : 0;
+            prefs.edit().putInt("countedMsgs", seed).apply();
+            return seed;
+        }
+        return prefs.getInt("countedMsgs", 0);
+    }
+
+    /** Beim Senden aufrufen: zählt nur, wenn seit der letzten gezählten Nachricht ≥10 s vergangen sind. */
+    void countMessage() {
+        long now = System.currentTimeMillis();
+        long last = prefs.getLong("lastCountTs", 0);
+        if (now - last >= COUNT_INTERVAL_MS) {
+            prefs.edit().putInt("countedMsgs", countedMsgs() + 1).putLong("lastCountTs", now).apply();
+        }
+    }
+
+    /** Genutzte Tage seit dem ersten Öffnen des Shops (mindestens 1). Sichert ≥1 Belohnung pro Tag. */
+    int shopDaysUsed() {
+        long off = java.util.TimeZone.getDefault().getRawOffset();
+        long today = (System.currentTimeMillis() + off) / 86_400_000L;
+        long day0 = prefs.getLong("shopDay0", 0);
+        if (day0 == 0) { prefs.edit().putLong("shopDay0", today).apply(); day0 = today; }
+        return (int) (today - day0) + 1;
+    }
+
     /** Erscheine ich selbst in der öffentlichen Nutzerliste? */
     boolean selfListed() {
         return prefs.getBoolean("dirConsent", false) && !prefs.getBoolean("profilePrivate", false) && !myName().isEmpty();
