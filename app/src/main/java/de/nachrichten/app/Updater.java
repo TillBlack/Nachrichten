@@ -68,36 +68,18 @@ final class Updater {
     }
 
     /** Obtainium öffnen: erst nach Updates suchen lassen, dann direkt die Seite von Nachrichten zeigen. */
-    /** Beim ersten Mal: Anleitung, dann Nachrichten direkt in Obtainium anlegen (nur noch "Importieren" bestätigen). */
+    /** Direkt zu Obtainium: oeffnet die Nachrichten-Seite (prueft nur diese App) oder fragt beim ersten Mal nach dem Import. */
     static void openObtainium(Base a) {
-        if (a.app.prefs.getBoolean("obtainiumImported", false)) { openObtainiumPage(a); return; }
-        Dialog dlg = a.dialog();
-        LinearLayout box = a.panel();
-        box.addView(a.text(T.obtGuideTitle(), 19, Pal.text, true));
-        TextView steps = a.text(T.obtGuideSteps(), 15, Pal.text, false);
-        steps.setPadding(0, a.dp(10), 0, 0);
-        steps.setLineSpacing(0, 1.3f);
-        box.addView(steps);
-        addHelp(a, box, dlg);
-        LinearLayout buttons = a.buttonRow();
-        TextView cancel = a.button(T.cancel(), false);
-        cancel.setOnClickListener(v -> dlg.dismiss());
-        a.addTo(buttons, cancel, true);
-        TextView go = a.button(T.obtGuideGo(), true);
-        go.setOnClickListener(v -> {
-            dlg.dismiss();
-            String json = "{\"id\":\"" + a.getPackageName() + "\",\"url\":\"" + REPO + "\",\"author\":\"TillBlack\",\"name\":\"Nachrichten\"}";
-            Intent imp = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://app/" + Uri.encode(json)));
-            try {
-                a.startActivity(imp);
-                a.app.prefs.edit().putBoolean("obtainiumImported", true).apply();
-            } catch (Exception e) {
-                openObtainiumPage(a);
-            }
-        });
-        a.addTo(buttons, go, false);
-        a.addRow(box, buttons, 18);
-        a.showScrollDialog(dlg, box);
+        String json = "{\"id\":\"" + a.getPackageName() + "\",\"url\":\"" + REPO + "\",\"author\":\"TillBlack\",\"name\":\"Nachrichten\"}";
+        try {
+            a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://app/" + Uri.encode(json))));
+            a.app.prefs.edit().putBoolean("obtainiumImported", true).apply();
+            return;
+        } catch (Exception ignored) { }
+        // Ausweichweg: Obtainium einfach starten
+        String pkg = obtainiumPackage(a);
+        Intent launch = pkg == null ? null : a.getPackageManager().getLaunchIntentForPackage(pkg);
+        try { if (launch != null) a.startActivity(launch); } catch (Exception ignored) { }
     }
 
     /** Hinweis: "Hilfe? Schreib dem Entwickler" mit Kontaktcode und Knopf. */
@@ -121,24 +103,6 @@ final class Updater {
             a.startActivity(new Intent(a, ChatActivity.class).putExtra("peer", parsed[0]));
         });
         a.addRow(box, write, 8);
-    }
-
-    private static void openObtainiumPage(Base a) {
-        Intent refresh = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://refresh?id=" + a.getPackageName()));
-        Intent page = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://add/" + REPO));
-        try {
-            if (refresh.resolveActivity(a.getPackageManager()) != null) {
-                a.startActivity(refresh);
-                a.root.postDelayed(() -> { try { a.startActivity(page); } catch (Exception ignored) { } }, 1200);
-            } else {
-                a.startActivity(page);
-            }
-            return;
-        } catch (Exception ignored) { }
-        // falls die Links nicht gehen: Obtainium einfach öffnen
-        String pkg = obtainiumPackage(a);
-        Intent launch = pkg == null ? null : a.getPackageManager().getLaunchIntentForPackage(pkg);
-        try { if (launch != null) a.startActivity(launch); } catch (Exception ignored) { }
     }
 
     /** Ohne Obtainium: Android lädt die Datei selbst herunter; ein Tipp auf die Benachrichtigung installiert. */
