@@ -381,9 +381,8 @@ abstract class Base extends Activity {
             float w = getWidth(), h = getHeight(), cx = w / 2f, cy = h / 2f;
             float rFull = Math.min(w, h) / 2f;
             boolean any = accBehind >= 0 || accFront >= 0 || accFrame >= 0;
-            float maxE = Math.max(Accessories.extent(accBehind), Math.max(Accessories.extent(accFront), Accessories.extent(accFrame)));
-            float r = any ? rFull / maxE : rFull;
-            Accessories.drawBehind(c, cx, cy, r, accBehind, p);
+            float r = accFrame >= 0 ? rFull * 0.60f : any ? rFull * 0.72f : rFull;
+            Accessories.drawBehind(Base.this, c, cx, cy, rFull, r, accBehind, p);
             p.setShader(null);
             p.setStyle(Paint.Style.FILL);
             if (img != null) {
@@ -417,8 +416,8 @@ abstract class Base extends Activity {
                 Paint.FontMetrics fm = p.getFontMetrics();
                 c.drawText(letter, cx, cy - (fm.ascent + fm.descent) / 2, p);
             }
-            Accessories.drawFrame(c, cx, cy, r, accFrame, p);
-            Accessories.drawFront(c, cx, cy, r, accFront, p);
+            Accessories.drawFrame(Base.this, c, cx, cy, rFull, r, accFrame, p);
+            Accessories.drawFront(Base.this, c, cx, cy, rFull, r, accFront, p);
         }
     }
 }

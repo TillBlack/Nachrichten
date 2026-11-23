@@ -216,14 +216,17 @@ public class MainActivity extends Base implements Net.Listener {
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
         titles.addView(text(T.chats(), 28, Pal.text, true));
-        statusView = text("", 13, Pal.dim, false);
-        titles.addView(statusView);
         header.addView(titles, new LinearLayout.LayoutParams(0, -2, 1f));
         Ico qr = new Ico(this, Ico.QR);
         qr.setContentDescription(T.myCode());
         qr.setOnClickListener(v -> showMyCode());
         header.addView(qr, new LinearLayout.LayoutParams(dp(48), dp(48)));
         hQr = qr;
+        Ico shop = new Ico(this, Ico.BAG);
+        shop.setContentDescription(T.accessories());
+        shop.setOnClickListener(v -> startActivity(new Intent(this, ShopActivity.class)));
+        header.addView(shop, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        hShop = shop;
         Ico share = new Ico(this, Ico.SHARE);
         share.setContentDescription(T.shareApp());
         share.setOnClickListener(v -> shareApp());
@@ -265,7 +268,7 @@ public class MainActivity extends Base implements Net.Listener {
         onInsets();
     }
 
-    private View hint, obtChip, hQr, hShare, hSet, hProfile;
+    private View hint, obtChip, hQr, hShop, hShare, hSet, hProfile;
     private int shownDirCount = -2;
     private boolean tutorialShown;
 
@@ -972,23 +975,6 @@ public class MainActivity extends Base implements Net.Listener {
             pr.addView(rm, rp2);
         }
         box.addView(pr);
-        LinearLayout shop = new LinearLayout(this);
-        shop.setGravity(Gravity.CENTER_VERTICAL);
-        shop.setPadding(dp(12), dp(10), dp(12), dp(10));
-        shop.setBackground(round(Pal.field, Pal.line, 12));
-        Ico bag = new Ico(this, Ico.BAG);
-        bag.color = Pal.accent;
-        shop.addView(bag, new LinearLayout.LayoutParams(dp(28), dp(28)));
-        TextView st = text(T.accessories(), 16, Pal.text, true);
-        st.setPadding(dp(12), 0, 0, 0);
-        shop.addView(st, new LinearLayout.LayoutParams(0, -2, 1f));
-        Ico arr = new Ico(this, Ico.BACK);
-        arr.color = Pal.dim; arr.setRotation(180);
-        shop.addView(arr, new LinearLayout.LayoutParams(dp(22), dp(22)));
-        shop.setOnClickListener(v -> { dlg.dismiss(); startActivity(new Intent(this, ShopActivity.class)); });
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, -2);
-        slp.setMargins(0, dp(10), 0, 0);
-        box.addView(shop, slp);
 
         box.addView(label(T.yourName()));
         EditText name = field(T.yourName(), false);

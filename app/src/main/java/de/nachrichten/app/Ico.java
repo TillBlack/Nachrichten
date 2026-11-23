@@ -196,19 +196,24 @@ final class Ico extends View {
                 break;
             }
             case SHARE: {
-                p.setStrokeWidth(2f * d);
-                c.drawLine(cx, cy - 8f * d, cx, cy + 3f * d, p);
+                // Geschwungener Weiterleiten-Pfeil (gefüllt, abgerundete Ecken).
                 path.reset();
-                path.moveTo(cx - 4f * d, cy - 4f * d);
-                path.lineTo(cx, cy - 8.5f * d);
-                path.lineTo(cx + 4f * d, cy - 4f * d);
+                path.moveTo(cx - 6f * d, cy + 7f * d);
+                path.lineTo(cx - 7f * d, cy + 2f * d);
+                path.lineTo(cx - 2.5f * d, cy - 2f * d);
+                path.lineTo(cx + 2f * d, cy - 2f * d);
+                path.lineTo(cx + 2f * d, cy - 5.5f * d);
+                path.lineTo(cx + 8f * d, cy - 1f * d);
+                path.lineTo(cx + 2f * d, cy + 3.5f * d);
+                path.lineTo(cx + 2f * d, cy + 1f * d);
+                path.lineTo(cx - 2f * d, cy + 1f * d);
+                path.lineTo(cx - 4.5f * d, cy + 3f * d);
+                path.lineTo(cx - 4.5f * d, cy + 7f * d);
+                path.close();
+                p.setStyle(Paint.Style.FILL);
+                p.setPathEffect(new android.graphics.CornerPathEffect(1.6f * d));
                 c.drawPath(path, p);
-                path.reset();
-                path.moveTo(cx - 7f * d, cy);
-                path.lineTo(cx - 7f * d, cy + 8f * d);
-                path.lineTo(cx + 7f * d, cy + 8f * d);
-                path.lineTo(cx + 7f * d, cy);
-                c.drawPath(path, p);
+                p.setPathEffect(null);
                 break;
             }
             case LOCK: {
