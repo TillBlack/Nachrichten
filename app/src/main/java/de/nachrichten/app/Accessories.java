@@ -33,7 +33,7 @@ final class Accessories {
     private static final int[] COST = {
             10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 70, 70, 70, 70};
 
-    static String name(int i) { return (T.de ? DE : EN)[i]; }
+    static String name(int i) { return (T.lang == 1 ? DE : EN)[i]; }
     static int category(int i) { return CAT[i]; }
 
     /** Gesamtzahl gesendeter Nachrichten, ab der Teil i freigeschaltet ist. */
