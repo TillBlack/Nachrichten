@@ -62,6 +62,9 @@ public class MainActivity extends Base implements Net.Listener {
             app.net.acquire("ui");
             app.applyBackground();
             refresh();
+            app.net.warmDirectory(() -> {
+                if (app.net.directoryCount() != shownDirCount) { shownDirCount = app.net.directoryCount(); refresh(); }
+            });
             if (ChatActivity.justLeft) {
                 ChatActivity.justLeft = false;
                 Updater.checkAfterChat(this);
@@ -253,6 +256,7 @@ public class MainActivity extends Base implements Net.Listener {
     }
 
     private View hint, obtChip;
+    private int shownDirCount = -2;
 
     /** Dauerhafter kleiner Hinweis unten links, solange Obtainium fehlt. */
     private void showObtainiumChip() {
@@ -348,7 +352,8 @@ public class MainActivity extends Base implements Net.Listener {
         t.setOrientation(LinearLayout.VERTICAL);
         t.setPadding(dp(14), 0, 0, 0);
         t.addView(text(T.discover(), 17, Pal.text, true));
-        t.addView(text(T.discoverSub(), 14, Pal.dim, false));
+        int dc = app.net.directoryCount();
+        t.addView(text(dc >= 0 ? T.discoverCount(dc) : T.discoverSub(), 14, Pal.dim, false));
         r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         Ico arrow = new Ico(this, Ico.BACK);
         arrow.color = Pal.dim;

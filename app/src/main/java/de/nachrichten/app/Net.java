@@ -489,13 +489,40 @@ final class Net {
 
     private volatile DirListener dirListener;
     private long lastDirPublish;
+    /** Zwischenspeicher der Nutzerliste; neue Abfrage höchstens alle 3 Minuten. */
+    private final Map<String, DirEntry> dirCache = new HashMap<>();
+    private long dirCacheAt;
+    private volatile int lastDirCount = -1;
 
-    /** Liste abfragen (alle, die in den letzten 30 Tagen aktiv waren). */
+    /** Bekannte Nutzerzahl (-1 = noch nicht geladen). */
+    int directoryCount() { return lastDirCount; }
+
+    /** Zähler im Hintergrund frisch halten (für die Chatliste). */
+    void warmDirectory(Runnable onDone) {
+        loadDirectory(new DirListener() {
+            public void entry(DirEntry e) { }
+            public void done() { if (onDone != null) onDone.run(); }
+        });
+    }
+
+    /** Liste abfragen (alle, die in den letzten 30 Tagen aktiv waren). Höchstens alle 3 Minuten eine neue Abfrage. */
     void loadDirectory(DirListener l) {
         dirListener = l;
-        String req = "[\"REQ\",\"dir\",{\"kinds\":[" + KIND_DIR + "],\"#t\":[\"" + DIR_T + "\"],\"since\":"
-                + (System.currentTimeMillis() / 1000 - 30L * 86400) + ",\"limit\":500}]";
-        for (Conn c : new ArrayList<>(conns.values())) if (c.open) c.enqueue(req);
+        worker.post(() -> {
+            boolean fresh = !dirCache.isEmpty() && System.currentTimeMillis() - dirCacheAt < 3 * 60 * 1000L;
+            if (fresh) {
+                for (DirEntry d : new ArrayList<>(dirCache.values())) {
+                    DirEntry dd = d;
+                    main.post(() -> { DirListener x = dirListener; if (x != null) x.entry(dd); });
+                }
+                main.post(() -> { DirListener x = dirListener; if (x != null) x.done(); });
+                return;
+            }
+            dirCacheAt = System.currentTimeMillis();
+            String req = "[\"REQ\",\"dir\",{\"kinds\":[" + KIND_DIR + "],\"#t\":[\"" + DIR_T + "\"],\"since\":"
+                    + (System.currentTimeMillis() / 1000 - 30L * 86400) + ",\"limit\":500}]";
+            for (Conn c : new ArrayList<>(conns.values())) if (c.open) c.enqueue(req);
+        });
     }
 
     void closeDirectory() {
@@ -538,6 +565,8 @@ final class Net {
                 try { d.thumb = java.util.Base64.getDecoder().decode(img); } catch (Exception ignored) { }
             }
             if (d.name.isEmpty()) return;
+            DirEntry old = dirCache.get(d.pub);
+            if (old == null || old.seen < d.seen) { dirCache.put(d.pub, d); lastDirCount = dirCache.size(); }
             main.post(() -> { DirListener l = dirListener; if (l != null) l.entry(d); });
         } catch (Exception ignored) { }
     }

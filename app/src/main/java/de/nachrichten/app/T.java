@@ -168,6 +168,15 @@ final class T {
     static String directDownload() { return s("Download directly", "Direkt herunterladen", "Descargar directamente", "Скачать напрямую", "Preuzmi izravno"); }
 
     static String discover() { return s("Discover people", "Nutzer entdecken", "Descubrir personas", "Найти людей", "Otkrij ljude"); }
+    static String discoverCount(int n) {
+        switch (lang) {
+            case 1: return n + " Nutzer insgesamt";
+            case 2: return n + (n == 1 ? " persona en total" : " personas en total");
+            case 3: return "Всего пользователей: " + n;
+            case 4: return "Ukupno korisnika: " + n;
+            default: return n + (n == 1 ? " person in total" : " people in total");
+        }
+    }
     static String discoverSub() { return s("Everyone with a public profile", "Alle mit öffentlichem Profil", "Todos con perfil público", "Все с публичным профилем", "Svi s javnim profilom"); }
     static String dirLoading() { return s("Searching…", "Wird gesucht…", "Buscando…", "Поиск…", "Traženje…"); }
     static String dirEmpty() { return s("Nobody found yet", "Noch niemand gefunden", "Aún no hay nadie", "Пока никого нет", "Još nikoga nema"); }
