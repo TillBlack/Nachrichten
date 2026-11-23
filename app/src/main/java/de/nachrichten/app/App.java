@@ -96,7 +96,7 @@ public final class App extends Application {
      * Das ist KEIN persönlicher Kontaktcode, sondern ein separates Postfach nur für anonyme Vorschläge –
      * wer es liest, kann den Entwickler damit nicht als Kontakt anschreiben.
      */
-    static final String SUGGEST_PUBKEY = "";
+    static final String SUGGEST_PUBKEY = "dabc875f8567880d86aeaf1415c1ec3e851e88f680228aad58a7a6a6670bdbf7";
 
     private byte[] sugPrivCache;
 

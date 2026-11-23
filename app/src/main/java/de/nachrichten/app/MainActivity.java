@@ -807,8 +807,11 @@ public class MainActivity extends Base implements Net.Listener {
         Dialog dlg = dialog();
         LinearLayout box = panel();
         TextView settTitle = text(T.settings(), 20, Pal.text, true);
-        // Verstecktes Entwickler-Postfach: langer Druck auf den Titel.
-        settTitle.setOnLongClickListener(v -> { dlg.dismiss(); openDevSetup(); return true; });
+        // Verstecktes Entwickler-Postfach: nur das eingetragene Gerät (oder vor der Einrichtung) darf es öffnen.
+        settTitle.setOnLongClickListener(v -> {
+            if (app.isDev() || !app.suggestReady()) { dlg.dismiss(); openDevSetup(); }
+            return true;
+        });
         box.addView(settTitle);
 
         settingsDlg = dlg;
