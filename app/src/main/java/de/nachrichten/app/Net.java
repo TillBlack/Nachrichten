@@ -479,6 +479,7 @@ final class Net {
         String pub, name, bio, pronouns;
         byte[] thumb;
         long seen;
+        boolean showStatus = true;
     }
 
     interface DirListener {
@@ -531,6 +532,7 @@ final class Net {
             d.name = trim(c.optString("name"), 40);
             d.bio = trim(c.optString("bio"), 500);
             d.pronouns = trim(c.optString("pron"), 40);
+            d.showStatus = c.optInt("st", 1) == 1;
             String img = c.optString("img");
             if (!img.isEmpty() && img.length() < 20000) {
                 try { d.thumb = java.util.Base64.getDecoder().decode(img); } catch (Exception ignored) { }
@@ -550,6 +552,9 @@ final class Net {
         worker.post(() -> {
             long now = System.currentTimeMillis();
             if (!force && now - lastDirPublish < 5 * 60 * 1000L) return;
+            boolean showOnline = app.prefs.getBoolean("showOnline", true);
+            // ohne Online-Status nur bei Änderungen veröffentlichen (sonst verrät die Zeit die Aktivität)
+            if (!force && !showOnline && app.prefs.getBoolean("dirPublished", false)) return;
             if (connectedCount() == 0) return;
             boolean visible = app.prefs.getBoolean("dirConsent", false) && !app.prefs.getBoolean("profilePrivate", false)
                     && !app.myName().isEmpty();
@@ -567,6 +572,7 @@ final class Net {
                     Event.str(sb, app.prefs.getString("bio", ""));
                     sb.append(",\"img\":");
                     Event.str(sb, thumbBase64());
+                    sb.append(",\"st\":").append(showOnline ? 1 : 0);
                     content = sb.append('}').toString();
                 }
                 Event e = new Event();

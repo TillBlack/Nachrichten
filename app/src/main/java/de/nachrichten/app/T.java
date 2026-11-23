@@ -199,6 +199,21 @@ final class T {
     static String stayPublic() { return s("Stay public", "Öffentlich bleiben", "Seguir público", "Оставить публичным", "Ostani javan"); }
     static String goPrivate() { return s("Make private", "Privat stellen", "Hacer privado", "Сделать приватным", "Postavi privatno"); }
 
+    static String showOnline() { return s("Show my online status", "Meinen Online-Status zeigen", "Mostrar mi estado en línea", "Показывать мой статус онлайн", "Prikaži moj status na mreži"); }
+    static String showOnlineInfo() { return s(
+            "If off, \"Discover people\" shows neither \"online\" nor when you were last active.",
+            "Wenn aus, zeigt \"Nutzer entdecken\" weder \"online\" noch, wann du zuletzt aktiv warst.",
+            "Si está desactivado, no se muestra \"en línea\" ni tu última actividad.",
+            "Если выключено, не видно ни \"онлайн\", ни когда ты был активен.",
+            "Ako je isključeno, ne prikazuje se \"na mreži\" ni kad si zadnji put bio aktivan."); }
+    static String firstObtainiumTitle() { return s("Obtainium is needed for updates", "Für Updates wird Obtainium gebraucht", "Se necesita Obtainium para actualizar", "Для обновлений нужен Obtainium", "Za ažuriranja treba Obtainium"); }
+    static String firstObtainiumText() { return s(
+            "Nachrichten is not in the Play Store. To install updates, please install Obtainium. It is a free, open-source app that installs apps directly from their developers on GitHub. It has no ads, is used by many people and its source code is public, so anyone can check it. Nachrichten never installs anything by itself, it only opens Obtainium.",
+            "Nachrichten gibt es nicht im Play Store. Damit du Updates installieren kannst, installiere bitte Obtainium. Das ist eine kostenlose, quelloffene App, die Apps direkt von ihren Entwicklern auf GitHub installiert. Sie hat keine Werbung, wird von vielen Leuten genutzt, und ihr Quellcode ist öffentlich, sodass jeder ihn prüfen kann. Nachrichten installiert selbst nie etwas, es öffnet nur Obtainium.",
+            "Nachrichten no está en Play Store. Para instalar actualizaciones, instala Obtainium. Es una app gratuita y de código abierto que instala apps directamente desde sus desarrolladores en GitHub. No tiene anuncios, la usan muchas personas y su código es público. Nachrichten nunca instala nada por sí misma, solo abre Obtainium.",
+            "Nachrichten нет в Play Store. Чтобы ставить обновления, установи Obtainium. Это бесплатное приложение с открытым кодом, которое ставит приложения прямо от разработчиков с GitHub. Без рекламы, им пользуются многие, код открыт для проверки. Nachrichten сам ничего не устанавливает, а только открывает Obtainium.",
+            "Nachrichten nije u Trgovini Play. Za ažuriranja instaliraj Obtainium. To je besplatna aplikacija otvorenog koda koja instalira aplikacije izravno od njihovih programera na GitHubu. Nema reklama, koriste je mnogi, a kod je javan pa ga svatko može provjeriti. Nachrichten nikad sam ništa ne instalira, samo otvara Obtainium."); }
+
     // Updates
     static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }
     static String updateText(long v, long cur) { return s(

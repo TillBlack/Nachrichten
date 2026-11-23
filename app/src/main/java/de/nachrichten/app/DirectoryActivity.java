@@ -128,9 +128,16 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         all.sort((a, b) -> Long.compare(b.seen, a.seen));
         long now = System.currentTimeMillis() / 1000;
         int online = 0;
-        for (Net.DirEntry e : all) if (now - e.seen < 300) online++;
+        for (Net.DirEntry e : all) if (e.showStatus && now - e.seen < 300) online++;
         status.setText(all.isEmpty() ? (loaded ? T.dirEmpty() : T.dirLoading()) : T.dirCount(all.size(), online));
-        for (Net.DirEntry e : all) list.addView(row(e, now - e.seen < 300));
+        // Online zuerst, dann nach letzter Aktivität; Leute ohne Status ans Ende
+        all.sort((a, b) -> {
+            boolean oa = a.showStatus && now - a.seen < 300, ob = b.showStatus && now - b.seen < 300;
+            if (oa != ob) return oa ? -1 : 1;
+            if (a.showStatus != b.showStatus) return a.showStatus ? -1 : 1;
+            return Long.compare(b.seen, a.seen);
+        });
+        for (Net.DirEntry e : all) list.addView(row(e, e.showStatus && now - e.seen < 300));
     }
 
     private String thumbPath(Net.DirEntry e) {
@@ -164,7 +171,7 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         n.setSingleLine(true);
         n.setEllipsize(TextUtils.TruncateAt.END);
         top.addView(n, new LinearLayout.LayoutParams(0, -2, 1f));
-        top.addView(text(online ? T.online() : shortWhen(e.seen * 1000), 12, online ? 0xFF3FBF6F : Pal.dim, false));
+        top.addView(text(online ? T.online() : e.showStatus ? shortWhen(e.seen * 1000) : "", 12, online ? 0xFF3FBF6F : Pal.dim, false));
         mid.addView(top);
         String sub = (e.pronouns.isEmpty() ? "" : e.pronouns + (e.bio.isEmpty() ? "" : "  ·  ")) + e.bio.replace('\n', ' ');
         if (!sub.isEmpty()) {

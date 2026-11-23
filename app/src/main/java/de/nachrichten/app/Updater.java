@@ -42,15 +42,24 @@ final class Updater {
 
     /** Ist Obtainium installiert (kann es obtainium://-Links öffnen)? */
     static boolean obtainium(Context c) {
+        if (obtainiumPackage(c) != null) return true;
         Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://add/" + REPO));
-        if (i.resolveActivity(c.getPackageManager()) != null) return true;
-        return obtainiumPackage(c) != null;
+        try {
+            if (!c.getPackageManager().queryIntentActivities(i, 0).isEmpty()) return true;
+        } catch (Exception ignored) { }
+        return i.resolveActivity(c.getPackageManager()) != null;
     }
 
     private static String obtainiumPackage(Context c) {
         for (String p : OBTAINIUM_PKGS) {
             try { c.getPackageManager().getPackageInfo(p, 0); return p; } catch (Exception ignored) { }
         }
+        // andere Bauarten (z. B. IzzyOnDroid): an der Startseite erkennen
+        try {
+            for (android.content.pm.PackageInfo pi : c.getPackageManager().getInstalledPackages(0)) {
+                if (pi.packageName.startsWith("dev.imranr.obtainium")) return pi.packageName;
+            }
+        } catch (Exception ignored) { }
         return null;
     }
 
@@ -91,11 +100,13 @@ final class Updater {
     }
 
     /** Popup: Obtainium installieren (Weiterleitung zur Download-Seite). url != null: zusätzlich "Direkt herunterladen". */
-    static void offerHelper(Base a, String url, long version) {
+    static void offerHelper(Base a, String url, long version) { offerHelper(a, url, version, false); }
+
+    static void offerHelper(Base a, String url, long version, boolean firstRun) {
         Dialog dlg = a.dialog();
         LinearLayout box = a.panel();
-        box.addView(a.text(T.helperTitle(), 19, Pal.text, true));
-        TextView info = a.text(T.helperText(), 15, Pal.dim, false);
+        box.addView(a.text(firstRun ? T.firstObtainiumTitle() : T.helperTitle(), 19, Pal.text, true));
+        TextView info = a.text(firstRun ? T.firstObtainiumText() : T.helperText(), 15, Pal.dim, false);
         info.setPadding(0, a.dp(8), 0, 0);
         info.setLineSpacing(0, 1.15f);
         box.addView(info);
@@ -103,6 +114,29 @@ final class Updater {
         TextView no = a.button(T.later(), false);
         no.setOnClickListener(v -> dlg.dismiss());
         a.addTo(buttons, no, true);
+        if (firstRun) {
+            // "Später" erst nach 5 Sekunden
+            dlg.setCancelable(false);
+            no.setEnabled(false);
+            no.setAlpha(0.4f);
+            final int[] left = {5};
+            no.setText(T.later() + " (" + left[0] + ")");
+            Runnable tick = new Runnable() {
+                @Override public void run() {
+                    left[0]--;
+                    if (left[0] > 0) {
+                        no.setText(T.later() + " (" + left[0] + ")");
+                        no.postDelayed(this, 1000);
+                    } else {
+                        no.setText(T.later());
+                        no.setEnabled(true);
+                        no.setAlpha(1f);
+                        dlg.setCancelable(true);
+                    }
+                }
+            };
+            no.postDelayed(tick, 1000);
+        }
         if (url != null) {
             TextView direct = a.button(T.directDownload(), false);
             direct.setOnClickListener(v -> { dlg.dismiss(); download(a, url, version); });

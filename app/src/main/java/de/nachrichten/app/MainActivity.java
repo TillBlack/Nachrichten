@@ -69,7 +69,10 @@ public class MainActivity extends Base implements Net.Listener {
                 Updater.checkOnStart(this);
             }
             showObtainiumChip();
-            askDirectoryConsent();
+            if (!askDirectoryConsent() && !Updater.obtainium(this) && !app.prefs.getBoolean("obtainiumFirstAsked", false)) {
+                app.prefs.edit().putBoolean("obtainiumFirstAsked", true).apply();
+                Updater.offerHelper(this, null, 0, true);
+            }
             app.net.publishDirectory(false);
         }
     }
@@ -364,11 +367,12 @@ public class MainActivity extends Base implements Net.Listener {
     }
 
     /** Einmal fragen: im öffentlichen Verzeichnis erscheinen oder privat stellen. */
-    private void askDirectoryConsent() {
-        if (app.prefs.contains("dirConsent") || onboarding) return;
+    /** Gibt true zurück, wenn das Popup gezeigt wird. */
+    private boolean askDirectoryConsent() {
+        if (app.prefs.contains("dirConsent") || onboarding) return false;
         if (app.prefs.getBoolean("profilePrivate", false)) {
             app.prefs.edit().putBoolean("dirConsent", false).apply();
-            return;
+            return false;
         }
         Dialog dlg = dialog();
         LinearLayout box = panel();
@@ -397,6 +401,7 @@ public class MainActivity extends Base implements Net.Listener {
         addRow(box, buttons, 18);
         dlg.setCancelable(false);
         showDialog(dlg, box);
+        return true;
     }
 
     @Override
@@ -980,6 +985,27 @@ public class MainActivity extends Base implements Net.Listener {
         }
         box.addView(people);
         showVis.run();
+
+        // Online-Status
+        LinearLayout on = new LinearLayout(this);
+        on.setGravity(Gravity.CENTER_VERTICAL);
+        on.setPadding(0, dp(16), 0, 0);
+        on.addView(text(T.showOnline(), 16, Pal.text, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        Ico onTg = new Ico(this, Ico.TOGGLE);
+        onTg.on = app.prefs.getBoolean("showOnline", true);
+        on.addView(onTg, new LinearLayout.LayoutParams(dp(52), dp(40)));
+        on.setOnClickListener(v -> {
+            boolean val = !app.prefs.getBoolean("showOnline", true);
+            app.prefs.edit().putBoolean("showOnline", val).apply();
+            onTg.on = val;
+            onTg.invalidate();
+            app.net.publishDirectory(true);
+        });
+        onTg.setOnClickListener(v -> on.performClick());
+        box.addView(on);
+        TextView oni = text(T.showOnlineInfo(), 13, Pal.dim, false);
+        oni.setPadding(0, dp(4), 0, 0);
+        box.addView(oni);
 
         // Speichern (auch vor dem Bildwechsel, damit nichts verloren geht)
         Runnable save = () -> {
