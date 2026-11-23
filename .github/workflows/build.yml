@@ -44,9 +44,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete neueste -y --cleanup-tag || true
           VC=$(grep -m1 -oE 'versionCode +[0-9]+' app/build.gradle | grep -oE '[0-9]+')
-          gh release create neueste Nachrichten.apk --title "Nachrichten – latest version ($VC)" --notes "Tap Nachrichten.apk to download and install. versionCode=$VC"
+          VN=$(grep -m1 -oE "versionName +'[^']+'" app/build.gradle | grep -oE "'[^']+'" | tr -d "'")
+          # Release mit Versionsnummer als Tag (für Obtainium: Tag = versionName)
+          gh release delete "$VN" -y --cleanup-tag || true
+          gh release create "$VN" Nachrichten.apk --title "Nachrichten $VN" --notes "Tap Nachrichten.apk to download and install. versionCode=$VC" --latest
+          # "neueste" bleibt für die Update-Suche älterer App-Versionen, als Vorabversion (Obtainium ignoriert sie)
+          gh release delete neueste -y --cleanup-tag || true
+          gh release create neueste Nachrichten.apk --title "Nachrichten – latest version ($VC)" --notes "Tap Nachrichten.apk to download and install. versionCode=$VC" --prerelease
       - name: APK im Zweig 'apk' ablegen
         run: |
           mkdir /tmp/apk && cp Nachrichten.apk /tmp/apk/
