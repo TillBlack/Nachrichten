@@ -66,6 +66,23 @@ final class T {
     static String yesterday() { return s("Yesterday", "Gestern", "Ayer", "Вчера", "Jučer"); }
     static String pendingInfo() { return s("Waiting to send", "Wird gesendet, sobald online", "Pendiente de envío", "Ожидает отправки", "Čeka slanje"); }
 
+    // Antworten und Anhänge
+    static String reply() { return s("Reply", "Antworten", "Responder", "Ответить", "Odgovori"); }
+    static String youName() { return s("You", "Du", "Tú", "Вы", "Ti"); }
+    static String photo() { return s("Photo", "Foto", "Foto", "Фото", "Fotografija"); }
+    static String fileLabel() { return s("File", "Datei", "Archivo", "Файл", "Datoteka"); }
+    static String attachPhoto() { return s("Photo", "Foto", "Foto", "Фото", "Fotografija"); }
+    static String attachFile() { return s("File", "Datei", "Archivo", "Файл", "Datoteka"); }
+    static String receiving() { return s("Receiving", "Wird empfangen", "Recibiendo", "Получение", "Primanje"); }
+    static String tooLarge() { return s("Too large. Files can be at most 1 MB.", "Zu groß. Dateien dürfen höchstens 1 MB groß sein.", "Demasiado grande. Máximo 1 MB.", "Слишком большой. Максимум 1 МБ.", "Prevelika. Najviše 1 MB."); }
+    static String readError() { return s("Could not read the file.", "Die Datei konnte nicht gelesen werden.", "No se pudo leer el archivo.", "Не удалось прочитать файл.", "Datoteku nije moguće pročitati."); }
+    static String saveFile() { return s("Save", "Speichern", "Guardar", "Сохранить", "Spremi"); }
+    static String saved() { return s("Saved", "Gespeichert", "Guardado", "Сохранено", "Spremljeno"); }
+    static String openWith() { return s("Open with…", "Öffnen mit…", "Abrir con…", "Открыть с помощью…", "Otvori s…"); }
+    static String noApp() { return s("No app can open this file.", "Keine App kann diese Datei öffnen.", "Ninguna app puede abrir este archivo.", "Нет приложения для этого файла.", "Nijedna aplikacija ne može otvoriti ovu datoteku."); }
+    static String unsupported() { return s("Message from a newer version", "Nachricht aus einer neueren Version", "Mensaje de una versión más nueva", "Сообщение из новой версии", "Poruka iz novije verzije"); }
+    static String encrypted() { return s("Encrypted", "Verschlüsselt", "Cifrado", "Зашифровано", "Šifrirano"); }
+
     // Allgemein
     static String save() { return s("Save", "Speichern", "Guardar", "Сохранить", "Spremi"); }
     static String cancel() { return s("Cancel", "Abbrechen", "Cancelar", "Отмена", "Odustani"); }

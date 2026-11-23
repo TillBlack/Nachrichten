@@ -65,6 +65,12 @@ public class MainActivity extends Base implements Net.Listener {
     }
 
     @Override
+    public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        refresh();
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
         app.net.removeListener(this);
@@ -272,7 +278,11 @@ public class MainActivity extends Base implements Net.Listener {
 
         LinearLayout bottom = new LinearLayout(this);
         bottom.setGravity(Gravity.CENTER_VERTICAL);
-        String preview = c.lastText == null ? T.noMessagesYet() : (c.lastOutgoing ? T.you() : "") + c.lastText.replace('\n', ' ');
+        String lt = c.lastText == null ? null
+                : c.lastKind == Db.IMAGE ? T.photo()
+                : c.lastKind == Db.FILE ? T.fileLabel() + ": " + c.lastText
+                : c.lastText.replace('\n', ' ');
+        String preview = lt == null ? T.noMessagesYet() : (c.lastOutgoing ? T.you() : "") + lt;
         TextView pv = text(preview, 14, Pal.dim, false);
         pv.setSingleLine(true);
         pv.setEllipsize(TextUtils.TruncateAt.END);
@@ -296,7 +306,10 @@ public class MainActivity extends Base implements Net.Listener {
         r.setOnLongClickListener(v -> {
             menu(name, new String[]{T.rename(), T.deleteChat()}, new int[]{0, Pal.red}, i -> {
                 if (i == 0) renameDialog(c.pub, this::refresh);
-                else confirm(T.deleteChatQ(), T.delete(), () -> { app.db.deleteContact(c.pub); refresh(); });
+                else confirm(T.deleteChatQ(), T.delete(), () -> {
+                    for (String p : app.db.deleteContact(c.pub)) new File(p).delete();
+                    refresh();
+                });
             });
             return true;
         });

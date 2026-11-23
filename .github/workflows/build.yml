@@ -24,7 +24,7 @@ jobs:
         run: gradle compileReleaseJavaWithJavac --no-daemon
       - name: Passwort vorhanden?
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || secrets.KEYSTORE_PASSWORT || secrets.KEYSTORE_PASWORD || secrets.KEYSTORE_PASSWORD_ }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_PASSWORD" ]; then
             echo "::error::Das Secret KEYSTORE_PASSWORD fehlt (Settings > Secrets and variables > Actions)."
@@ -32,7 +32,7 @@ jobs:
           fi
       - name: APK bauen
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || secrets.KEYSTORE_PASSWORT || secrets.KEYSTORE_PASWORD || secrets.KEYSTORE_PASSWORD_ }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
       - name: APK umbenennen
         run: cp app/build/outputs/apk/release/app-release.apk Nachrichten.apk

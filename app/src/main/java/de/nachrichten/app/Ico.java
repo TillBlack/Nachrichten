@@ -11,7 +11,7 @@ import android.view.View;
 final class Ico extends View {
 
     static final int PLUS = 0, SETTINGS = 1, BACK = 2, SEND = 3, QR = 4, MORE = 5, CLOCK = 6, CHECK = 7,
-            RADIO = 8, TOGGLE = 9, LOCK = 10;
+            RADIO = 8, TOGGLE = 9, LOCK = 10, ATTACH = 11, CLOSE = 12, FILE = 13;
 
     final int kind;
     boolean on;
@@ -138,6 +138,37 @@ final class Ico extends View {
                 c.drawRoundRect(r, th / 2, th / 2, p);
                 p.setColor(0xFFFFFFFF);
                 c.drawCircle(on ? r.right - th / 2 : r.left + th / 2, cy, th / 2 - 3f * d, p);
+                break;
+            }
+            case ATTACH: {
+                p.setStrokeWidth(2.4f * d);
+                c.drawLine(cx - 8f * d, cy, cx + 8f * d, cy, p);
+                c.drawLine(cx, cy - 8f * d, cx, cy + 8f * d, p);
+                break;
+            }
+            case CLOSE: {
+                c.drawLine(cx - 5f * d, cy - 5f * d, cx + 5f * d, cy + 5f * d, p);
+                c.drawLine(cx + 5f * d, cy - 5f * d, cx - 5f * d, cy + 5f * d, p);
+                break;
+            }
+            case FILE: {
+                p.setStrokeWidth(1.8f * d);
+                float l = cx - 7f * d, t = cy - 9f * d, rr = cx + 7f * d, b = cy + 9f * d, f = 5f * d;
+                path.reset();
+                path.moveTo(l, t);
+                path.lineTo(rr - f, t);
+                path.lineTo(rr, t + f);
+                path.lineTo(rr, b);
+                path.lineTo(l, b);
+                path.close();
+                c.drawPath(path, p);
+                path.reset();
+                path.moveTo(rr - f, t);
+                path.lineTo(rr - f, t + f);
+                path.lineTo(rr, t + f);
+                c.drawPath(path, p);
+                c.drawLine(l + 3.5f * d, cy + 1f * d, rr - 3.5f * d, cy + 1f * d, p);
+                c.drawLine(l + 3.5f * d, cy + 4.5f * d, rr - 3.5f * d, cy + 4.5f * d, p);
                 break;
             }
             case LOCK: {

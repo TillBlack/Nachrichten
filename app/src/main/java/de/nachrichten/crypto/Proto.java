@@ -1,0 +1,93 @@
+package de.nachrichten.crypto;
+
+import java.security.SecureRandom;
+import java.util.Base64;
+
+/**
+ * Inhalt der verschlüsselten Nachrichten.
+ * Einfacher Text ohne Antwort bleibt reiner Text (kompatibel zu Version 1).
+ * Sonst JSON mit "nx":1:
+ *   Text:  {"nx":1,"t":"text","b":"…","r":"<id>"}
+ *   Datei: {"nx":1,"t":"file","f":"<fid>","i":0,"n":5,"d":"<base64>", nur bei i=0: "m":{...},"r":"<id>"}
+ */
+public final class Proto {
+
+    /** Rohdaten je Stück; ergibt verschlüsselt rund 38 KB pro Relay-Ereignis. */
+    public static final int CHUNK = 20000;
+    /** Höchstgröße eines Anhangs. */
+    public static final int MAX_FILE = 1024 * 1024;
+
+    private static final SecureRandom RNG = new SecureRandom();
+
+    public static String newFileId() {
+        byte[] b = new byte[16];
+        RNG.nextBytes(b);
+        return Event.hex(b);
+    }
+
+    public static String text(String body, String replyTo) {
+        if (replyTo == null && !body.startsWith("{\"nx\"")) return body;
+        StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"text\",\"b\":");
+        Event.str(sb, body);
+        if (replyTo != null) { sb.append(",\"r\":"); Event.str(sb, replyTo); }
+        return sb.append('}').toString();
+    }
+
+    public static int chunkCount(int size) { return Math.max(1, (size + CHUNK - 1) / CHUNK); }
+
+    /** Ein Stück eines Anhangs. meta nur bei i == 0. */
+    public static String chunk(String fid, int i, byte[] data, String name, String mime, boolean image, String sha, String replyTo) {
+        int n = chunkCount(data.length);
+        int from = i * CHUNK, len = Math.min(CHUNK, data.length - from);
+        byte[] part = new byte[Math.max(0, len)];
+        if (len > 0) System.arraycopy(data, from, part, 0, len);
+        StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"file\",\"f\":");
+        Event.str(sb, fid);
+        sb.append(",\"i\":").append(i).append(",\"n\":").append(n).append(",\"d\":");
+        Event.str(sb, Base64.getEncoder().encodeToString(part));
+        if (i == 0) {
+            sb.append(",\"m\":{\"name\":");
+            Event.str(sb, name);
+            sb.append(",\"mime\":");
+            Event.str(sb, mime);
+            sb.append(",\"size\":").append(data.length);
+            sb.append(",\"img\":").append(image);
+            sb.append(",\"sha\":");
+            Event.str(sb, sha);
+            sb.append('}');
+            if (replyTo != null) { sb.append(",\"r\":"); Event.str(sb, replyTo); }
+        }
+        return sb.append('}').toString();
+    }
+
+    public static String sha(byte[] data) { return Event.hex(Secp.sha256(data)); }
+
+    /** Setzt die Stücke zusammen und prüft Größe und Prüfsumme. null bei Fehlern. */
+    public static byte[] assemble(byte[][] parts, long size, String sha) {
+        int total = 0;
+        for (byte[] p : parts) {
+            if (p == null) return null;
+            total += p.length;
+        }
+        if (total != size || total > MAX_FILE) return null;
+        byte[] out = new byte[total];
+        int pos = 0;
+        for (byte[] p : parts) { System.arraycopy(p, 0, out, pos, p.length); pos += p.length; }
+        if (sha != null && !sha.equals(sha(out))) return null;
+        return out;
+    }
+
+    /** Dateiname ohne Pfad und problematische Zeichen. */
+    public static String safeName(String name) {
+        if (name == null) name = "";
+        name = name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+        while (name.startsWith(".")) name = name.substring(1);
+        if (name.isEmpty()) name = "file";
+        if (name.length() > 80) {
+            int dot = name.lastIndexOf('.');
+            String ext = dot > 0 && name.length() - dot <= 10 ? name.substring(dot) : "";
+            name = name.substring(0, 80 - ext.length()) + ext;
+        }
+        return name;
+    }
+}

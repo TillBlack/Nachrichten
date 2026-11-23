@@ -15,9 +15,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import de.nachrichten.crypto.Event;
 import de.nachrichten.crypto.Nip44;
+import de.nachrichten.crypto.Proto;
 import de.nachrichten.crypto.Secp;
 import de.nachrichten.net.Ws;
 
@@ -129,8 +132,19 @@ final class Net {
         volatile boolean open, stopped;
         int failures;
         long lastPing;
+        /** Sendet nacheinander mit kleiner Pause, damit Relays nicht drosseln. */
+        final ExecutorService sender = Executors.newSingleThreadExecutor();
 
         Conn(String url) { this.url = url; }
+
+        void enqueue(String msg) {
+            sender.execute(() -> {
+                Ws w = ws;
+                if (!open || w == null) return;
+                w.send(msg);
+                try { Thread.sleep(150); } catch (InterruptedException ignored) { }
+            });
+        }
 
         void start() {
             Thread t = new Thread(() -> {
@@ -150,6 +164,7 @@ final class Net {
 
         void stop() {
             stopped = true;
+            sender.shutdownNow();
             Ws w = ws;
             if (w != null) new Thread(w::close).start();
         }
@@ -160,7 +175,7 @@ final class Net {
             failures = 0;
             // läuft im Thread dieses Relays, bevor gelesen wird
             subscribe(w);
-            for (String raw : app.db.pendingRaw()) w.send("[\"EVENT\"," + raw + "]");
+            for (String raw : app.db.pendingRaw()) enqueue("[\"EVENT\"," + raw + "]");
             status();
         }
 
@@ -250,65 +265,192 @@ final class Net {
 
         // Die Entschlüsselung prüft per HMAC mit dem gemeinsamen Schlüssel, dass die Nachricht
         // wirklich von diesem Absender (oder von mir) stammt und nicht verändert wurde.
-        String body = Nip44.decrypt(o.optString("content"), convKey(peer));
-        if (body == null) return;
+        String plain = Nip44.decrypt(o.optString("content"), convKey(peer));
+        if (plain == null) return;
 
         long createdAt = o.optLong("created_at");
         if (app.db.contact(peer) == null) app.db.addContact(peer, "");
+        updateLastSeen(createdAt);
+
+        String body = plain, replyTo = null;
+        if (plain.startsWith("{\"nx\"")) {
+            JSONObject env;
+            try { env = new JSONObject(plain); } catch (Exception e) { env = null; }
+            if (env != null) {
+                String t = env.optString("t");
+                if (t.equals("file")) { handleChunk(peer, outgoing, createdAt, env); return; }
+                if (t.equals("text")) {
+                    body = env.optString("b");
+                    replyTo = cleanId(env.optString("r", null));
+                } else {
+                    body = "[" + T.unsupported() + "]";
+                }
+            }
+        }
+
         Db.Msg m = new Db.Msg();
         m.id = id;
         m.peer = peer;
         m.outgoing = outgoing;
         m.body = body;
+        m.replyTo = replyTo;
         m.ts = createdAt * 1000L;
         m.status = Db.SENT;
         boolean isNew = app.db.insert(m);
         if (!isNew) return;
+        changed(peer);
+        notifyIfNew(peer, outgoing, createdAt, body);
+    }
 
+    private static String cleanId(String s) {
+        return s != null && s.matches("[0-9a-f]{32,64}") ? s : null;
+    }
+
+    private void updateLastSeen(long createdAt) {
         long lastSeen = app.prefs.getLong("lastSeen", 0);
         if (createdAt > lastSeen && createdAt < System.currentTimeMillis() / 1000 + 600) {
             app.prefs.edit().putLong("lastSeen", createdAt).apply();
         }
-        changed(peer);
+    }
+
+    private void notifyIfNew(String peer, boolean outgoing, long createdAt, String text) {
         // beim ersten Abruf (Wiederherstellung) nur wirklich neue Nachrichten melden
         boolean fresh = lastSeenAtStart > 0 || createdAt > startedAt - 120;
         if (!outgoing && fresh && !peer.equals(openChat)) {
-            main.post(() -> Notifs.message(app, peer, body));
+            main.post(() -> Notifs.message(app, peer, text));
         }
+    }
+
+    /** Ein Stück eines Anhangs ist angekommen. */
+    private void handleChunk(String peer, boolean outgoing, long createdAt, JSONObject env) {
+        String fid = env.optString("f");
+        if (!fid.matches("[0-9a-f]{32}")) return;
+        int i = env.optInt("i", -1), n = env.optInt("n", 0);
+        if (n < 1 || n > Proto.chunkCount(Proto.MAX_FILE) || i < 0 || i >= n) return;
+        if (app.db.isDeleted(fid)) return;
+        Db.Msg m = app.db.message(fid);
+        if (m != null && (!m.peer.equals(peer) || m.complete())) return; // eigener gesendeter Anhang oder fertig
+        byte[] data;
+        try { data = java.util.Base64.getDecoder().decode(env.optString("d")); } catch (Exception e) { return; }
+        if (data.length > Proto.CHUNK) return;
+        if (m == null) {
+            m = new Db.Msg();
+            m.id = fid;
+            m.peer = peer;
+            m.outgoing = outgoing;
+            m.body = "";
+            m.kind = Db.FILE;
+            m.ts = createdAt * 1000L;
+            m.status = Db.SENT;
+            m.total = n;
+            app.db.insert(m);
+        }
+        if (i == 0) {
+            JSONObject meta = env.optJSONObject("m");
+            if (meta == null) return;
+            long size = meta.optLong("size", -1);
+            String sha = meta.optString("sha");
+            if (size < 0 || size > Proto.MAX_FILE || !sha.matches("[0-9a-f]{64}")) return;
+            String mime = meta.optString("mime", "application/octet-stream");
+            if (!mime.matches("[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+")) mime = "application/octet-stream";
+            boolean img = meta.optBoolean("img") && mime.startsWith("image/");
+            app.db.setFileMeta(fid, img ? Db.IMAGE : Db.FILE, Proto.safeName(meta.optString("name")), mime, size, n,
+                    cleanId(env.optString("r", null)), sha);
+        }
+        int have = app.db.addChunk(fid, i, data);
+        m = app.db.message(fid);
+        if (m != null && have >= m.total && m.fileName != null && m.body != null && !m.body.isEmpty()) {
+            byte[] all = Proto.assemble(app.db.chunks(fid, m.total), m.fileSize, m.body);
+            if (all != null) {
+                java.io.File f = new java.io.File(app.mediaDir(), fid + "_" + m.fileName);
+                try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+                    out.write(all);
+                    app.db.fileDone(fid, f.getAbsolutePath());
+                    notifyIfNew(peer, outgoing, createdAt, m.kind == Db.IMAGE ? T.photo() : T.fileLabel() + ": " + m.fileName);
+                } catch (Exception ignored) { }
+            }
+        }
+        changed(peer);
     }
 
     // ------------------------------------------------------------------ Senden
 
+    private Event event(String peer, String plain, long now) {
+        Event e = new Event();
+        e.kind = 4;
+        e.createdAt = now / 1000;
+        e.tags = new String[][]{{"p", peer}};
+        e.content = Nip44.encrypt(plain, convKey(peer));
+        e.sign(app.keys.priv());
+        return e;
+    }
+
+    private void broadcast(String raw) {
+        String msg = "[\"EVENT\"," + raw + "]";
+        for (Conn c : new ArrayList<>(conns.values())) if (c.open) c.enqueue(msg);
+    }
+
     /** Verschlüsselt, signiert und verschickt eine Nachricht. */
-    void send(String peer, String text) {
+    void send(String peer, String text, String replyTo) {
         worker.post(() -> {
             try {
                 long now = System.currentTimeMillis();
-                Event e = new Event();
-                e.kind = 4;
-                e.createdAt = now / 1000;
-                e.tags = new String[][]{{"p", peer}};
-                e.content = Nip44.encrypt(text, convKey(peer));
-                e.sign(app.keys.priv());
+                Event e = event(peer, Proto.text(text, replyTo), now);
                 String raw = e.toJson();
                 Db.Msg m = new Db.Msg();
                 m.id = e.id;
                 m.peer = peer;
                 m.outgoing = true;
                 m.body = text;
+                m.replyTo = replyTo;
                 m.ts = now;
                 m.status = Db.PENDING;
                 m.raw = raw;
                 seen.add(e.id);
                 app.db.insert(m);
                 changed(peer);
-                for (Conn c : new ArrayList<>(conns.values())) {
-                    Ws w = c.ws;
-                    if (c.open && w != null) {
-                        String msg = "[\"EVENT\"," + raw + "]";
-                        new Thread(() -> w.send(msg)).start();
-                    }
+                broadcast(raw);
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /** Verschickt einen Anhang in Stücken. Die Datei liegt schon unter path. */
+    void sendFile(String peer, String path, String name, String mime, boolean image, String replyTo) {
+        worker.post(() -> {
+            try {
+                java.io.File f = new java.io.File(path);
+                byte[] data = java.nio.file.Files.readAllBytes(f.toPath());
+                if (data.length == 0 || data.length > Proto.MAX_FILE) return;
+                String fid = f.getName().substring(0, 32);
+                String sha = Proto.sha(data);
+                int n = Proto.chunkCount(data.length);
+                long now = System.currentTimeMillis();
+                Db.Msg m = new Db.Msg();
+                m.id = fid;
+                m.peer = peer;
+                m.outgoing = true;
+                m.body = sha;
+                m.kind = image ? Db.IMAGE : Db.FILE;
+                m.replyTo = replyTo;
+                m.ts = now;
+                m.status = Db.PENDING;
+                m.fileName = name;
+                m.fileMime = mime;
+                m.fileSize = data.length;
+                m.filePath = path;
+                m.have = n;
+                m.total = n;
+                List<String> raws = new ArrayList<>();
+                for (int i = 0; i < n; i++) {
+                    Event e = event(peer, Proto.chunk(fid, i, data, name, mime, image, sha, replyTo), now);
+                    seen.add(e.id);
+                    String raw = e.toJson();
+                    app.db.addOutbox(e.id, fid, raw, i);
+                    raws.add(raw);
                 }
+                app.db.insert(m);
+                changed(peer);
+                for (String raw : raws) broadcast(raw);
             } catch (Exception ignored) { }
         });
     }

@@ -21,7 +21,6 @@
             android:name=".app.MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode">
             <intent-filter>
@@ -33,7 +32,6 @@
             android:name=".app.ChatActivity"
             android:exported="false"
             android:launchMode="singleTop"
-            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize|stateHidden"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
         <activity
@@ -45,6 +43,11 @@
             android:name=".app.SyncService"
             android:exported="false"
             android:foregroundServiceType="remoteMessaging" />
+        <provider
+            android:name=".app.FilesProvider"
+            android:authorities="de.tillblack.nachrichten.files"
+            android:exported="false"
+            android:grantUriPermissions="true" />
         <receiver
             android:name=".app.BootReceiver"
             android:exported="false">

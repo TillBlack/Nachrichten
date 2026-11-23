@@ -66,6 +66,13 @@ public final class App extends Application {
         net.relaysChanged();
     }
 
+    /** Ordner für Anhänge. */
+    java.io.File mediaDir() {
+        java.io.File d = new java.io.File(getFilesDir(), "media");
+        if (!d.isDirectory()) d.mkdirs();
+        return d;
+    }
+
     String myName() { return prefs.getString("name", ""); }
 
     boolean background() { return prefs.getBoolean("bg", true); }

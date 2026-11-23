@@ -55,9 +55,11 @@ abstract class Base extends Activity {
                 android.graphics.Insets i = in.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime() | WindowInsets.Type.displayCutout());
                 insetTop = i.top;
                 insetBottom = i.bottom;
+                root.setPadding(i.left, 0, i.right, 0);
             } else {
                 insetTop = in.getSystemWindowInsetTop();
                 insetBottom = in.getSystemWindowInsetBottom();
+                root.setPadding(in.getSystemWindowInsetLeft(), 0, in.getSystemWindowInsetRight(), 0);
             }
             onInsets();
             return in;
