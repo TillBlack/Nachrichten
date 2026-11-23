@@ -18,9 +18,9 @@ android {
         release {
             storeFile file('nachrichten.p12')
             storeType 'pkcs12'
-            storePassword (System.getenv('KEYSTORE_PASSWORD') ?: '').trim()
+            storePassword((System.getenv('KEYSTORE_PASSWORD') ?: '').trim())
             keyAlias 'nachrichten'
-            keyPassword (System.getenv('KEYSTORE_PASSWORD') ?: '').trim()
+            keyPassword((System.getenv('KEYSTORE_PASSWORD') ?: '').trim())
         }
     }
 
