@@ -138,6 +138,12 @@ final class T {
             "La versión " + v + " está lista (tienes la " + cur + "). Tus chats se conservan.",
             "Версия " + v + " готова (у тебя " + cur + "). Чаты сохранятся.",
             "Verzija " + v + " je spremna (imaš " + cur + "). Razgovori ostaju."); }
+    static String updateHow() { return s(
+            "\"Update\" downloads it in your browser. Then open the downloaded file and tap Install.",
+            "\"Aktualisieren\" lädt sie im Browser herunter. Danach die heruntergeladene Datei öffnen und auf Installieren tippen.",
+            "\"Actualizar\" la descarga en el navegador. Luego abre el archivo y toca Instalar.",
+            "\"Обновить\" скачает её в браузере. Затем открой файл и нажми Установить.",
+            "\"Ažuriraj\" je preuzima u pregledniku. Zatim otvori preuzetu datoteku i dodirni Instaliraj."); }
     static String later() { return s("Later", "Später", "Más tarde", "Позже", "Kasnije"); }
     static String updateNow() { return s("Update", "Aktualisieren", "Actualizar", "Обновить", "Ažuriraj"); }
     static String downloading() { return s("Downloading…", "Wird geladen…", "Descargando…", "Загрузка…", "Preuzimanje…"); }
