@@ -214,6 +214,18 @@ final class T {
             "Nachrichten нет в Play Store. Чтобы ставить обновления, установи Obtainium. Это бесплатное приложение с открытым кодом, которое ставит приложения прямо от разработчиков с GitHub. Без рекламы, им пользуются многие, код открыт для проверки. Nachrichten сам ничего не устанавливает, а только открывает Obtainium.",
             "Nachrichten nije u Trgovini Play. Za ažuriranja instaliraj Obtainium. To je besplatna aplikacija otvorenog koda koja instalira aplikacije izravno od njihovih programera na GitHubu. Nema reklama, koriste je mnogi, a kod je javan pa ga svatko može provjeriti. Nachrichten nikad sam ništa ne instalira, samo otvara Obtainium."); }
 
+    static String obtGuideTitle() { return s("Updating with Obtainium", "Aktualisieren mit Obtainium", "Actualizar con Obtainium", "Обновление через Obtainium", "Ažuriranje s Obtainiumom"); }
+    static String obtGuideSteps() { return s(
+            "1. Obtainium opens and asks whether to import Nachrichten. Tap \"Import\" / \"OK\".\n2. Tap Nachrichten in the list, then \"Install\" or \"Update\".\n3. Confirm when Android asks.\n\nAfter that, one tap on \"Update\" in Nachrichten is enough.",
+            "1. Obtainium öffnet sich und fragt, ob Nachrichten importiert werden soll. Tippe auf \"Importieren\" bzw. \"OK\".\n2. Tippe in der Liste auf Nachrichten und dann auf \"Installieren\" bzw. \"Aktualisieren\".\n3. Bestätige, wenn Android fragt.\n\nDanach reicht in Nachrichten ein Tipp auf \"Aktualisieren\".",
+            "1. Obtainium se abre y pregunta si importar Nachrichten. Toca \"Importar\" / \"OK\".\n2. Toca Nachrichten en la lista y luego \"Instalar\" o \"Actualizar\".\n3. Confirma cuando Android pregunte.\n\nDespués basta con tocar \"Actualizar\" en Nachrichten.",
+            "1. Откроется Obtainium и спросит, импортировать ли Nachrichten. Нажми \"Импорт\" / \"OK\".\n2. Нажми на Nachrichten в списке, затем \"Установить\" или \"Обновить\".\n3. Подтверди, когда Android спросит.\n\nПотом достаточно нажать \"Обновить\" в Nachrichten.",
+            "1. Obtainium se otvara i pita treba li uvesti Nachrichten. Dodirni \"Uvezi\" / \"OK\".\n2. Dodirni Nachrichten na popisu pa \"Instaliraj\" ili \"Ažuriraj\".\n3. Potvrdi kad Android pita.\n\nNakon toga dovoljan je jedan dodir na \"Ažuriraj\" u Nachrichten."); }
+    static String obtGuideGo() { return s("Open Obtainium", "Zu Obtainium", "Abrir Obtainium", "Открыть Obtainium", "Otvori Obtainium"); }
+    static String helpText() { return s("Not sure how it works? Just message me:", "Du weißt nicht, wie es geht? Schreib mir einfach:", "¿No sabes cómo? Escríbeme:", "Не получается? Просто напиши мне:", "Ne znaš kako? Samo mi piši:"); }
+    static String helpWrite() { return s("Message the developer", "Entwickler anschreiben", "Escribir al desarrollador", "Написать разработчику", "Piši programeru"); }
+    static String developer() { return s("Developer", "Entwickler", "Desarrollador", "Разработчик", "Programer"); }
+
     // Updates
     static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }
     static String updateText(long v, long cur) { return s(

@@ -28,6 +28,10 @@ final class Updater {
     static final String ASSET = "Nachrichten.apk";
     static final String REPO = "https://github.com/TillBlack/Nachrichten";
     static final String OBTAINIUM_DOWNLOAD = "https://obtainium.imranr.dev";
+    /** Kleine Datei im neuesten Release: zählt nicht zum Abfrage-Limit von GitHub. */
+    static final String VERSION_FILE = "https://github.com/TillBlack/Nachrichten/releases/latest/download/version.json";
+    /** Kontaktcode des Entwicklers für Hilfe (leer = Hinweis ausblenden). */
+    static final String DEV_NPUB = "";
     static final String[] OBTAINIUM_PKGS = {"dev.imranr.obtainium", "dev.imranr.obtainium.fdroid"};
     /** Zeitpunkt der letzten Prüfung (die App läuft oft im Hintergrund weiter, daher nicht nur einmal pro Prozess). */
     private static long lastCheck;
@@ -64,7 +68,62 @@ final class Updater {
     }
 
     /** Obtainium öffnen: erst nach Updates suchen lassen, dann direkt die Seite von Nachrichten zeigen. */
+    /** Beim ersten Mal: Anleitung, dann Nachrichten direkt in Obtainium anlegen (nur noch "Importieren" bestätigen). */
     static void openObtainium(Base a) {
+        if (a.app.prefs.getBoolean("obtainiumImported", false)) { openObtainiumPage(a); return; }
+        Dialog dlg = a.dialog();
+        LinearLayout box = a.panel();
+        box.addView(a.text(T.obtGuideTitle(), 19, Pal.text, true));
+        TextView steps = a.text(T.obtGuideSteps(), 15, Pal.text, false);
+        steps.setPadding(0, a.dp(10), 0, 0);
+        steps.setLineSpacing(0, 1.3f);
+        box.addView(steps);
+        addHelp(a, box, dlg);
+        LinearLayout buttons = a.buttonRow();
+        TextView cancel = a.button(T.cancel(), false);
+        cancel.setOnClickListener(v -> dlg.dismiss());
+        a.addTo(buttons, cancel, true);
+        TextView go = a.button(T.obtGuideGo(), true);
+        go.setOnClickListener(v -> {
+            dlg.dismiss();
+            String json = "{\"id\":\"" + a.getPackageName() + "\",\"url\":\"" + REPO + "\",\"author\":\"TillBlack\",\"name\":\"Nachrichten\"}";
+            Intent imp = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://app/" + Uri.encode(json)));
+            try {
+                a.startActivity(imp);
+                a.app.prefs.edit().putBoolean("obtainiumImported", true).apply();
+            } catch (Exception e) {
+                openObtainiumPage(a);
+            }
+        });
+        a.addTo(buttons, go, false);
+        a.addRow(box, buttons, 18);
+        a.showScrollDialog(dlg, box);
+    }
+
+    /** Hinweis: "Hilfe? Schreib dem Entwickler" mit Kontaktcode und Knopf. */
+    static void addHelp(Base a, LinearLayout box, Dialog dlg) {
+        if (DEV_NPUB.isEmpty()) return;
+        String[] parsed = Keys.parseContact(DEV_NPUB);
+        if (parsed == null || parsed[0].equals(a.app.keys.pubHex())) return;
+        TextView h = a.text(T.helpText(), 13, Pal.dim, false);
+        h.setPadding(0, a.dp(16), 0, a.dp(6));
+        box.addView(h);
+        TextView code = a.text(DEV_NPUB, 12, Pal.text, false);
+        code.setTypeface(android.graphics.Typeface.MONOSPACE);
+        code.setTextIsSelectable(true);
+        code.setBackground(a.round(Pal.field, Pal.line, 10));
+        code.setPadding(a.dp(10), a.dp(8), a.dp(10), a.dp(8));
+        box.addView(code);
+        TextView write = a.outlineButton(T.helpWrite(), Pal.accent);
+        write.setOnClickListener(v -> {
+            dlg.dismiss();
+            if (a.app.db.contact(parsed[0]) == null) a.app.db.addContact(parsed[0], T.developer());
+            a.startActivity(new Intent(a, ChatActivity.class).putExtra("peer", parsed[0]));
+        });
+        a.addRow(box, write, 8);
+    }
+
+    private static void openObtainiumPage(Base a) {
         Intent refresh = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://refresh?id=" + a.getPackageName()));
         Intent page = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://add/" + REPO));
         try {
@@ -110,6 +169,7 @@ final class Updater {
         info.setPadding(0, a.dp(8), 0, 0);
         info.setLineSpacing(0, 1.15f);
         box.addView(info);
+        addHelp(a, box, dlg);
         LinearLayout buttons = a.buttonRow();
         TextView no = a.button(T.later(), false);
         no.setOnClickListener(v -> dlg.dismiss());
@@ -165,6 +225,20 @@ final class Updater {
             return;
         }
         new Thread(() -> {
+            // 1. Versuch: kleine Datei (kein Limit)
+            try {
+                JSONObject v = new JSONObject(new String(get(VERSION_FILE, 20_000), "UTF-8"));
+                long latest = v.getLong("versionCode");
+                String url = v.optString("apk");
+                if (url.startsWith("https://github.com/TillBlack/")) {
+                    cachedVersion = latest;
+                    cachedUrl = url;
+                    cachedAt = System.currentTimeMillis();
+                    if (latest > installedVersion(a)) a.runOnUiThread(() -> { if (!a.isFinishing()) f.found(latest, url); });
+                    return;
+                }
+            } catch (Exception ignored) { }
+            // 2. Versuch: GitHub-API (älterer Weg)
             try {
                 JSONObject rel = new JSONObject(new String(get(RELEASE_API, 200_000), "UTF-8"));
                 Matcher m = Pattern.compile("versionCode\\s*=\\s*(\\d+)").matcher(rel.optString("body"));
@@ -231,7 +305,8 @@ final class Updater {
         c.setConnectTimeout(15000);
         c.setReadTimeout(30000);
         c.setRequestProperty("User-Agent", "Nachrichten");
-        c.setRequestProperty("Accept", "application/vnd.github+json");
+        if (url.contains("api.github.com")) c.setRequestProperty("Accept", "application/vnd.github+json");
+        c.setInstanceFollowRedirects(true);
         if (c.getResponseCode() / 100 != 2) throw new java.io.IOException("HTTP " + c.getResponseCode());
         try (InputStream in = c.getInputStream()) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
