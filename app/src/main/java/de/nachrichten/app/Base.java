@@ -263,6 +263,64 @@ abstract class Base extends Activity {
         showDialog(dlg, box);
     }
 
+    // ------------------------------------------------------------------ Profil ansehen
+
+    /** Profil eines Kontakts: Bild, Name, Pronomen, Biografie. */
+    void showProfile(String pub, boolean withChatButton) {
+        Db.Contact c = app.db.contact(pub);
+        if (c == null) return;
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        Avatar av = new Avatar(pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar);
+        if (c.avatar != null) av.setOnClickListener(v -> bigImage(c.avatar));
+        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(112), dp(112));
+        ap.setMargins(0, dp(4), 0, dp(12));
+        box.addView(av, ap);
+        TextView n = text(app.nameOf(pub), 22, Pal.text, true);
+        n.setGravity(Gravity.CENTER);
+        box.addView(n, new LinearLayout.LayoutParams(-1, -2));
+        if (c.pronouns != null && !c.pronouns.isEmpty()) {
+            TextView pr = text(c.pronouns, 14, Pal.dim, false);
+            pr.setGravity(Gravity.CENTER);
+            pr.setPadding(0, dp(2), 0, 0);
+            box.addView(pr, new LinearLayout.LayoutParams(-1, -2));
+        }
+        TextView bl = label(T.bio());
+        box.addView(bl, new LinearLayout.LayoutParams(-1, -2));
+        TextView bio = text(c.bio == null || c.bio.isEmpty() ? T.noBio() : c.bio, 15, c.bio == null || c.bio.isEmpty() ? Pal.dim : Pal.text, false);
+        bio.setLineSpacing(0, 1.2f);
+        bio.setTextIsSelectable(true);
+        bio.setBackground(round(Pal.field, Pal.line, 10));
+        bio.setPadding(dp(12), dp(10), dp(12), dp(10));
+        box.addView(bio, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout buttons = buttonRow();
+        TextView close = button(T.close(), !withChatButton);
+        close.setOnClickListener(v -> dlg.dismiss());
+        addTo(buttons, close, true);
+        if (withChatButton) {
+            TextView chat = button(T.openChat(), true);
+            chat.setOnClickListener(v -> {
+                dlg.dismiss();
+                startActivity(new android.content.Intent(this, ChatActivity.class).putExtra("peer", pub));
+            });
+            addTo(buttons, chat, false);
+        }
+        addRow(box, buttons, 18);
+        showScrollDialog(dlg, box);
+    }
+
+    void bigImage(String path) {
+        Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        android.widget.ImageView iv = new android.widget.ImageView(this);
+        iv.setBackgroundColor(0xFF000000);
+        iv.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        iv.setImageBitmap(avatarBitmap(path));
+        iv.setOnClickListener(v -> d.dismiss());
+        d.setContentView(iv);
+        d.show();
+    }
+
     // ------------------------------------------------------------------ Avatar
 
     private static final android.util.LruCache<String, android.graphics.Bitmap> AVATARS = new android.util.LruCache<>(64);

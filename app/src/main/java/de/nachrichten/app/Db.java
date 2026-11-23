@@ -16,7 +16,7 @@ final class Db extends SQLiteOpenHelper {
     static final int TEXT = 0, IMAGE = 1, FILE = 2;
 
     static final class Contact {
-        String pub, name, avatar;
+        String pub, name, avatar, bio, pronouns;
         long lastRead, avatarTs, profileSent;
         // für die Liste
         String lastText;
@@ -41,7 +41,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 4); }
+    Db(Context c) { super(c, "nachrichten.db", null, 5); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -53,6 +53,12 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo2(db);
         upgradeTo3(db);
         upgradeTo4(db);
+        upgradeTo5(db);
+    }
+
+    private static void upgradeTo5(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE contacts ADD COLUMN bio TEXT");
+        db.execSQL("ALTER TABLE contacts ADD COLUMN pronouns TEXT");
     }
 
     /** Spalte receipt: welche Quittung ich für eine empfangene Nachricht schon geschickt habe. */
@@ -73,6 +79,7 @@ final class Db extends SQLiteOpenHelper {
         if (o < 2) upgradeTo2(db);
         if (o < 3) upgradeTo3(db);
         if (o < 4) upgradeTo4(db);
+        if (o < 5) upgradeTo5(db);
     }
 
     private static void upgradeTo2(SQLiteDatabase db) {
@@ -92,11 +99,12 @@ final class Db extends SQLiteOpenHelper {
     // ------------------------------------------------------------------ Kontakte
 
     synchronized Contact contact(String pub) {
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, name, last_read, avatar, avatar_ts, profile_sent FROM contacts WHERE pub = ?", new String[]{pub})) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, name, last_read, avatar, avatar_ts, profile_sent, bio, pronouns FROM contacts WHERE pub = ?", new String[]{pub})) {
             if (!c.moveToFirst()) return null;
             Contact k = new Contact();
             k.pub = c.getString(0); k.name = c.getString(1); k.lastRead = c.getLong(2);
             k.avatar = c.getString(3); k.avatarTs = c.getLong(4); k.profileSent = c.getLong(5);
+            k.bio = c.getString(6); k.pronouns = c.getString(7);
             return k;
         }
     }
@@ -131,10 +139,12 @@ final class Db extends SQLiteOpenHelper {
         return files;
     }
 
-    synchronized void setAvatar(String pub, String path, long ts) {
+    synchronized void setProfile(String pub, String path, long ts, String bio, String pronouns) {
         ContentValues v = new ContentValues();
         v.put("avatar", path);
         v.put("avatar_ts", ts);
+        v.put("bio", bio);
+        v.put("pronouns", pronouns);
         getWritableDatabase().update("contacts", v, "pub = ?", new String[]{pub});
     }
 

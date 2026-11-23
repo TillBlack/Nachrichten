@@ -34,9 +34,13 @@ public final class Proto {
     }
 
     /** Profil: Name und kleines Bild (JPEG, base64). img leer = Bild entfernt. */
-    public static String profile(long ts, String name, byte[] jpeg) {
+    public static String profile(long ts, String name, byte[] jpeg, String bio, String pronouns) {
         StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"profile\",\"ts\":").append(ts).append(",\"name\":");
         Event.str(sb, name == null ? "" : name);
+        sb.append(",\"bio\":");
+        Event.str(sb, bio == null ? "" : bio);
+        sb.append(",\"pron\":");
+        Event.str(sb, pronouns == null ? "" : pronouns);
         sb.append(",\"img\":");
         Event.str(sb, jpeg == null ? "" : Base64.getEncoder().encodeToString(jpeg));
         return sb.append('}').toString();

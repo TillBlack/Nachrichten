@@ -141,6 +141,20 @@ final class T {
             "Имя и фото отправляются в зашифрованном виде только твоим контактам.",
             "Ime i slika šalju se šifrirano samo tvojim kontaktima."); }
 
+    static String profile() { return s("Profile", "Profil", "Perfil", "Профиль", "Profil"); }
+    static String editProfile() { return s("Edit profile", "Profil bearbeiten", "Editar perfil", "Изменить профиль", "Uredi profil"); }
+    static String pronouns() { return s("Pronouns", "Pronomen", "Pronombres", "Местоимения", "Zamjenice"); }
+    static String pronounsHint() { return s("e.g. she/her", "z. B. sie/ihr", "p. ej. ella", "напр. она/её", "npr. ona/nju"); }
+    static String bio() { return s("Bio", "Biografie", "Biografía", "О себе", "Biografija"); }
+    static String bioHint() { return s("A few words about you", "Ein paar Worte über dich", "Unas palabras sobre ti", "Пара слов о себе", "Nekoliko riječi o tebi"); }
+    static String noBio() { return s("No bio yet.", "Noch keine Biografie.", "Aún no hay biografía.", "Пока ничего не написано.", "Još nema biografije."); }
+    static String visibility() { return s("Who can see my profile", "Wer mein Profil sieht", "Quién ve mi perfil", "Кто видит мой профиль", "Tko vidi moj profil"); }
+    static String visPublic() { return s("Public", "Öffentlich", "Público", "Публичный", "Javno"); }
+    static String visPublicInfo() { return s("All your contacts", "Alle deine Kontakte", "Todos tus contactos", "Все твои контакты", "Svi tvoji kontakti"); }
+    static String visPrivate() { return s("Private", "Privat", "Privado", "Приватный", "Privatno"); }
+    static String visPrivateInfo() { return s("Only the people you switch on below", "Nur die Leute, die du unten einschaltest", "Solo las personas que actives abajo", "Только те, кого ты включишь ниже", "Samo osobe koje uključiš ispod"); }
+    static String openChat() { return s("Chat", "Chat", "Chat", "Чат", "Razgovor"); }
+
     // Updates
     static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }
     static String updateText(long v, long cur) { return s(

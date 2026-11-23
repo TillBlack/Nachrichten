@@ -265,6 +265,7 @@ public class MainActivity extends Base implements Net.Listener {
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         r.setBackground(round(Pal.bg, 0, 12));
         Avatar av = new Avatar(c.pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar);
+        av.setOnClickListener(v -> showProfile(c.pub, true));
         r.addView(av, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
         LinearLayout mid = new LinearLayout(this);
@@ -368,7 +369,7 @@ public class MainActivity extends Base implements Net.Listener {
                     if (!ok) toast(T.readError());
                     if (settingsDlg != null) settingsDlg.dismiss();
                     refresh();
-                    openSettings();
+                    editProfile();
                 });
             }).start();
             return;
@@ -508,51 +509,28 @@ public class MainActivity extends Base implements Net.Listener {
         box.addView(text(T.settings(), 20, Pal.text, true));
 
         settingsDlg = dlg;
-        box.addView(label(T.profilePicture()));
-        LinearLayout pr = new LinearLayout(this);
-        pr.setGravity(Gravity.CENTER_VERTICAL);
+        box.addView(label(T.profile()));
+        LinearLayout pc = new LinearLayout(this);
+        pc.setGravity(Gravity.CENTER_VERTICAL);
+        pc.setBackground(round(Pal.field, Pal.line, 12));
+        pc.setPadding(dp(12), dp(12), dp(12), dp(12));
         java.io.File mine = app.myAvatar();
         Avatar me = new Avatar(app.keys.pubHex(), app.myName().isEmpty() ? "?" : app.myName(), mine != null ? mine.getAbsolutePath() : null);
-        pr.addView(me, new LinearLayout.LayoutParams(dp(56), dp(56)));
-        TextView pick = button(T.choose(), true);
-        pick.setOnClickListener(v -> {
-            try {
-                startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE), REQ_AVATAR);
-            } catch (Exception e) { toast(T.noApp()); }
-        });
-        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, -2);
-        pp.setMargins(dp(14), 0, 0, 0);
-        pr.addView(pick, pp);
-        if (mine != null) {
-            TextView rm = button(T.remove(), false);
-            rm.setOnClickListener(v -> {
-                mine.delete();
-                app.prefs.edit().remove("avatar").putLong("profileTs", System.currentTimeMillis()).apply();
-                app.net.profileChanged();
-                dlg.dismiss();
-                refresh();
-                openSettings();
-            });
-            LinearLayout.LayoutParams rp2 = new LinearLayout.LayoutParams(-2, -2);
-            rp2.setMargins(dp(8), 0, 0, 0);
-            pr.addView(rm, rp2);
-        }
-        box.addView(pr);
-        TextView pinfo = text(T.profileInfo(), 13, Pal.dim, false);
-        pinfo.setPadding(0, dp(6), 0, 0);
-        box.addView(pinfo);
-
-        box.addView(label(T.yourName()));
-        EditText name = field(T.yourName(), false);
-        name.setText(app.myName());
-        box.addView(name, new LinearLayout.LayoutParams(-1, -2));
-        dlg.setOnDismissListener(d -> {
-            String n = name.getText().toString().trim();
-            if (!n.equals(app.myName())) {
-                app.prefs.edit().putString("name", n).putLong("profileTs", System.currentTimeMillis()).apply();
-                app.net.profileChanged();
-            }
-        });
+        pc.addView(me, new LinearLayout.LayoutParams(dp(52), dp(52)));
+        LinearLayout pt = new LinearLayout(this);
+        pt.setOrientation(LinearLayout.VERTICAL);
+        pt.setPadding(dp(12), 0, 0, 0);
+        TextView pn = text(app.myName().isEmpty() ? T.yourName() : app.myName(), 17, Pal.text, true);
+        pn.setSingleLine(true);
+        pt.addView(pn);
+        String pron = app.prefs.getString("pronouns", "");
+        pt.addView(text((pron.isEmpty() ? "" : pron + "  ·  ") + (app.prefs.getBoolean("profilePrivate", false) ? T.visPrivate() : T.visPublic()), 13, Pal.dim, false));
+        pc.addView(pt, new LinearLayout.LayoutParams(0, -2, 1f));
+        pc.setOnClickListener(v -> { dlg.dismiss(); editProfile(); });
+        box.addView(pc);
+        TextView ep = outlineButton(T.editProfile(), Pal.accent);
+        ep.setOnClickListener(v -> { dlg.dismiss(); editProfile(); });
+        addRow(box, ep, 8);
 
         box.addView(label(T.language()));
         for (int i = 0; i < T.NAMES.length; i++) {
@@ -818,6 +796,150 @@ public class MainActivity extends Base implements Net.Listener {
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    /** Profil bearbeiten: Bild, Name, Pronomen, Biografie, Sichtbarkeit. */
+    private void editProfile() {
+        Dialog dlg = dialog();
+        settingsDlg = dlg;
+        LinearLayout box = panel();
+        box.addView(text(T.editProfile(), 20, Pal.text, true));
+
+        box.addView(label(T.profilePicture()));
+        LinearLayout pr = new LinearLayout(this);
+        pr.setGravity(Gravity.CENTER_VERTICAL);
+        java.io.File mine = app.myAvatar();
+        Avatar me = new Avatar(app.keys.pubHex(), app.myName().isEmpty() ? "?" : app.myName(), mine != null ? mine.getAbsolutePath() : null);
+        pr.addView(me, new LinearLayout.LayoutParams(dp(64), dp(64)));
+        TextView pick = button(T.choose(), true);
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, -2);
+        pp.setMargins(dp(14), 0, 0, 0);
+        pr.addView(pick, pp);
+        TextView rm = null;
+        if (mine != null) {
+            rm = button(T.remove(), false);
+            LinearLayout.LayoutParams rp2 = new LinearLayout.LayoutParams(-2, -2);
+            rp2.setMargins(dp(8), 0, 0, 0);
+            pr.addView(rm, rp2);
+        }
+        box.addView(pr);
+
+        box.addView(label(T.yourName()));
+        EditText name = field(T.yourName(), false);
+        name.setText(app.myName());
+        box.addView(name, new LinearLayout.LayoutParams(-1, -2));
+
+        box.addView(label(T.pronouns()));
+        EditText pron = field(T.pronounsHint(), false);
+        pron.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        pron.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
+        pron.setText(app.prefs.getString("pronouns", ""));
+        box.addView(pron, new LinearLayout.LayoutParams(-1, -2));
+
+        box.addView(label(T.bio()));
+        EditText bio = field(T.bioHint(), true);
+        bio.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        bio.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(500)});
+        bio.setMinLines(3);
+        bio.setText(app.prefs.getString("bio", ""));
+        box.addView(bio, new LinearLayout.LayoutParams(-1, -2));
+
+        // Sichtbarkeit
+        box.addView(label(T.visibility()));
+        final boolean[] priv = {app.prefs.getBoolean("profilePrivate", false)};
+        java.util.Set<String> allowed = new java.util.HashSet<>(app.prefs.getStringSet("profileAllowed", java.util.Collections.emptySet()));
+        LinearLayout people = new LinearLayout(this);
+        people.setOrientation(LinearLayout.VERTICAL);
+        Ico rPub = new Ico(this, Ico.RADIO), rPriv = new Ico(this, Ico.RADIO);
+        Runnable showVis = () -> {
+            rPub.on = !priv[0];
+            rPriv.on = priv[0];
+            rPub.invalidate();
+            rPriv.invalidate();
+            people.setVisibility(priv[0] ? View.VISIBLE : View.GONE);
+        };
+        box.addView(radioRow(rPub, T.visPublic(), T.visPublicInfo(), v -> { priv[0] = false; showVis.run(); }));
+        box.addView(radioRow(rPriv, T.visPrivate(), T.visPrivateInfo(), v -> { priv[0] = true; showVis.run(); }));
+        List<Db.Contact> cs = app.db.contacts();
+        if (cs.isEmpty()) people.addView(text(T.noChats().split("\n")[0], 14, Pal.dim, false));
+        for (Db.Contact c : cs) {
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(8), dp(6), 0, dp(6));
+            row.addView(new Avatar(c.pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar), new LinearLayout.LayoutParams(dp(32), dp(32)));
+            TextView cn = text(app.nameOf(c.pub), 15, Pal.text, false);
+            cn.setPadding(dp(10), 0, 0, 0);
+            cn.setSingleLine(true);
+            row.addView(cn, new LinearLayout.LayoutParams(0, -2, 1f));
+            Ico tg = new Ico(this, Ico.TOGGLE);
+            tg.on = allowed.contains(c.pub);
+            row.addView(tg, new LinearLayout.LayoutParams(dp(52), dp(36)));
+            row.setOnClickListener(v -> {
+                if (allowed.contains(c.pub)) allowed.remove(c.pub); else allowed.add(c.pub);
+                tg.on = allowed.contains(c.pub);
+                tg.invalidate();
+            });
+            tg.setOnClickListener(v -> row.performClick());
+            people.addView(row);
+        }
+        box.addView(people);
+        showVis.run();
+
+        // Speichern (auch vor dem Bildwechsel, damit nichts verloren geht)
+        Runnable save = () -> {
+            String n = name.getText().toString().trim(), p = pron.getText().toString().trim(), b = bio.getText().toString().trim();
+            boolean changed = !n.equals(app.myName()) || !p.equals(app.prefs.getString("pronouns", ""))
+                    || !b.equals(app.prefs.getString("bio", "")) || priv[0] != app.prefs.getBoolean("profilePrivate", false)
+                    || !allowed.equals(app.prefs.getStringSet("profileAllowed", java.util.Collections.emptySet()));
+            if (!changed) return;
+            app.prefs.edit().putString("name", n).putString("pronouns", p).putString("bio", b)
+                    .putBoolean("profilePrivate", priv[0]).putStringSet("profileAllowed", new java.util.HashSet<>(allowed))
+                    .putLong("profileTs", System.currentTimeMillis()).apply();
+            app.net.profileChanged();
+        };
+        pick.setOnClickListener(v -> {
+            save.run();
+            try {
+                startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE), REQ_AVATAR);
+            } catch (Exception e) { toast(T.noApp()); }
+        });
+        if (rm != null) rm.setOnClickListener(v -> {
+            save.run();
+            mine.delete();
+            app.prefs.edit().remove("avatar").putLong("profileTs", System.currentTimeMillis()).apply();
+            app.net.profileChanged();
+            dlg.dismiss();
+            refresh();
+            editProfile();
+        });
+
+        TextView info = text(T.profileInfo(), 13, Pal.dim, false);
+        info.setPadding(0, dp(14), 0, 0);
+        box.addView(info);
+        LinearLayout buttons = buttonRow();
+        TextView cancel = button(T.cancel(), false);
+        cancel.setOnClickListener(v -> dlg.dismiss());
+        addTo(buttons, cancel, true);
+        TextView ok = button(T.save(), true);
+        ok.setOnClickListener(v -> { save.run(); dlg.dismiss(); refresh(); });
+        addTo(buttons, ok, false);
+        addRow(box, buttons, 18);
+        showScrollDialog(dlg, box);
+    }
+
+    private View radioRow(Ico radio, String title, String info, View.OnClickListener click) {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(0, dp(4), 0, dp(4));
+        r.addView(radio, new LinearLayout.LayoutParams(dp(36), dp(42)));
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.addView(text(title, 16, Pal.text, false));
+        t.addView(text(info, 13, Pal.dim, false));
+        r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        r.setOnClickListener(click);
+        radio.setOnClickListener(click);
+        return r;
     }
 
     /** Zeile mit Schalter für eine Einstellung (Standard an). */

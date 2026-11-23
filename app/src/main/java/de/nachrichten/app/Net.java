@@ -377,6 +377,7 @@ final class Net {
 
     /** Ich tippe gerade (höchstens alle 3 Sekunden, flüchtig). */
     void typing(String peer) {
+        // (wird erst ab 2 Zeichen aufgerufen)
         long now = System.currentTimeMillis();
         if (now - lastTypingSent < 3000 || !app.prefs.getBoolean("typing", true)) return;
         lastTypingSent = now;
@@ -429,7 +430,10 @@ final class Net {
             } catch (Exception e) { return; }
         }
         if (c.avatar != null) new java.io.File(c.avatar).delete();
-        app.db.setAvatar(peer, path, ts);
+        String bio = env.optString("bio").trim(), pron = env.optString("pron").trim();
+        if (bio.length() > 500) bio = bio.substring(0, 500);
+        if (pron.length() > 40) pron = pron.substring(0, 40);
+        app.db.setProfile(peer, path, ts, bio.isEmpty() ? null : bio, pron.isEmpty() ? null : pron);
         String name = env.optString("name").trim();
         if (name.length() > 40) name = name.substring(0, 40);
         if ((c.name == null || c.name.trim().isEmpty()) && !name.isEmpty()) app.db.rename(peer, name);
@@ -442,10 +446,17 @@ final class Net {
         if (ts == 0) return;
         Db.Contact c = app.db.contact(peer);
         if (c == null || c.profileSent >= ts) return;
-        byte[] jpg = null;
-        java.io.File f = app.myAvatar();
-        if (f != null) try { jpg = java.nio.file.Files.readAllBytes(f.toPath()); } catch (Exception ignored) { }
-        Event e = event(peer, Proto.profile(ts, app.myName(), jpg), System.currentTimeMillis());
+        String plain;
+        if (app.profileVisibleTo(peer)) {
+            byte[] jpg = null;
+            java.io.File f = app.myAvatar();
+            if (f != null) try { jpg = java.nio.file.Files.readAllBytes(f.toPath()); } catch (Exception ignored) { }
+            plain = Proto.profile(ts, app.myName(), jpg, app.prefs.getString("bio", ""), app.prefs.getString("pronouns", ""));
+        } else {
+            // privat und nicht ausgewählt: leeres Profil (löscht ein früher geschicktes)
+            plain = Proto.profile(ts, "", null, "", "");
+        }
+        Event e = event(peer, plain, System.currentTimeMillis());
         seen.add(e.id);
         String raw = e.toJson();
         app.db.addOutbox(e.id, "profile:" + peer, raw, 0);

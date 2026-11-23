@@ -81,6 +81,12 @@ public final class App extends Application {
         return f.isFile() ? f : null;
     }
 
+    /** Darf dieser Kontakt mein Profil (Bild, Biografie, Pronomen) sehen? */
+    boolean profileVisibleTo(String pub) {
+        if (!prefs.getBoolean("profilePrivate", false)) return true;
+        return prefs.getStringSet("profileAllowed", java.util.Collections.emptySet()).contains(pub);
+    }
+
     String myName() { return prefs.getString("name", ""); }
 
     boolean background() { return prefs.getBoolean("bg", true); }

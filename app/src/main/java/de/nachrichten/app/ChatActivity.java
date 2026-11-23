@@ -158,7 +158,7 @@ public class ChatActivity extends Base implements Net.Listener {
         header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(48)));
         Db.Contact c = app.db.contact(peer);
         Avatar av = new Avatar(peer, c != null && c.name != null && !c.name.isEmpty() ? c.name : "?", c != null ? c.avatar : null);
-        av.setOnClickListener(v -> { if (c != null && c.avatar != null) showBigAvatar(c.avatar); else contactMenu(); });
+        av.setOnClickListener(v -> showProfile(peer, false));
         header.addView(av, new LinearLayout.LayoutParams(dp(38), dp(38)));
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
@@ -261,7 +261,7 @@ public class ChatActivity extends Base implements Net.Listener {
             public void onTextChanged(CharSequence s, int a, int b, int c) { }
             public void afterTextChanged(Editable s) {
                 boolean on = s.toString().trim().length() > 0;
-                if (on) app.net.typing(peer);
+                if (s.toString().trim().length() >= 2) app.net.typing(peer);
                 if (on != send.on) { send.on = on; send.invalidate(); }
             }
         });
