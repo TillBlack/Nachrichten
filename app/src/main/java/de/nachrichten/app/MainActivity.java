@@ -63,6 +63,7 @@ public class MainActivity extends Base implements Net.Listener {
             app.applyBackground();
             refresh();
             Updater.checkOnStart(this);
+            Updater.offerHelper(this);
         }
     }
 
@@ -739,6 +740,12 @@ public class MainActivity extends Base implements Net.Listener {
             showDialog(k, kb);
         });
         box.addView(show, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView gh = outlineButton(T.github(), Pal.accent);
+        gh.setOnClickListener(v -> {
+            try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/TillBlack"))); } catch (Exception e) { toast(T.noApp()); }
+        });
+        addRow(box, gh, 24);
 
         LinearLayout buttons = buttonRow();
         TextView close = button(T.close(), true);

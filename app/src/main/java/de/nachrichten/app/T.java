@@ -155,6 +155,15 @@ final class T {
             "\"Actualizar\" la descarga en el navegador. Luego abre el archivo y toca Instalar.",
             "\"Обновить\" скачает её в браузере. Затем открой файл и нажми Установить.",
             "\"Ažuriraj\" je preuzima u pregledniku. Zatim otvori preuzetu datoteku i dodirni Instaliraj."); }
+    static String helperTitle() { return s("Install Updater too?", "Updater mitinstallieren?", "¿Instalar también Updater?", "Установить ещё Updater?", "Instalirati i Updater?"); }
+    static String helperText() { return s(
+            "Updater is a small helper by the same developer. With it, updates are installed with one tap right from the app, without the browser. It only updates TillBlack's apps and never installs anything without asking.",
+            "Updater ist ein kleiner Helfer vom selben Entwickler. Damit werden Updates mit einem Tipp direkt aus der App installiert, ohne Umweg über den Browser. Er aktualisiert nur Apps von TillBlack und installiert nie etwas ohne Nachfrage.",
+            "Updater es un pequeño ayudante del mismo desarrollador. Con él, las actualizaciones se instalan con un toque desde la app, sin navegador. Solo actualiza apps de TillBlack y nunca instala nada sin preguntar.",
+            "Updater — небольшой помощник от того же разработчика. С ним обновления ставятся одним нажатием прямо из приложения, без браузера. Он обновляет только приложения TillBlack и никогда ничего не ставит без спроса.",
+            "Updater je mali pomoćnik istog razvojnog programera. S njim se ažuriranja instaliraju jednim dodirom izravno iz aplikacije, bez preglednika. Ažurira samo TillBlackove aplikacije i nikad ništa ne instalira bez pitanja."); }
+    static String helperInstall() { return s("Download", "Herunterladen", "Descargar", "Скачать", "Preuzmi"); }
+    static String github() { return s("Developer on GitHub", "Entwickler auf GitHub", "Desarrollador en GitHub", "Разработчик на GitHub", "Razvojni programer na GitHubu"); }
     static String later() { return s("Later", "Später", "Más tarde", "Позже", "Kasnije"); }
     static String updateNow() { return s("Update", "Aktualisieren", "Actualizar", "Обновить", "Ažuriraj"); }
     static String downloading() { return s("Downloading…", "Wird geladen…", "Descargando…", "Загрузка…", "Preuzimanje…"); }

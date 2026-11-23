@@ -285,6 +285,9 @@ abstract class Base extends Activity {
         private android.graphics.Bitmap img;
         private final android.graphics.Path clip = new android.graphics.Path();
 
+        /** Ohne Bild: neutrale Person statt Anfangsbuchstabe. */
+        boolean silhouette = true;
+
         Avatar(String pub, String name) { this(pub, name, null); }
 
         Avatar(String pub, String name, String imagePath) {
@@ -306,6 +309,22 @@ abstract class Base extends Activity {
                 android.graphics.RectF dst = new android.graphics.RectF(w / 2 - r, h / 2 - r, w / 2 + r, h / 2 + r);
                 p.setFilterBitmap(true);
                 c.drawBitmap(img, null, dst, p);
+                c.restore();
+                return;
+            }
+            if (silhouette) {
+                float cx = w / 2, cy = h / 2;
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(0xFF000000);
+                c.drawCircle(cx, cy, r, p);
+                p.setColor(Pal.light ? 0xFFC9CCD0 : 0xFF3A3E42);
+                c.save();
+                clip.reset();
+                clip.addCircle(cx, cy, r, android.graphics.Path.Direction.CW);
+                c.clipPath(clip);
+                c.drawCircle(cx, cy - r * 0.18f, r * 0.36f, p);
+                android.graphics.RectF body = new android.graphics.RectF(cx - r * 0.66f, cy + r * 0.3f, cx + r * 0.66f, cy + r * 1.62f);
+                c.drawOval(body, p);
                 c.restore();
                 return;
             }

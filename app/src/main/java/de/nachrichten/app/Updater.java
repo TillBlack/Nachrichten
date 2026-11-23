@@ -26,6 +26,8 @@ final class Updater {
 
     static final String RELEASE_API = "https://api.github.com/repos/TillBlack/Nachrichten/releases/tags/neueste";
     static final String ASSET = "Nachrichten.apk";
+    static final String HELPER = "de.tillblack.updater";
+    static final String HELPER_APK = "https://github.com/TillBlack/updater/releases/download/neueste/Updater.apk";
     private static boolean checkedThisRun;
 
     static long installedVersion(Context c) {
@@ -34,6 +36,40 @@ final class Updater {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    static boolean helperInstalled(Context c) {
+        try {
+            c.getPackageManager().getPackageInfo(HELPER, 0);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Nach der Installation einmal fragen, ob der Helfer mitinstalliert werden soll. */
+    static void offerHelper(Base a) {
+        if (helperInstalled(a) || a.app.prefs.getBoolean("helperAsked", false)) return;
+        a.app.prefs.edit().putBoolean("helperAsked", true).apply();
+        Dialog dlg = a.dialog();
+        LinearLayout box = a.panel();
+        box.addView(a.text(T.helperTitle(), 19, Pal.text, true));
+        TextView info = a.text(T.helperText(), 15, Pal.dim, false);
+        info.setPadding(0, a.dp(8), 0, 0);
+        info.setLineSpacing(0, 1.15f);
+        box.addView(info);
+        LinearLayout buttons = a.buttonRow();
+        TextView no = a.button(T.later(), false);
+        no.setOnClickListener(v -> dlg.dismiss());
+        a.addTo(buttons, no, true);
+        TextView yes = a.button(T.helperInstall(), true);
+        yes.setOnClickListener(v -> {
+            dlg.dismiss();
+            try { a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(HELPER_APK))); } catch (Exception e) { a.toast(T.noApp()); }
+        });
+        a.addTo(buttons, yes, false);
+        a.addRow(box, buttons, 18);
+        a.showDialog(dlg, box);
     }
 
     /** Einmal pro App-Start prüfen (wenn in den Einstellungen nicht ausgeschaltet). */
@@ -64,7 +100,7 @@ final class Updater {
         Dialog dlg = a.dialog();
         LinearLayout box = a.panel();
         box.addView(a.text(T.updateTitle(), 19, Pal.text, true));
-        TextView info = a.text(T.updateText(version, installedVersion(a)) + "\n\n" + T.updateHow(), 15, Pal.dim, false);
+        TextView info = a.text(T.updateText(version, installedVersion(a)) + (helperInstalled(a) ? "" : "\n\n" + T.updateHow()), 15, Pal.dim, false);
         info.setPadding(0, a.dp(8), 0, 0);
         info.setLineSpacing(0, 1.15f);
         box.addView(info);
@@ -75,6 +111,14 @@ final class Updater {
         TextView go = a.button(T.updateNow(), true);
         go.setOnClickListener(v -> {
             dlg.dismiss();
+            if (helperInstalled(a)) {
+                // der Helfer lädt, prüft und übergibt an Android; danach schließt er sich
+                try {
+                    a.startActivity(new Intent("de.tillblack.updater.INSTALL").setPackage(HELPER)
+                            .putExtra("url", url).putExtra("package", a.getPackageName()).putExtra("name", "Nachrichten"));
+                    return;
+                } catch (Exception ignored) { }
+            }
             try {
                 a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
             } catch (Exception e) {
