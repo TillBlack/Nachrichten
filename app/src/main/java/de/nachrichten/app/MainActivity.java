@@ -319,6 +319,14 @@ public class MainActivity extends Base implements Net.Listener {
     public void onChanged(String peer) { refresh(); }
 
     @Override
+    public void onPresence(String peer) {
+        long now = System.currentTimeMillis();
+        if (now - lastPresenceRefresh > 2000) { lastPresenceRefresh = now; refresh(); }
+    }
+
+    private long lastPresenceRefresh;
+
+    @Override
     public void onStatus() { updateStatus(); }
 
     private void updateStatus() {
@@ -454,7 +462,7 @@ public class MainActivity extends Base implements Net.Listener {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         r.setBackground(round(Pal.bg, 0, 12));
-        Avatar av = new Avatar(c.pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar);
+        View av = avatarWithDot(c.pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar, app.net.isOnline(c.pub), 48);
         av.setOnClickListener(v -> showProfile(c.pub, true));
         r.addView(av, new LinearLayout.LayoutParams(dp(48), dp(48)));
 

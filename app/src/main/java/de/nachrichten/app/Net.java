@@ -36,6 +36,8 @@ final class Net {
         void onStatus();
         /** Kontakt tippt gerade. */
         default void onTyping(String peer) { }
+        /** Kontakt ist gerade online geworden. */
+        default void onPresence(String peer) { }
     }
 
     static final String[] DEFAULT_RELAYS = {
@@ -46,6 +48,8 @@ final class Net {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Map<String, Conn> conns = new ConcurrentHashMap<>();
     private final Set<String> holders = new HashSet<>();
+    private final Map<String, Long> presence = new java.util.concurrent.ConcurrentHashMap<>();
+    private long lastPresenceSent;
     private final List<Listener> listeners = new CopyOnWriteArrayList<>();
     private final Map<String, byte[]> convKeys = new HashMap<>();
     private final Set<String> seen = new HashSet<>();
@@ -78,6 +82,7 @@ final class Net {
     void acquire(String tag) {
         worker.post(() -> {
             holders.add(tag);
+            if ("ui".equals(tag)) lastPresenceSent = 0; // beim Öffnen gleich Präsenz senden
             syncConnections();
         });
     }
@@ -179,6 +184,7 @@ final class Net {
             subscribe(w);
             for (String raw : app.db.pendingRaw()) enqueue("[\"EVENT\"," + raw + "]");
             worker.postDelayed(() -> publishDirectory(false), 4000);
+            worker.postDelayed(this::maybePresence, 3000);
             status();
         }
 
@@ -206,7 +212,29 @@ final class Net {
 
     private void watchdog() {
         for (Conn c : new ArrayList<>(conns.values())) c.pingIfIdle();
+        maybePresence();
         worker.postDelayed(this::watchdog, 25000);
+    }
+
+    /** Alle ~50 s meinen Online-Status an meine Kontakte senden, solange die App offen ist. */
+    private void maybePresence() {
+        if (!holders.contains("ui") || !app.prefs.getBoolean("showOnline", true)) return;
+        long now = System.currentTimeMillis();
+        if (now - lastPresenceSent < 50000) return;
+        lastPresenceSent = now;
+        for (String c : app.db.contactKeys()) {
+            try {
+                Event e = event(c, Proto.presence(), now, Proto.KIND_PRESENCE);
+                seen.add(e.id);
+                broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        }
+    }
+
+    /** Ist dieser Kontakt gerade online (in den letzten 90 s gesehen)? */
+    boolean isOnline(String pub) {
+        Long t = presence.get(pub);
+        return t != null && System.currentTimeMillis() - t < 90000;
     }
 
     private void subscribe(Ws w) {
@@ -216,7 +244,7 @@ final class Net {
         String req = "[\"REQ\",\"dm\","
                 + "{\"kinds\":[4," + Proto.KIND_RECEIPT + "],\"#p\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
                 + "{\"kinds\":[4],\"authors\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
-                + "{\"kinds\":[" + Proto.KIND_TYPING + "],\"#p\":[\"" + me + "\"],\"since\":" + (System.currentTimeMillis() / 1000 - 30) + "}]";
+                + "{\"kinds\":[" + Proto.KIND_TYPING + "," + Proto.KIND_PRESENCE + "],\"#p\":[\"" + me + "\"],\"since\":" + (System.currentTimeMillis() / 1000 - 120) + "}]";
         w.send(req);
     }
 
@@ -252,7 +280,7 @@ final class Net {
 
     private void handleEvent(JSONObject o) throws Exception {
         int kind = o.optInt("kind");
-        if (kind != 4 && kind != Proto.KIND_RECEIPT && kind != Proto.KIND_TYPING) return;
+        if (kind != 4 && kind != Proto.KIND_RECEIPT && kind != Proto.KIND_TYPING && kind != Proto.KIND_PRESENCE) return;
         String id = o.getString("id");
         if (seen.contains(id)) return;
         seen.add(id);
@@ -282,6 +310,14 @@ final class Net {
             long now = System.currentTimeMillis() / 1000;
             if (!outgoing && Math.abs(now - createdAt) < 30 && app.db.contact(peer) != null) {
                 main.post(() -> { for (Listener l : listeners) l.onTyping(peer); });
+            }
+            return;
+        }
+        if (kind == Proto.KIND_PRESENCE) {
+            long now = System.currentTimeMillis() / 1000;
+            if (!outgoing && Math.abs(now - createdAt) < 120 && app.db.contact(peer) != null) {
+                presence.put(peer, System.currentTimeMillis());
+                main.post(() -> { for (Listener l : listeners) l.onPresence(peer); });
             }
             return;
         }

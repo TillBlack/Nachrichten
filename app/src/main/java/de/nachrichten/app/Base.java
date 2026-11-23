@@ -310,6 +310,19 @@ abstract class Base extends Activity {
         showScrollDialog(dlg, box);
     }
 
+    /** Avatar mit grünem Online-Punkt unten rechts (Discord-Stil). */
+    View avatarWithDot(String pub, String name, String path, boolean online, int sizeDp) {
+        FrameLayout f = new FrameLayout(this);
+        f.addView(new Avatar(pub, name, path), new FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp)));
+        if (online) {
+            int ds = Math.max(10, Math.round(sizeDp * 0.30f));
+            View dot = new View(this);
+            dot.setBackground(round(0xFF3FBF6F, Pal.bg, ds / 2));
+            f.addView(dot, new FrameLayout.LayoutParams(dp(ds), dp(ds), Gravity.BOTTOM | Gravity.RIGHT));
+        }
+        return f;
+    }
+
     void bigImage(String path) {
         Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         android.widget.ImageView iv = new android.widget.ImageView(this);
