@@ -82,7 +82,6 @@ public class ChatActivity extends Base implements Net.Listener {
         build();
     }
 
-    @Override
     /** Wurde gerade ein Chat verlassen? (für den Update-Hinweis in der Liste) */
     static boolean justLeft;
 
