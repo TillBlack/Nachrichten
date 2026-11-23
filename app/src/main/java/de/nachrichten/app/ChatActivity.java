@@ -83,7 +83,12 @@ public class ChatActivity extends Base implements Net.Listener {
     }
 
     @Override
+    /** Wurde gerade ein Chat verlassen? (für den Update-Hinweis in der Liste) */
+    static boolean justLeft;
+
+    @Override
     public void finish() {
+        justLeft = true;
         if (isTaskRoot()) startActivity(new Intent(this, MainActivity.class));
         super.finish();
     }

@@ -155,6 +155,15 @@ final class T {
     static String visPrivateInfo() { return s("Only the people you switch on below", "Nur die Leute, die du unten einschaltest", "Solo las personas que actives abajo", "Только те, кого ты включишь ниже", "Samo osobe koje uključiš ispod"); }
     static String openChat() { return s("Chat", "Chat", "Chat", "Чат", "Razgovor"); }
 
+    static String tapToUpdate() { return s("Tap to update", "Zum Aktualisieren antippen", "Toca para actualizar", "Нажми, чтобы обновить", "Dodirni za ažuriranje"); }
+    static String autoUpdates() { return s("Automatic updates", "Automatische Updates", "Actualizaciones automáticas", "Автообновления", "Automatska ažuriranja"); }
+    static String autoUpdatesInfo(long v) { return s(
+            "Checks GitHub when you open the app and each time you leave a chat. A small hint appears until you update. Installed version: " + v,
+            "Sucht beim Öffnen der App und jedes Mal, wenn du einen Chat verlässt, auf GitHub nach Updates. Ein kleiner Hinweis erscheint, bis du aktualisierst. Installierte Version: " + v,
+            "Busca en GitHub al abrir la app y cada vez que sales de un chat. Aparece un aviso hasta que actualices. Versión instalada: " + v,
+            "Проверяет GitHub при открытии и каждый раз, когда выходишь из чата. Подсказка появляется, пока не обновишь. Установлена версия: " + v,
+            "Provjerava GitHub pri otvaranju i svaki put kad izađeš iz razgovora. Mala obavijest pojavljuje se dok ne ažuriraš. Instalirana verzija: " + v); }
+
     // Updates
     static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }
     static String updateText(long v, long cur) { return s(

@@ -87,18 +87,24 @@ final class Updater {
         a.showDialog(dlg, box);
     }
 
-    /** Bei jedem Öffnen prüfen, höchstens alle 10 Minuten (wenn in den Einstellungen nicht ausgeschaltet). */
-    static void checkOnStart(Base a) {
+    interface Found { void found(long version, String url); }
+
+    private static long cachedVersion, cachedAt;
+    private static String cachedUrl;
+
+    /** Fragt GitHub (mit kurzem Zwischenspeicher, damit das Limit von GitHub nicht erreicht wird). */
+    private static void fetch(Base a, long maxAgeMs, Found f) {
         long now = System.currentTimeMillis();
-        if (now - lastCheck < 10 * 60 * 1000L || !a.app.prefs.getBoolean("updates", true)) return;
-        lastCheck = now;
+        if (cachedAt > 0 && now - cachedAt < maxAgeMs) {
+            if (cachedUrl != null && cachedVersion > installedVersion(a)) f.found(cachedVersion, cachedUrl);
+            return;
+        }
         new Thread(() -> {
             try {
                 JSONObject rel = new JSONObject(new String(get(RELEASE_API, 200_000), "UTF-8"));
                 Matcher m = Pattern.compile("versionCode\\s*=\\s*(\\d+)").matcher(rel.optString("body"));
                 if (!m.find()) return;
                 long latest = Long.parseLong(m.group(1));
-                if (latest <= installedVersion(a)) return;
                 String url = null;
                 JSONArray assets = rel.optJSONArray("assets");
                 if (assets != null) for (int i = 0; i < assets.length(); i++) {
@@ -106,13 +112,33 @@ final class Updater {
                     if (ASSET.equals(as.optString("name"))) url = as.optString("browser_download_url");
                 }
                 if (url == null || !url.startsWith("https://github.com/")) return;
+                cachedVersion = latest;
+                cachedUrl = url;
+                cachedAt = System.currentTimeMillis();
+                if (latest <= installedVersion(a)) return;
                 String dl = url;
-                a.runOnUiThread(() -> { if (!a.isFinishing()) offer(a, latest, dl); });
+                a.runOnUiThread(() -> { if (!a.isFinishing()) f.found(latest, dl); });
             } catch (Exception ignored) { }
         }).start();
     }
 
-    private static void offer(Base a, long version, String url) {
+    static boolean enabled(Base a) { return a.app.prefs.getBoolean("updates", true); }
+
+    /** Beim Öffnen der App: großes Fenster (höchstens alle 10 Minuten). */
+    static void checkOnStart(Base a) {
+        long now = System.currentTimeMillis();
+        if (now - lastCheck < 10 * 60 * 1000L || !enabled(a)) return;
+        lastCheck = now;
+        fetch(a, 0, (v, u) -> offer(a, v, u));
+    }
+
+    /** Nach dem Verlassen eines Chats: kleiner Hinweis unten rechts (kommt immer wieder, bis aktualisiert oder ausgeschaltet). */
+    static void checkAfterChat(MainActivity a) {
+        if (!enabled(a)) return;
+        fetch(a, 2 * 60 * 1000L, (v, u) -> a.updateHint(v, () -> offer(a, v, u)));
+    }
+
+    static void offer(Base a, long version, String url) {
         Dialog dlg = a.dialog();
         LinearLayout box = a.panel();
         box.addView(a.text(T.updateTitle(), 19, Pal.text, true));

@@ -62,7 +62,12 @@ public class MainActivity extends Base implements Net.Listener {
             app.net.acquire("ui");
             app.applyBackground();
             refresh();
-            Updater.checkOnStart(this);
+            if (ChatActivity.justLeft) {
+                ChatActivity.justLeft = false;
+                Updater.checkAfterChat(this);
+            } else {
+                Updater.checkOnStart(this);
+            }
             Updater.offerHelper(this);
         }
     }
@@ -208,6 +213,14 @@ public class MainActivity extends Base implements Net.Listener {
         set.setContentDescription(T.settings());
         set.setOnClickListener(v -> openSettings());
         header.addView(set, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        java.io.File mine = app.myAvatar();
+        Avatar me = new Avatar(app.keys.has() ? app.keys.pubHex() : "x", "?", mine != null ? mine.getAbsolutePath() : null);
+        me.setContentDescription(T.profile());
+        me.setOnClickListener(v -> editProfile());
+        FrameLayout meBox = new FrameLayout(this);
+        meBox.addView(me, new FrameLayout.LayoutParams(dp(32), dp(32), Gravity.CENTER));
+        meBox.setOnClickListener(v -> editProfile());
+        header.addView(meBox, new LinearLayout.LayoutParams(dp(48), dp(48)));
         col.addView(header);
 
         scroll = new ScrollView(this);
@@ -227,6 +240,40 @@ public class MainActivity extends Base implements Net.Listener {
         fab.setOnClickListener(v -> addContactMenu());
         root.addView(fab, new FrameLayout.LayoutParams(dp(62), dp(62), Gravity.BOTTOM | Gravity.RIGHT));
         onInsets();
+    }
+
+    private View hint;
+
+    /** Kleiner Update-Hinweis unten rechts, verschwindet nach 3 Sekunden von selbst. */
+    void updateHint(long version, Runnable open) {
+        if (onboarding || fab == null) return;
+        if (hint != null) root.removeView(hint);
+        LinearLayout h = new LinearLayout(this);
+        h.setOrientation(LinearLayout.VERTICAL);
+        h.setBackground(round(Pal.card, Pal.accent, 12));
+        h.setPadding(dp(14), dp(10), dp(14), dp(10));
+        h.setElevation(dp(8));
+        h.addView(text(T.updateTitle() + " (" + version + ")", 14, Pal.text, true));
+        h.addView(text(T.tapToUpdate(), 12, Pal.dim, false));
+        h.setOnClickListener(v -> {
+            root.removeView(h);
+            hint = null;
+            open.run();
+        });
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.RIGHT);
+        lp.setMargins(0, 0, dp(16), insetBottom + dp(96));
+        root.addView(h, lp);
+        hint = h;
+        h.setAlpha(0f);
+        h.setTranslationY(dp(16));
+        h.animate().alpha(1f).translationY(0).setDuration(200).start();
+        h.postDelayed(() -> {
+            if (hint != h) return;
+            h.animate().alpha(0f).translationY(dp(16)).setDuration(250).withEndAction(() -> {
+                root.removeView(h);
+                if (hint == h) hint = null;
+            }).start();
+        }, 3000);
     }
 
     @Override
@@ -368,6 +415,8 @@ public class MainActivity extends Base implements Net.Listener {
                 runOnUiThread(() -> {
                     if (!ok) toast(T.readError());
                     if (settingsDlg != null) settingsDlg.dismiss();
+                    buildList();
+                    root.requestApplyInsets();
                     refresh();
                     editProfile();
                 });
@@ -509,29 +558,6 @@ public class MainActivity extends Base implements Net.Listener {
         box.addView(text(T.settings(), 20, Pal.text, true));
 
         settingsDlg = dlg;
-        box.addView(label(T.profile()));
-        LinearLayout pc = new LinearLayout(this);
-        pc.setGravity(Gravity.CENTER_VERTICAL);
-        pc.setBackground(round(Pal.field, Pal.line, 12));
-        pc.setPadding(dp(12), dp(12), dp(12), dp(12));
-        java.io.File mine = app.myAvatar();
-        Avatar me = new Avatar(app.keys.pubHex(), app.myName().isEmpty() ? "?" : app.myName(), mine != null ? mine.getAbsolutePath() : null);
-        pc.addView(me, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        LinearLayout pt = new LinearLayout(this);
-        pt.setOrientation(LinearLayout.VERTICAL);
-        pt.setPadding(dp(12), 0, 0, 0);
-        TextView pn = text(app.myName().isEmpty() ? T.yourName() : app.myName(), 17, Pal.text, true);
-        pn.setSingleLine(true);
-        pt.addView(pn);
-        String pron = app.prefs.getString("pronouns", "");
-        pt.addView(text((pron.isEmpty() ? "" : pron + "  ·  ") + (app.prefs.getBoolean("profilePrivate", false) ? T.visPrivate() : T.visPublic()), 13, Pal.dim, false));
-        pc.addView(pt, new LinearLayout.LayoutParams(0, -2, 1f));
-        pc.setOnClickListener(v -> { dlg.dismiss(); editProfile(); });
-        box.addView(pc);
-        TextView ep = outlineButton(T.editProfile(), Pal.accent);
-        ep.setOnClickListener(v -> { dlg.dismiss(); editProfile(); });
-        addRow(box, ep, 8);
-
         box.addView(label(T.language()));
         for (int i = 0; i < T.NAMES.length; i++) {
             final int k = i;
@@ -618,7 +644,7 @@ public class MainActivity extends Base implements Net.Listener {
         LinearLayout up = new LinearLayout(this);
         up.setGravity(Gravity.CENTER_VERTICAL);
         up.setPadding(0, dp(18), 0, 0);
-        up.addView(text(T.autoUpdate(), 16, Pal.text, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        up.addView(text(T.autoUpdates(), 16, Pal.text, false), new LinearLayout.LayoutParams(0, -2, 1f));
         Ico updToggle = new Ico(this, Ico.TOGGLE);
         updToggle.on = app.prefs.getBoolean("updates", true);
         up.addView(updToggle, new LinearLayout.LayoutParams(dp(52), dp(40)));
@@ -630,7 +656,7 @@ public class MainActivity extends Base implements Net.Listener {
         });
         updToggle.setOnClickListener(v -> up.performClick());
         box.addView(up);
-        TextView uti = text(T.autoUpdateInfo(Updater.installedVersion(this)), 13, Pal.dim, false);
+        TextView uti = text(T.autoUpdatesInfo(Updater.installedVersion(this)), 13, Pal.dim, false);
         uti.setPadding(0, dp(4), 0, 0);
         box.addView(uti);
 
@@ -695,36 +721,6 @@ public class MainActivity extends Base implements Net.Listener {
         });
         box.addView(reset);
 
-        // Sicherung
-        box.addView(label(T.backup()));
-        TextView bi = text(T.backupInfo(), 13, Pal.dim, false);
-        bi.setPadding(0, 0, 0, dp(8));
-        box.addView(bi);
-        TextView show = outlineButton(T.showKey(), Pal.red);
-        show.setOnClickListener(v -> {
-            Dialog k = dialog();
-            LinearLayout kb = panel();
-            kb.addView(text(T.backup(), 19, Pal.text, true));
-            TextView warn = text(T.backupInfo(), 14, Pal.red, false);
-            warn.setPadding(0, dp(8), 0, dp(12));
-            kb.addView(warn);
-            TextView ks = text(app.keys.nsec(), 14, Pal.text, false);
-            ks.setTypeface(Typeface.MONOSPACE);
-            ks.setTextIsSelectable(true);
-            ks.setBackground(round(Pal.field, Pal.line, 10));
-            ks.setPadding(dp(12), dp(10), dp(12), dp(10));
-            kb.addView(ks);
-            LinearLayout kbtn = buttonRow();
-            TextView kc = button(T.close(), false);
-            kc.setOnClickListener(x -> k.dismiss());
-            addTo(kbtn, kc, true);
-            TextView kcopy = button(T.copy(), true);
-            kcopy.setOnClickListener(x -> copy(app.keys.nsec()));
-            addTo(kbtn, kcopy, false);
-            addRow(kb, kbtn, 18);
-            showDialog(k, kb);
-        });
-        box.addView(show, new LinearLayout.LayoutParams(-1, -2));
 
         TextView gh = outlineButton(T.github(), Pal.accent);
         gh.setOnClickListener(v -> {
@@ -909,6 +905,8 @@ public class MainActivity extends Base implements Net.Listener {
             app.prefs.edit().remove("avatar").putLong("profileTs", System.currentTimeMillis()).apply();
             app.net.profileChanged();
             dlg.dismiss();
+            buildList();
+            root.requestApplyInsets();
             refresh();
             editProfile();
         });
@@ -916,12 +914,50 @@ public class MainActivity extends Base implements Net.Listener {
         TextView info = text(T.profileInfo(), 13, Pal.dim, false);
         info.setPadding(0, dp(14), 0, 0);
         box.addView(info);
+
+        // Mein Code
+        box.addView(label(T.myCode()));
+        TextView code = outlineButton(T.myCode(), Pal.accent);
+        code.setOnClickListener(v -> showMyCode());
+        box.addView(code, new LinearLayout.LayoutParams(-1, -2));
+
+        // Sicherung
+        box.addView(label(T.backup()));
+        TextView bi = text(T.backupInfo(), 13, Pal.dim, false);
+        bi.setPadding(0, 0, 0, dp(8));
+        box.addView(bi);
+        TextView show = outlineButton(T.showKey(), Pal.red);
+        show.setOnClickListener(v -> {
+            Dialog k = dialog();
+            LinearLayout kb = panel();
+            kb.addView(text(T.backup(), 19, Pal.text, true));
+            TextView warn = text(T.backupInfo(), 14, Pal.red, false);
+            warn.setPadding(0, dp(8), 0, dp(12));
+            kb.addView(warn);
+            TextView ks = text(app.keys.nsec(), 14, Pal.text, false);
+            ks.setTypeface(Typeface.MONOSPACE);
+            ks.setTextIsSelectable(true);
+            ks.setBackground(round(Pal.field, Pal.line, 10));
+            ks.setPadding(dp(12), dp(10), dp(12), dp(10));
+            kb.addView(ks);
+            LinearLayout kbtn = buttonRow();
+            TextView kc = button(T.close(), false);
+            kc.setOnClickListener(x -> k.dismiss());
+            addTo(kbtn, kc, true);
+            TextView kcopy = button(T.copy(), true);
+            kcopy.setOnClickListener(x -> copy(app.keys.nsec()));
+            addTo(kbtn, kcopy, false);
+            addRow(kb, kbtn, 18);
+            showDialog(k, kb);
+        });
+        box.addView(show, new LinearLayout.LayoutParams(-1, -2));
+
         LinearLayout buttons = buttonRow();
         TextView cancel = button(T.cancel(), false);
         cancel.setOnClickListener(v -> dlg.dismiss());
         addTo(buttons, cancel, true);
         TextView ok = button(T.save(), true);
-        ok.setOnClickListener(v -> { save.run(); dlg.dismiss(); refresh(); });
+        ok.setOnClickListener(v -> { save.run(); dlg.dismiss(); buildList(); root.requestApplyInsets(); refresh(); });
         addTo(buttons, ok, false);
         addRow(box, buttons, 18);
         showScrollDialog(dlg, box);
