@@ -428,16 +428,20 @@ public class ChatActivity extends Base implements Net.Listener {
         }
 
         if (m.kind == Db.TEXT) {
-            TextView body = text(m.body, 16, textColor, false);
+            MsgText body = new MsgText(this, maxW - dp(24));
+            body.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            body.setTextColor(textColor);
             body.setLineSpacing(0, 1.1f);
-            body.setAutoLinkMask(android.text.util.Linkify.WEB_URLS);
-            body.setLinkTextColor(Pal.accent);
-            body.setMaxWidth(maxW - dp(24));
-            b.addView(body);
+            body.setLinkTextColor(m.outgoing ? (Pal.light ? 0xFF1B5E4F : 0xFF8FE0CB) : Pal.accent);
+            android.text.SpannableString sp = new android.text.SpannableString(m.body);
+            android.text.util.Linkify.addLinks(sp, android.text.util.Linkify.WEB_URLS);
+            body.setText(sp, TextView.BufferType.SPANNABLE);
+            body.setOnLongClickListener(v -> { messageMenu(m); return true; });
+            b.addView(body, new LinearLayout.LayoutParams(-2, -2));
         } else if (!m.complete()) {
             TextView t = text(T.receiving() + " " + (m.kind == Db.IMAGE ? T.photo() : T.fileLabel())
                     + "  " + Math.min(m.have, m.total) + "/" + Math.max(1, m.total), 14, metaColor, false);
-            b.addView(t);
+            b.addView(t, new LinearLayout.LayoutParams(-2, -2));
         } else if (m.kind == Db.IMAGE) {
             ImageView iv = new ImageView(this);
             Bitmap bm = thumb(m.filePath, maxW - dp(8));
@@ -453,7 +457,7 @@ public class ChatActivity extends Base implements Net.Listener {
                 iv.setClipToOutline(true);
                 b.addView(iv, new LinearLayout.LayoutParams(w, h));
             } else {
-                b.addView(text(T.photo(), 15, textColor, false));
+                b.addView(text(T.photo(), 15, textColor, false), new LinearLayout.LayoutParams(-2, -2));
             }
             iv.setOnClickListener(v -> viewImage(m));
             iv.setOnLongClickListener(v -> { messageMenu(m); return true; });
@@ -475,7 +479,7 @@ public class ChatActivity extends Base implements Net.Listener {
             f.addView(ft);
             f.setOnClickListener(v -> openFile(m));
             f.setOnLongClickListener(v -> { messageMenu(m); return true; });
-            b.addView(f);
+            b.addView(f, new LinearLayout.LayoutParams(-2, -2));
         }
 
         LinearLayout meta = new LinearLayout(this);
