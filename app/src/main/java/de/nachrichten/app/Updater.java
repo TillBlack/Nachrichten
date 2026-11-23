@@ -256,7 +256,7 @@ final class Updater {
         TextView go = a.button(T.updateNow(), true);
         go.setOnClickListener(v -> {
             dlg.dismiss();
-            if (obtainium(a)) openObtainium(a);
+            if (obtainium(a)) { openObtainium(a); Notifs.updateHint(a.app); }
             else offerHelper(a, url, version);
         });
         a.addTo(buttons, go, false);

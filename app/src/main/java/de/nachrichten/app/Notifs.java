@@ -60,6 +60,19 @@ final class Notifs {
         app.getSystemService(NotificationManager.class).notify(peer.hashCode(), n);
     }
 
+    static void updateHint(App app) {
+        if (!allowed(app)) return;
+        Notification n = new Notification.Builder(app, CH_MSG)
+                .setSmallIcon(R.drawable.ic_notify)
+                .setContentTitle("Nachrichten")
+                .setContentText(T.updateNotif())
+                .setStyle(new Notification.BigTextStyle().bigText(T.updateNotif()))
+                .setAutoCancel(true)
+                .setTimeoutAfter(60000)
+                .build();
+        app.getSystemService(NotificationManager.class).notify(777, n);
+    }
+
     static void clear(Context c, String peer) {
         c.getSystemService(NotificationManager.class).cancel(peer.hashCode());
     }

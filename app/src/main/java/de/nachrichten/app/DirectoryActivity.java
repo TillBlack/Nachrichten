@@ -125,19 +125,10 @@ public class DirectoryActivity extends Base implements Net.DirListener {
     private void render() {
         list.removeAllViews();
         List<Net.DirEntry> all = new ArrayList<>(entries.values());
-        all.sort((a, b) -> Long.compare(b.seen, a.seen));
-        long now = System.currentTimeMillis() / 1000;
-        int online = 0;
-        for (Net.DirEntry e : all) if (e.showStatus && now - e.seen < 300) online++;
-        status.setText(all.isEmpty() ? (loaded ? T.dirEmpty() : T.dirLoading()) : T.dirCount(all.size(), online));
-        // Online zuerst, dann nach letzter Aktivität; Leute ohne Status ans Ende
-        all.sort((a, b) -> {
-            boolean oa = a.showStatus && now - a.seen < 300, ob = b.showStatus && now - b.seen < 300;
-            if (oa != ob) return oa ? -1 : 1;
-            if (a.showStatus != b.showStatus) return a.showStatus ? -1 : 1;
-            return Long.compare(b.seen, a.seen);
-        });
-        for (Net.DirEntry e : all) list.addView(row(e, e.showStatus && now - e.seen < 300));
+        all.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
+        int total = all.size() + (app.selfListed() ? 1 : 0);
+        status.setText(all.isEmpty() ? (loaded ? T.dirEmpty() : T.dirLoading()) : T.discoverCount(total));
+        for (Net.DirEntry e : all) list.addView(row(e));
     }
 
     private String thumbPath(Net.DirEntry e) {
@@ -149,18 +140,11 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         return f.getAbsolutePath();
     }
 
-    private View row(Net.DirEntry e, boolean online) {
+    private View row(Net.DirEntry e) {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
-        FrameLayout avBox = new FrameLayout(this);
-        avBox.addView(new Avatar(e.pub, e.name, thumbPath(e)), new FrameLayout.LayoutParams(dp(48), dp(48)));
-        if (online) {
-            View dot = new View(this);
-            dot.setBackground(round(0xFF3FBF6F, Pal.bg, 7));
-            avBox.addView(dot, new FrameLayout.LayoutParams(dp(14), dp(14), Gravity.BOTTOM | Gravity.RIGHT));
-        }
-        r.addView(avBox, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        r.addView(new Avatar(e.pub, e.name, thumbPath(e)), new LinearLayout.LayoutParams(dp(48), dp(48)));
 
         LinearLayout mid = new LinearLayout(this);
         mid.setOrientation(LinearLayout.VERTICAL);
@@ -171,7 +155,6 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         n.setSingleLine(true);
         n.setEllipsize(TextUtils.TruncateAt.END);
         top.addView(n, new LinearLayout.LayoutParams(0, -2, 1f));
-        top.addView(text(online ? T.online() : e.showStatus ? shortWhen(e.seen * 1000) : "", 12, online ? 0xFF3FBF6F : Pal.dim, false));
         mid.addView(top);
         String sub = (e.pronouns.isEmpty() ? "" : e.pronouns + (e.bio.isEmpty() ? "" : "  ·  ")) + e.bio.replace('\n', ' ');
         if (!sub.isEmpty()) {

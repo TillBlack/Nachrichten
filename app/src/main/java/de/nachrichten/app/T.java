@@ -235,6 +235,30 @@ final class T {
     static String helpWrite() { return s("Message the developer", "Entwickler anschreiben", "Escribir al desarrollador", "Написать разработчику", "Piši programeru"); }
     static String developer() { return s("Developer", "Entwickler", "Desarrollador", "Разработчик", "Programer"); }
 
+    static String updateNotif() { return s(
+            "If it doesn't update automatically, please open Obtainium manually and try there.",
+            "Falls es nicht automatisch aktualisiert, öffne bitte Obtainium manuell und versuch es dort.",
+            "Si no se actualiza solo, abre Obtainium manualmente e inténtalo allí.",
+            "Если не обновляется само, открой Obtainium вручную и попробуй там.",
+            "Ako se ne ažurira samo, otvori Obtainium ručno i pokušaj ondje."); }
+    static String shareApp() { return s("Share app", "App teilen", "Compartir app", "Поделиться", "Podijeli app"); }
+    static String shareAppText() { return s(
+            "Nachrichten – an encrypted messenger without a server. Install it here:",
+            "Nachrichten – ein verschlüsselter Messenger ohne Server. Hier installieren:",
+            "Nachrichten – un mensajero cifrado sin servidor. Instálalo aquí:",
+            "Nachrichten – зашифрованный мессенджер без сервера. Установи здесь:",
+            "Nachrichten – šifrirani messenger bez servera. Instaliraj ovdje:"); }
+    static String tNext() { return s("Next", "Weiter", "Siguiente", "Далее", "Dalje"); }
+    static String tBack() { return s("Back", "Zurück", "Atrás", "Назад", "Natrag"); }
+    static String tDone() { return s("Got it", "Verstanden", "Entendido", "Понятно", "Jasno"); }
+    static String tSkip() { return s("Skip", "Überspringen", "Saltar", "Пропустить", "Preskoči"); }
+    static String tuDiscover() { return s("See everyone using the app.", "Sieh alle, die die App nutzen.", "Mira a todos los que usan la app.", "Смотри всех, кто пользуется приложением.", "Vidi sve koji koriste aplikaciju."); }
+    static String tuAdd() { return s("Add a contact by QR code or text code.", "Füge einen Kontakt per QR-Code oder Textcode hinzu.", "Añade un contacto por QR o código.", "Добавь контакт по QR или коду.", "Dodaj kontakt QR-om ili kodom."); }
+    static String tuQr() { return s("Your own code and QR to share.", "Dein eigener Code und QR zum Teilen.", "Tu propio código y QR.", "Твой код и QR.", "Tvoj kod i QR."); }
+    static String tuShare() { return s("Share the app with friends.", "Teile die App mit Freunden.", "Comparte la app con amigos.", "Поделись приложением с друзьями.", "Podijeli aplikaciju s prijateljima."); }
+    static String tuSettings() { return s("Language, theme, updates and relays.", "Sprache, Design, Updates und Relays.", "Idioma, tema, actualizaciones y relés.", "Язык, тема, обновления и релеи.", "Jezik, tema, ažuriranja i releji."); }
+    static String tuProfile() { return s("Your profile: picture, name and bio.", "Dein Profil: Bild, Name und Biografie.", "Tu perfil: foto, nombre y biografía.", "Твой профиль: фото, имя и описание.", "Tvoj profil: slika, ime i biografija."); }
+
     // Updates
     static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }
     static String updateText(long v, long cur) { return s(

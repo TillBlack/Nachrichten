@@ -87,6 +87,11 @@ public final class App extends Application {
         return prefs.getStringSet("profileAllowed", java.util.Collections.emptySet()).contains(pub);
     }
 
+    /** Erscheine ich selbst in der öffentlichen Nutzerliste? */
+    boolean selfListed() {
+        return prefs.getBoolean("dirConsent", false) && !prefs.getBoolean("profilePrivate", false) && !myName().isEmpty();
+    }
+
     String myName() { return prefs.getString("name", ""); }
 
     boolean background() { return prefs.getBoolean("bg", true); }

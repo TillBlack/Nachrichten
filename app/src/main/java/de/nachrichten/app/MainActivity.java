@@ -77,6 +77,7 @@ public class MainActivity extends Base implements Net.Listener {
                 Updater.offerHelper(this, null, 0, true);
             }
             app.net.publishDirectory(false);
+            root.post(this::maybeTutorial);
         }
     }
 
@@ -222,10 +223,17 @@ public class MainActivity extends Base implements Net.Listener {
         qr.setContentDescription(T.myCode());
         qr.setOnClickListener(v -> showMyCode());
         header.addView(qr, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        hQr = qr;
+        Ico share = new Ico(this, Ico.SHARE);
+        share.setContentDescription(T.shareApp());
+        share.setOnClickListener(v -> shareApp());
+        header.addView(share, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        hShare = share;
         Ico set = new Ico(this, Ico.SETTINGS);
         set.setContentDescription(T.settings());
         set.setOnClickListener(v -> openSettings());
         header.addView(set, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        hSet = set;
         java.io.File mine = app.myAvatar();
         Avatar me = new Avatar(app.keys.has() ? app.keys.pubHex() : "x", "?", mine != null ? mine.getAbsolutePath() : null);
         me.setContentDescription(T.profile());
@@ -234,6 +242,7 @@ public class MainActivity extends Base implements Net.Listener {
         meBox.addView(me, new FrameLayout.LayoutParams(dp(32), dp(32), Gravity.CENTER));
         meBox.setOnClickListener(v -> editProfile());
         header.addView(meBox, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        hProfile = meBox;
         col.addView(header);
 
         scroll = new ScrollView(this);
@@ -255,8 +264,9 @@ public class MainActivity extends Base implements Net.Listener {
         onInsets();
     }
 
-    private View hint, obtChip;
+    private View hint, obtChip, hQr, hShare, hSet, hProfile;
     private int shownDirCount = -2;
+    private boolean tutorialShown;
 
     /** Dauerhafter kleiner Hinweis unten links, solange Obtainium fehlt. */
     private void showObtainiumChip() {
@@ -335,6 +345,28 @@ public class MainActivity extends Base implements Net.Listener {
         for (Db.Contact c : cs) list.addView(row(c));
     }
 
+    private void shareApp() {
+        String link = "https://github.com/TillBlack/Nachrichten/releases/latest";
+        Intent s = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, T.shareAppText() + "\n" + link);
+        try { startActivity(Intent.createChooser(s, T.shareApp())); } catch (Exception e) { toast(T.noApp()); }
+    }
+
+    private void maybeTutorial() {
+        if (tutorialShown || onboarding || !app.keys.has() || app.prefs.getBoolean("tutorialDone", false)) return;
+        if (fab == null || hQr == null || list == null || list.getChildCount() == 0) return;
+        tutorialShown = true;
+        java.util.List<TutorialOverlay.Step> steps = new java.util.ArrayList<>();
+        steps.add(new TutorialOverlay.Step(list.getChildAt(0), T.tuDiscover()));
+        steps.add(new TutorialOverlay.Step(fab, T.tuAdd()));
+        steps.add(new TutorialOverlay.Step(hQr, T.tuQr()));
+        steps.add(new TutorialOverlay.Step(hShare, T.tuShare()));
+        steps.add(new TutorialOverlay.Step(hSet, T.tuSettings()));
+        steps.add(new TutorialOverlay.Step(hProfile, T.tuProfile()));
+        TutorialOverlay ov = new TutorialOverlay(this, steps, () -> app.prefs.edit().putBoolean("tutorialDone", true).apply());
+        root.addView(ov, new FrameLayout.LayoutParams(-1, -1));
+    }
+
     private View discoverRow() {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
@@ -353,7 +385,8 @@ public class MainActivity extends Base implements Net.Listener {
         t.setPadding(dp(14), 0, 0, 0);
         t.addView(text(T.discover(), 17, Pal.text, true));
         int dc = app.net.directoryCount();
-        t.addView(text(dc >= 0 ? T.discoverCount(dc) : T.discoverSub(), 14, Pal.dim, false));
+        int total = dc < 0 ? -1 : dc + (app.selfListed() ? 1 : 0);
+        t.addView(text(total >= 0 ? T.discoverCount(total) : T.discoverSub(), 14, Pal.dim, false));
         r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         Ico arrow = new Ico(this, Ico.BACK);
         arrow.color = Pal.dim;
