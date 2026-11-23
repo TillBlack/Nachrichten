@@ -31,7 +31,8 @@ import java.util.Map;
 /** Start: Einrichtung beim ersten Mal, danach die Chatliste. */
 public class MainActivity extends Base implements Net.Listener {
 
-    private static final int REQ_SCAN = 1, REQ_NOTIF = 2;
+    private static final int REQ_SCAN = 1, REQ_NOTIF = 2, REQ_AVATAR = 3;
+    private Dialog settingsDlg;
 
     private LinearLayout header, list;
     private ScrollView scroll;
@@ -126,7 +127,8 @@ public class MainActivity extends Base implements Net.Listener {
 
         TextView go = button(T.start(), true);
         go.setOnClickListener(v -> {
-            app.prefs.edit().putString("name", name.getText().toString().trim()).apply();
+            app.prefs.edit().putString("name", name.getText().toString().trim())
+                    .putLong("profileTs", name.getText().toString().trim().isEmpty() ? 0 : System.currentTimeMillis()).apply();
             app.keys.create();
             finishOnboarding();
         });
@@ -261,7 +263,7 @@ public class MainActivity extends Base implements Net.Listener {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         r.setBackground(round(Pal.bg, 0, 12));
-        Avatar av = new Avatar(c.pub, c.name == null || c.name.isEmpty() ? "?" : c.name);
+        Avatar av = new Avatar(c.pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar);
         r.addView(av, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
         LinearLayout mid = new LinearLayout(this);
@@ -357,6 +359,19 @@ public class MainActivity extends Base implements Net.Listener {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == REQ_AVATAR && res == RESULT_OK && data != null && data.getData() != null) {
+            android.net.Uri u = data.getData();
+            new Thread(() -> {
+                boolean ok = setAvatar(u);
+                runOnUiThread(() -> {
+                    if (!ok) toast(T.readError());
+                    if (settingsDlg != null) settingsDlg.dismiss();
+                    refresh();
+                    openSettings();
+                });
+            }).start();
+            return;
+        }
         if (req == REQ_SCAN && res == RESULT_OK && data != null) {
             String code = data.getStringExtra("code");
             String[] parsed = Keys.parseContact(code);
@@ -491,11 +506,52 @@ public class MainActivity extends Base implements Net.Listener {
         LinearLayout box = panel();
         box.addView(text(T.settings(), 20, Pal.text, true));
 
+        settingsDlg = dlg;
+        box.addView(label(T.profilePicture()));
+        LinearLayout pr = new LinearLayout(this);
+        pr.setGravity(Gravity.CENTER_VERTICAL);
+        java.io.File mine = app.myAvatar();
+        Avatar me = new Avatar(app.keys.pubHex(), app.myName().isEmpty() ? "?" : app.myName(), mine != null ? mine.getAbsolutePath() : null);
+        pr.addView(me, new LinearLayout.LayoutParams(dp(56), dp(56)));
+        TextView pick = button(T.choose(), true);
+        pick.setOnClickListener(v -> {
+            try {
+                startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE), REQ_AVATAR);
+            } catch (Exception e) { toast(T.noApp()); }
+        });
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, -2);
+        pp.setMargins(dp(14), 0, 0, 0);
+        pr.addView(pick, pp);
+        if (mine != null) {
+            TextView rm = button(T.remove(), false);
+            rm.setOnClickListener(v -> {
+                mine.delete();
+                app.prefs.edit().remove("avatar").putLong("profileTs", System.currentTimeMillis()).apply();
+                app.net.profileChanged();
+                dlg.dismiss();
+                refresh();
+                openSettings();
+            });
+            LinearLayout.LayoutParams rp2 = new LinearLayout.LayoutParams(-2, -2);
+            rp2.setMargins(dp(8), 0, 0, 0);
+            pr.addView(rm, rp2);
+        }
+        box.addView(pr);
+        TextView pinfo = text(T.profileInfo(), 13, Pal.dim, false);
+        pinfo.setPadding(0, dp(6), 0, 0);
+        box.addView(pinfo);
+
         box.addView(label(T.yourName()));
         EditText name = field(T.yourName(), false);
         name.setText(app.myName());
         box.addView(name, new LinearLayout.LayoutParams(-1, -2));
-        dlg.setOnDismissListener(d -> app.prefs.edit().putString("name", name.getText().toString().trim()).apply());
+        dlg.setOnDismissListener(d -> {
+            String n = name.getText().toString().trim();
+            if (!n.equals(app.myName())) {
+                app.prefs.edit().putString("name", n).putLong("profileTs", System.currentTimeMillis()).apply();
+                app.net.profileChanged();
+            }
+        });
 
         box.addView(label(T.language()));
         for (int i = 0; i < T.NAMES.length; i++) {
@@ -690,6 +746,64 @@ public class MainActivity extends Base implements Net.Listener {
         addTo(buttons, close, true);
         addRow(box, buttons, 20);
         showScrollDialog(dlg, box);
+    }
+
+    /** Profilbild: quadratisch zuschneiden, 256 px, Drehung beachten, als JPEG speichern und verschicken. */
+    private boolean setAvatar(android.net.Uri u) {
+        try {
+            byte[] data;
+            try (java.io.InputStream in = getContentResolver().openInputStream(u)) {
+                if (in == null) return false;
+                java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[16384];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    bo.write(buf, 0, n);
+                    if (bo.size() > 40 * 1024 * 1024) return false;
+                }
+                data = bo.toByteArray();
+            }
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            if (o.outWidth <= 0) return false;
+            int sample = 1;
+            while (Math.min(o.outWidth, o.outHeight) / (sample * 2) >= 256) sample *= 2;
+            o = new android.graphics.BitmapFactory.Options();
+            o.inSampleSize = sample;
+            Bitmap b = android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            if (b == null) return false;
+            int rot = 0;
+            try {
+                int or = new android.media.ExifInterface(new java.io.ByteArrayInputStream(data))
+                        .getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, android.media.ExifInterface.ORIENTATION_NORMAL);
+                rot = or == android.media.ExifInterface.ORIENTATION_ROTATE_90 ? 90 : or == android.media.ExifInterface.ORIENTATION_ROTATE_180 ? 180
+                        : or == android.media.ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+            } catch (Exception ignored) { }
+            int side = Math.min(b.getWidth(), b.getHeight());
+            android.graphics.Matrix mx = new android.graphics.Matrix();
+            float sc = 256f / side;
+            mx.postScale(sc, sc);
+            mx.postRotate(rot);
+            Bitmap sq = Bitmap.createBitmap(b, (b.getWidth() - side) / 2, (b.getHeight() - side) / 2, side, side, mx, true);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            int q = 80;
+            do {
+                out.reset();
+                sq.compress(Bitmap.CompressFormat.JPEG, q, out);
+                q -= 10;
+            } while (out.size() > 20000 && q >= 30);
+            long ts = System.currentTimeMillis();
+            java.io.File f = new java.io.File(app.mediaDir(), "me_" + ts + ".jpg");
+            try (java.io.FileOutputStream fo = new java.io.FileOutputStream(f)) { fo.write(out.toByteArray()); }
+            java.io.File old = app.myAvatar();
+            if (old != null) old.delete();
+            app.prefs.edit().putString("avatar", f.getAbsolutePath()).putLong("profileTs", ts).apply();
+            app.net.profileChanged();
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     private View optionRow(String name, boolean selected, View.OnClickListener click) {

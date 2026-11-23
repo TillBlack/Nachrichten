@@ -33,6 +33,15 @@ public final class Proto {
         return sb.append('}').toString();
     }
 
+    /** Profil: Name und kleines Bild (JPEG, base64). img leer = Bild entfernt. */
+    public static String profile(long ts, String name, byte[] jpeg) {
+        StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"profile\",\"ts\":").append(ts).append(",\"name\":");
+        Event.str(sb, name == null ? "" : name);
+        sb.append(",\"img\":");
+        Event.str(sb, jpeg == null ? "" : Base64.getEncoder().encodeToString(jpeg));
+        return sb.append('}').toString();
+    }
+
     public static int chunkCount(int size) { return Math.max(1, (size + CHUNK - 1) / CHUNK); }
 
     /** Ein Stück eines Anhangs. meta nur bei i == 0. */

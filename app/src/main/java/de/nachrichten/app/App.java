@@ -73,6 +73,14 @@ public final class App extends Application {
         return d;
     }
 
+    /** Mein Profilbild (oder null). */
+    java.io.File myAvatar() {
+        String p = prefs.getString("avatar", null);
+        if (p == null) return null;
+        java.io.File f = new java.io.File(p);
+        return f.isFile() ? f : null;
+    }
+
     String myName() { return prefs.getString("name", ""); }
 
     boolean background() { return prefs.getBoolean("bg", true); }

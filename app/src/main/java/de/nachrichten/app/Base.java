@@ -265,22 +265,50 @@ abstract class Base extends Activity {
 
     // ------------------------------------------------------------------ Avatar
 
+    private static final android.util.LruCache<String, android.graphics.Bitmap> AVATARS = new android.util.LruCache<>(64);
+
+    /** Profilbild laden (mit Zwischenspeicher; der Pfad enthält den Zeitstempel). */
+    static android.graphics.Bitmap avatarBitmap(String path) {
+        android.graphics.Bitmap b = AVATARS.get(path);
+        if (b == null) {
+            try { b = android.graphics.BitmapFactory.decodeFile(path); } catch (Throwable ignored) { }
+            if (b != null) AVATARS.put(path, b);
+        }
+        return b;
+    }
+
     /** Kreis mit Anfangsbuchstaben. */
     final class Avatar extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         String letter;
         int color;
+        private android.graphics.Bitmap img;
+        private final android.graphics.Path clip = new android.graphics.Path();
 
-        Avatar(String pub, String name) {
+        Avatar(String pub, String name) { this(pub, name, null); }
+
+        Avatar(String pub, String name, String imagePath) {
             super(Base.this);
             color = Pal.avatar(pub);
             String n = name == null ? "" : name.trim();
             letter = n.isEmpty() ? "?" : n.substring(0, n.offsetByCodePoints(0, 1)).toUpperCase(T.locale());
+            if (imagePath != null) img = avatarBitmap(imagePath);
         }
 
         @Override
         protected void onDraw(Canvas c) {
             float w = getWidth(), h = getHeight(), r = Math.min(w, h) / 2f;
+            if (img != null) {
+                clip.reset();
+                clip.addCircle(w / 2, h / 2, r, android.graphics.Path.Direction.CW);
+                c.save();
+                c.clipPath(clip);
+                android.graphics.RectF dst = new android.graphics.RectF(w / 2 - r, h / 2 - r, w / 2 + r, h / 2 + r);
+                p.setFilterBitmap(true);
+                c.drawBitmap(img, null, dst, p);
+                c.restore();
+                return;
+            }
             p.setStyle(Paint.Style.FILL);
             p.setColor(color);
             c.drawCircle(w / 2, h / 2, r, p);

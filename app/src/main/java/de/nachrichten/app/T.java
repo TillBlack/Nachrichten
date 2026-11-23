@@ -130,6 +130,17 @@ final class T {
             "Android требует его, пока приложение получает в фоне. Выключи \"Фоновое соединение\" на следующем экране. Сообщения всё равно будут приходить с уведомлениями.",
             "Android je zahtijeva dok aplikacija prima u pozadini. Na sljedećem zaslonu isključi \"Pozadinska veza\". Poruke i dalje stižu s obavijestima."); }
 
+    // Profil
+    static String profilePicture() { return s("Profile picture", "Profilbild", "Foto de perfil", "Фото профиля", "Profilna slika"); }
+    static String choose() { return s("Choose", "Auswählen", "Elegir", "Выбрать", "Odaberi"); }
+    static String remove() { return s("Remove", "Entfernen", "Quitar", "Убрать", "Ukloni"); }
+    static String profileInfo() { return s(
+            "Your name and picture are sent encrypted to your contacts, never to anyone else.",
+            "Name und Bild werden verschlüsselt nur an deine Kontakte geschickt, an niemanden sonst.",
+            "Tu nombre y foto se envían cifrados solo a tus contactos.",
+            "Имя и фото отправляются в зашифрованном виде только твоим контактам.",
+            "Ime i slika šalju se šifrirano samo tvojim kontaktima."); }
+
     // Updates
     static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }
     static String updateText(long v, long cur) { return s(

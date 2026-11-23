@@ -279,6 +279,7 @@ final class Net {
             if (env != null) {
                 String t = env.optString("t");
                 if (t.equals("file")) { handleChunk(peer, outgoing, createdAt, env); return; }
+                if (t.equals("profile")) { if (!outgoing) handleProfile(peer, env); return; }
                 if (t.equals("text")) {
                     body = env.optString("b");
                     replyTo = cleanId(env.optString("r", null));
@@ -319,6 +320,60 @@ final class Net {
         if (!outgoing && fresh && !peer.equals(openChat)) {
             main.post(() -> Notifs.message(app, peer, text));
         }
+    }
+
+    /** Name und Bild eines Kontakts sind angekommen. */
+    private void handleProfile(String peer, JSONObject env) {
+        long ts = env.optLong("ts");
+        Db.Contact c = app.db.contact(peer);
+        if (c == null || ts <= c.avatarTs) return;
+        String img = env.optString("img");
+        String path = null;
+        if (!img.isEmpty()) {
+            try {
+                byte[] jpg = java.util.Base64.getDecoder().decode(img);
+                if (jpg.length > 60000) return;
+                android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+                o.inJustDecodeBounds = true;
+                android.graphics.BitmapFactory.decodeByteArray(jpg, 0, jpg.length, o);
+                if (o.outWidth <= 0 || o.outWidth > 1024 || o.outHeight > 1024) return;
+                java.io.File f = new java.io.File(app.mediaDir(), "avatar_" + peer.substring(0, 16) + "_" + ts + ".jpg");
+                try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) { out.write(jpg); }
+                path = f.getAbsolutePath();
+            } catch (Exception e) { return; }
+        }
+        if (c.avatar != null) new java.io.File(c.avatar).delete();
+        app.db.setAvatar(peer, path, ts);
+        String name = env.optString("name").trim();
+        if (name.length() > 40) name = name.substring(0, 40);
+        if ((c.name == null || c.name.trim().isEmpty()) && !name.isEmpty()) app.db.rename(peer, name);
+        changed(null);
+    }
+
+    /** Schickt mein Profil an einen Kontakt, wenn er die aktuelle Fassung noch nicht hat. */
+    private void sendProfileIfNeeded(String peer) {
+        long ts = app.prefs.getLong("profileTs", 0);
+        if (ts == 0) return;
+        Db.Contact c = app.db.contact(peer);
+        if (c == null || c.profileSent >= ts) return;
+        byte[] jpg = null;
+        java.io.File f = app.myAvatar();
+        if (f != null) try { jpg = java.nio.file.Files.readAllBytes(f.toPath()); } catch (Exception ignored) { }
+        Event e = event(peer, Proto.profile(ts, app.myName(), jpg), System.currentTimeMillis());
+        seen.add(e.id);
+        String raw = e.toJson();
+        app.db.addOutbox(e.id, "profile:" + peer, raw, 0);
+        app.db.setProfileSent(peer, ts);
+        broadcast(raw);
+    }
+
+    /** Mein Profil hat sich geändert: an alle Kontakte schicken. */
+    void profileChanged() {
+        worker.post(() -> {
+            for (String p : app.db.contactKeys()) {
+                try { sendProfileIfNeeded(p); } catch (Exception ignored) { }
+            }
+        });
     }
 
     /** Ein Stück eines Anhangs ist angekommen. */
@@ -394,6 +449,7 @@ final class Net {
     void send(String peer, String text, String replyTo) {
         worker.post(() -> {
             try {
+                sendProfileIfNeeded(peer);
                 long now = System.currentTimeMillis();
                 Event e = event(peer, Proto.text(text, replyTo), now);
                 String raw = e.toJson();
@@ -421,6 +477,7 @@ final class Net {
                 java.io.File f = new java.io.File(path);
                 byte[] data = java.nio.file.Files.readAllBytes(f.toPath());
                 if (data.length == 0 || data.length > Proto.MAX_FILE) return;
+                sendProfileIfNeeded(peer);
                 String fid = f.getName().substring(0, 32);
                 String sha = Proto.sha(data);
                 int n = Proto.chunkCount(data.length);

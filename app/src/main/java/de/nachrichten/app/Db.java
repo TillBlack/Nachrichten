@@ -16,8 +16,8 @@ final class Db extends SQLiteOpenHelper {
     static final int TEXT = 0, IMAGE = 1, FILE = 2;
 
     static final class Contact {
-        String pub, name;
-        long lastRead;
+        String pub, name, avatar;
+        long lastRead, avatarTs, profileSent;
         // für die Liste
         String lastText;
         long lastTs;
@@ -39,7 +39,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 2); }
+    Db(Context c) { super(c, "nachrichten.db", null, 3); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -49,11 +49,19 @@ final class Db extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX messages_status ON messages(status)");
         db.execSQL("CREATE TABLE deleted (id TEXT PRIMARY KEY)");
         upgradeTo2(db);
+        upgradeTo3(db);
+    }
+
+    private static void upgradeTo3(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE contacts ADD COLUMN avatar TEXT");
+        db.execSQL("ALTER TABLE contacts ADD COLUMN avatar_ts INTEGER NOT NULL DEFAULT 0");
+        db.execSQL("ALTER TABLE contacts ADD COLUMN profile_sent INTEGER NOT NULL DEFAULT 0");
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int o, int n) {
         if (o < 2) upgradeTo2(db);
+        if (o < 3) upgradeTo3(db);
     }
 
     private static void upgradeTo2(SQLiteDatabase db) {
@@ -73,10 +81,11 @@ final class Db extends SQLiteOpenHelper {
     // ------------------------------------------------------------------ Kontakte
 
     synchronized Contact contact(String pub) {
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, name, last_read FROM contacts WHERE pub = ?", new String[]{pub})) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, name, last_read, avatar, avatar_ts, profile_sent FROM contacts WHERE pub = ?", new String[]{pub})) {
             if (!c.moveToFirst()) return null;
             Contact k = new Contact();
             k.pub = c.getString(0); k.name = c.getString(1); k.lastRead = c.getLong(2);
+            k.avatar = c.getString(3); k.avatarTs = c.getLong(4); k.profileSent = c.getLong(5);
             return k;
         }
     }
@@ -111,6 +120,27 @@ final class Db extends SQLiteOpenHelper {
         return files;
     }
 
+    synchronized void setAvatar(String pub, String path, long ts) {
+        ContentValues v = new ContentValues();
+        v.put("avatar", path);
+        v.put("avatar_ts", ts);
+        getWritableDatabase().update("contacts", v, "pub = ?", new String[]{pub});
+    }
+
+    synchronized void setProfileSent(String pub, long ts) {
+        ContentValues v = new ContentValues();
+        v.put("profile_sent", ts);
+        getWritableDatabase().update("contacts", v, "pub = ?", new String[]{pub});
+    }
+
+    synchronized List<String> contactKeys() {
+        List<String> out = new ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub FROM contacts", null)) {
+            while (c.moveToNext()) out.add(c.getString(0));
+        }
+        return out;
+    }
+
     synchronized void markRead(String pub) {
         ContentValues v = new ContentValues();
         v.put("last_read", System.currentTimeMillis() + 1000);
@@ -121,11 +151,11 @@ final class Db extends SQLiteOpenHelper {
     synchronized List<Contact> contacts() {
         List<Contact> out = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT pub, name, last_read, created FROM contacts", null)) {
+        try (Cursor c = db.rawQuery("SELECT pub, name, last_read, created, avatar FROM contacts", null)) {
             while (c.moveToNext()) {
                 Contact k = new Contact();
                 k.pub = c.getString(0); k.name = c.getString(1); k.lastRead = c.getLong(2);
-                k.lastTs = c.getLong(3);
+                k.lastTs = c.getLong(3); k.avatar = c.getString(4);
                 out.add(k);
             }
         }

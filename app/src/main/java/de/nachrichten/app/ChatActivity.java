@@ -152,7 +152,8 @@ public class ChatActivity extends Base implements Net.Listener {
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(48)));
         Db.Contact c = app.db.contact(peer);
-        Avatar av = new Avatar(peer, c != null && c.name != null && !c.name.isEmpty() ? c.name : "?");
+        Avatar av = new Avatar(peer, c != null && c.name != null && !c.name.isEmpty() ? c.name : "?", c != null ? c.avatar : null);
+        av.setOnClickListener(v -> { if (c != null && c.avatar != null) showBigAvatar(c.avatar); else contactMenu(); });
         header.addView(av, new LinearLayout.LayoutParams(dp(38), dp(38)));
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
@@ -615,6 +616,17 @@ public class ChatActivity extends Base implements Net.Listener {
         bar.addView(open, op);
         fl.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
         d.setContentView(fl);
+        d.show();
+    }
+
+    private void showBigAvatar(String path) {
+        Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        ImageView iv = new ImageView(this);
+        iv.setBackgroundColor(0xFF000000);
+        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        iv.setImageBitmap(avatarBitmap(path));
+        iv.setOnClickListener(v -> d.dismiss());
+        d.setContentView(iv);
         d.show();
     }
 
