@@ -27,7 +27,8 @@ final class Updater {
     static final String RELEASE_API = "https://api.github.com/repos/TillBlack/Nachrichten/releases/tags/neueste";
     static final String ASSET = "Nachrichten.apk";
     static final String REPO = "https://github.com/TillBlack/Nachrichten";
-    static final String OBTAINIUM_DOWNLOAD = "https://github.com/ImranR98/Obtainium/releases/latest";
+    static final String OBTAINIUM_DOWNLOAD = "https://obtainium.imranr.dev";
+    static final String[] OBTAINIUM_PKGS = {"dev.imranr.obtainium", "dev.imranr.obtainium.fdroid"};
     /** Zeitpunkt der letzten Prüfung (die App läuft oft im Hintergrund weiter, daher nicht nur einmal pro Prozess). */
     private static long lastCheck;
 
@@ -42,7 +43,34 @@ final class Updater {
     /** Ist Obtainium installiert (kann es obtainium://-Links öffnen)? */
     static boolean obtainium(Context c) {
         Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://add/" + REPO));
-        return i.resolveActivity(c.getPackageManager()) != null;
+        if (i.resolveActivity(c.getPackageManager()) != null) return true;
+        return obtainiumPackage(c) != null;
+    }
+
+    private static String obtainiumPackage(Context c) {
+        for (String p : OBTAINIUM_PKGS) {
+            try { c.getPackageManager().getPackageInfo(p, 0); return p; } catch (Exception ignored) { }
+        }
+        return null;
+    }
+
+    /** Obtainium öffnen: erst nach Updates suchen lassen, dann direkt die Seite von Nachrichten zeigen. */
+    static void openObtainium(Base a) {
+        Intent refresh = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://refresh?id=" + a.getPackageName()));
+        Intent page = new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://add/" + REPO));
+        try {
+            if (refresh.resolveActivity(a.getPackageManager()) != null) {
+                a.startActivity(refresh);
+                a.root.postDelayed(() -> { try { a.startActivity(page); } catch (Exception ignored) { } }, 1200);
+            } else {
+                a.startActivity(page);
+            }
+            return;
+        } catch (Exception ignored) { }
+        // falls die Links nicht gehen: Obtainium einfach öffnen
+        String pkg = obtainiumPackage(a);
+        Intent launch = pkg == null ? null : a.getPackageManager().getLaunchIntentForPackage(pkg);
+        try { if (launch != null) a.startActivity(launch); } catch (Exception ignored) { }
     }
 
     /** Ohne Obtainium: Android lädt die Datei selbst herunter; ein Tipp auf die Benachrichtigung installiert. */
@@ -62,10 +90,8 @@ final class Updater {
         }
     }
 
-    /** Nach der Installation einmal Obtainium empfehlen (bequemere Updates). */
-    static void offerHelper(Base a) {
-        if (obtainium(a) || a.app.prefs.getBoolean("obtainiumAsked", false)) return;
-        a.app.prefs.edit().putBoolean("obtainiumAsked", true).apply();
+    /** Popup: Obtainium installieren (Weiterleitung zur Download-Seite). url != null: zusätzlich "Direkt herunterladen". */
+    static void offerHelper(Base a, String url, long version) {
         Dialog dlg = a.dialog();
         LinearLayout box = a.panel();
         box.addView(a.text(T.helperTitle(), 19, Pal.text, true));
@@ -77,6 +103,11 @@ final class Updater {
         TextView no = a.button(T.later(), false);
         no.setOnClickListener(v -> dlg.dismiss());
         a.addTo(buttons, no, true);
+        if (url != null) {
+            TextView direct = a.button(T.directDownload(), false);
+            direct.setOnClickListener(v -> { dlg.dismiss(); download(a, url, version); });
+            a.addTo(buttons, direct, false);
+        }
         TextView yes = a.button(T.helperInstall(), true);
         yes.setOnClickListener(v -> {
             dlg.dismiss();
@@ -153,14 +184,8 @@ final class Updater {
         TextView go = a.button(T.updateNow(), true);
         go.setOnClickListener(v -> {
             dlg.dismiss();
-            if (obtainium(a)) {
-                // Obtainium öffnet sich bei Nachrichten (beim ersten Mal: "Hinzufügen" bestätigen)
-                try {
-                    a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://add/" + REPO)));
-                    return;
-                } catch (Exception ignored) { }
-            }
-            download(a, url, version);
+            if (obtainium(a)) openObtainium(a);
+            else offerHelper(a, url, version);
         });
         a.addTo(buttons, go, false);
         a.addRow(box, buttons, 18);

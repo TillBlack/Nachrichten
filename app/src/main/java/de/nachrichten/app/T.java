@@ -164,6 +164,9 @@ final class T {
             "Проверяет GitHub при открытии и каждый раз, когда выходишь из чата. Подсказка появляется, пока не обновишь. Установлена версия: " + v,
             "Provjerava GitHub pri otvaranju i svaki put kad izađeš iz razgovora. Mala obavijest pojavljuje se dok ne ažuriraš. Instalirana verzija: " + v); }
 
+    static String getObtainiumChip() { return s("Install Obtainium for updates", "Obtainium für Updates installieren", "Instala Obtainium para actualizar", "Установи Obtainium для обновлений", "Instaliraj Obtainium za ažuriranja"); }
+    static String directDownload() { return s("Download directly", "Direkt herunterladen", "Descargar directamente", "Скачать напрямую", "Preuzmi izravno"); }
+
     // Updates
     static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }
     static String updateText(long v, long cur) { return s(

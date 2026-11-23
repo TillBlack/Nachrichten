@@ -68,7 +68,7 @@ public class MainActivity extends Base implements Net.Listener {
             } else {
                 Updater.checkOnStart(this);
             }
-            Updater.offerHelper(this);
+            showObtainiumChip();
         }
     }
 
@@ -96,6 +96,11 @@ public class MainActivity extends Base implements Net.Listener {
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) fab.getLayoutParams();
         lp.setMargins(0, 0, dp(22), insetBottom + dp(22));
         fab.setLayoutParams(lp);
+        if (obtChip != null) {
+            FrameLayout.LayoutParams cl = (FrameLayout.LayoutParams) obtChip.getLayoutParams();
+            cl.setMargins(dp(16), 0, 0, insetBottom + dp(31));
+            obtChip.setLayoutParams(cl);
+        }
     }
 
     // ------------------------------------------------------------------ Einrichtung
@@ -242,7 +247,22 @@ public class MainActivity extends Base implements Net.Listener {
         onInsets();
     }
 
-    private View hint;
+    private View hint, obtChip;
+
+    /** Dauerhafter kleiner Hinweis unten links, solange Obtainium fehlt. */
+    private void showObtainiumChip() {
+        if (obtChip != null) { root.removeView(obtChip); obtChip = null; }
+        if (onboarding || fab == null || Updater.obtainium(this) || !Updater.enabled(this)) return;
+        TextView c = text(T.getObtainiumChip(), 13, Pal.text, true);
+        c.setPadding(dp(14), dp(10), dp(14), dp(10));
+        c.setBackground(round(Pal.card, Pal.line, 20));
+        c.setElevation(dp(4));
+        c.setOnClickListener(v -> Updater.offerHelper(this, null, 0));
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.LEFT);
+        lp.setMargins(dp(16), 0, 0, insetBottom + dp(31));
+        root.addView(c, lp);
+        obtChip = c;
+    }
 
     /** Kleiner Update-Hinweis unten rechts, verschwindet nach 3 Sekunden von selbst. */
     void updateHint(long version, Runnable open) {
