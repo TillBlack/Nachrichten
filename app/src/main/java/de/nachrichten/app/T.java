@@ -121,10 +121,19 @@ final class T {
             "S ovim ključem možeš prijeći na novi mobitel. Tko ga ima, može čitati tvoje poruke i pisati kao ti. Nikad ga ne dijeli."); }
     static String showKey() { return s("Show backup key", "Sicherungsschlüssel anzeigen", "Mostrar clave", "Показать ключ", "Prikaži ključ"); }
 
+    static String newMessage() { return s("New message", "Neue Nachricht", "Mensaje nuevo", "Новое сообщение", "Nova poruka"); }
+    static String hideStatus() { return s("Hide permanent notification", "Dauerhafte Benachrichtigung ausblenden", "Ocultar notificación permanente", "Скрыть постоянное уведомление", "Sakrij stalnu obavijest"); }
+    static String hideStatusInfo() { return s(
+            "Android requires it while the app receives in the background. Switch off \"Background connection\" on the next screen. Messages still arrive and are still notified.",
+            "Android verlangt sie, solange die App im Hintergrund empfängt. Schalte auf dem nächsten Bildschirm \"Hintergrundverbindung\" aus. Nachrichten kommen trotzdem an und werden weiter gemeldet.",
+            "Android la exige mientras la app recibe en segundo plano. Desactiva \"Conexión en segundo plano\" en la siguiente pantalla. Los mensajes siguen llegando y avisando.",
+            "Android требует его, пока приложение получает в фоне. Выключи \"Фоновое соединение\" на следующем экране. Сообщения всё равно будут приходить с уведомлениями.",
+            "Android je zahtijeva dok aplikacija prima u pozadini. Na sljedećem zaslonu isključi \"Pozadinska veza\". Poruke i dalje stižu s obavijestima."); }
+
     // Benachrichtigungen
     static String chMessages() { return s("Messages", "Nachrichten", "Mensajes", "Сообщения", "Poruke"); }
     static String chService() { return s("Background connection", "Hintergrundverbindung", "Conexión en segundo plano", "Фоновое соединение", "Pozadinska veza"); }
-    static String serviceTitle() { return s("Ready for messages", "Bereit für Nachrichten", "Listo para mensajes", "Готов к сообщениям", "Spremno za poruke"); }
+    static String serviceTitle() { return s("Receiving in background", "Empfang im Hintergrund", "Recibiendo en segundo plano", "Приём в фоне", "Primanje u pozadini"); }
     static String relaysConnected(int n, int total) {
         switch (lang) {
             case 1: return n + " von " + total + " Relays verbunden";

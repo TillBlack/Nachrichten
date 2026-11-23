@@ -56,8 +56,6 @@ public final class SyncService extends Service implements Net.Listener {
 
     @Override
     public void onStatus() {
-        try {
-            getSystemService(NotificationManager.class).notify(Notifs.SERVICE_ID, Notifs.service(app));
-        } catch (Exception ignored) { }
+        // nichts: die Benachrichtigung bleibt ruhig und zeigt keinen Verbindungsstand
     }
 }

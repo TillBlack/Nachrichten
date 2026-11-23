@@ -554,6 +554,22 @@ public class MainActivity extends Base implements Net.Listener {
         TextView bgi = text(T.backgroundInfo(), 13, Pal.dim, false);
         bgi.setPadding(0, dp(4), 0, 0);
         box.addView(bgi);
+        TextView hide = outlineButton(T.hideStatus(), Pal.text);
+        hide.setOnClickListener(v -> {
+            Intent i = new Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName())
+                    .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, Notifs.CH_SERVICE);
+            try { startActivity(i); } catch (Exception e) {
+                try {
+                    startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName()));
+                } catch (Exception ignored) { }
+            }
+        });
+        addRow(box, hide, 10);
+        TextView hidei = text(T.hideStatusInfo(), 13, Pal.dim, false);
+        hidei.setPadding(0, dp(6), 0, 0);
+        box.addView(hidei);
 
         // Relays
         box.addView(label(T.relays()));

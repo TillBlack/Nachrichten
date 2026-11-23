@@ -20,9 +20,11 @@ final class Notifs {
     static void channels(Context c) {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         NotificationChannel m = new NotificationChannel(CH_MSG, T.chMessages(), NotificationManager.IMPORTANCE_HIGH);
+        m.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
         nm.createNotificationChannel(m);
         NotificationChannel s = new NotificationChannel(CH_SERVICE, T.chService(), NotificationManager.IMPORTANCE_MIN);
         s.setShowBadge(false);
+        s.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
         nm.createNotificationChannel(s);
     }
 
@@ -37,7 +39,16 @@ final class Notifs {
         PendingIntent pi = PendingIntent.getActivity(app, peer.hashCode(), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         String text = body.length() > 300 ? body.substring(0, 300) + "…" : body;
+        // Auf dem gesperrten Bildschirm: weder Name noch Inhalt, nur ein neutraler Hinweis
+        Notification hidden = new Notification.Builder(app, CH_MSG)
+                .setSmallIcon(R.drawable.ic_notify)
+                .setContentTitle("Nachrichten")
+                .setContentText(T.newMessage())
+                .setCategory(Notification.CATEGORY_MESSAGE)
+                .build();
         Notification n = new Notification.Builder(app, CH_MSG)
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setPublicVersion(hidden)
                 .setSmallIcon(R.drawable.ic_notify)
                 .setContentTitle(app.nameOf(peer))
                 .setContentText(text)
@@ -56,11 +67,10 @@ final class Notifs {
     static Notification service(App app) {
         Intent open = new Intent(app, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         PendingIntent pi = PendingIntent.getActivity(app, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        int total = app.relays().size();
         return new Notification.Builder(app, CH_SERVICE)
                 .setSmallIcon(R.drawable.ic_notify)
                 .setContentTitle(T.serviceTitle())
-                .setContentText(T.relaysConnected(app.net.connectedCount(), total))
+                .setVisibility(Notification.VISIBILITY_SECRET)
                 .setContentIntent(pi)
                 .setOngoing(true)
                 .setShowWhen(false)
