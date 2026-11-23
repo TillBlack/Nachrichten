@@ -28,7 +28,8 @@ final class Updater {
     static final String ASSET = "Nachrichten.apk";
     static final String REPO = "https://github.com/TillBlack/Nachrichten";
     static final String OBTAINIUM_DOWNLOAD = "https://github.com/ImranR98/Obtainium/releases/latest";
-    private static boolean checkedThisRun;
+    /** Zeitpunkt der letzten Prüfung (die App läuft oft im Hintergrund weiter, daher nicht nur einmal pro Prozess). */
+    private static long lastCheck;
 
     static long installedVersion(Context c) {
         try {
@@ -86,10 +87,11 @@ final class Updater {
         a.showDialog(dlg, box);
     }
 
-    /** Einmal pro App-Start prüfen (wenn in den Einstellungen nicht ausgeschaltet). */
+    /** Bei jedem Öffnen prüfen, höchstens alle 10 Minuten (wenn in den Einstellungen nicht ausgeschaltet). */
     static void checkOnStart(Base a) {
-        if (checkedThisRun || !a.app.prefs.getBoolean("updates", true)) return;
-        checkedThisRun = true;
+        long now = System.currentTimeMillis();
+        if (now - lastCheck < 10 * 60 * 1000L || !a.app.prefs.getBoolean("updates", true)) return;
+        lastCheck = now;
         new Thread(() -> {
             try {
                 JSONObject rel = new JSONObject(new String(get(RELEASE_API, 200_000), "UTF-8"));
