@@ -184,7 +184,7 @@ final class Net {
             subscribe(w);
             for (String raw : app.db.pendingRaw()) enqueue("[\"EVENT\"," + raw + "]");
             worker.postDelayed(() -> publishDirectory(false), 4000);
-            worker.postDelayed(this::maybePresence, 3000);
+            worker.postDelayed(() -> maybePresence(), 3000);
             status();
         }
 
