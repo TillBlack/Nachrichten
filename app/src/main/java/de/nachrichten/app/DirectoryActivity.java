@@ -124,11 +124,62 @@ public class DirectoryActivity extends Base implements Net.DirListener {
 
     private void render() {
         list.removeAllViews();
-        List<Net.DirEntry> all = new ArrayList<>(entries.values());
+        String myPub = app.keys.has() ? app.keys.pubHex() : null;
+        List<Net.DirEntry> all = new ArrayList<>();
+        for (Net.DirEntry e : entries.values()) if (myPub == null || !e.pub.equals(myPub)) all.add(e);
         all.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
         int total = all.size() + (app.selfListed() ? 1 : 0);
         status.setText(all.isEmpty() ? (loaded ? T.dirEmpty() : T.dirLoading()) : T.discoverCount(total));
+        // Eigenes Profil immer ganz oben, als "Du" gekennzeichnet.
+        if (myPub != null) list.addView(selfRow());
         for (Net.DirEntry e : all) list.addView(row(e));
+    }
+
+    private View selfRow() {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        r.setBackground(round(Pal.card, Pal.accent, 12));
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-1, -2);
+        rlp.setMargins(0, dp(2), 0, dp(6));
+        r.setLayoutParams(rlp);
+        java.io.File mine = app.myAvatar();
+        String nm = app.myName().isEmpty() ? "?" : app.myName();
+        r.addView(new Avatar(app.keys.pubHex(), nm, mine != null ? mine.getAbsolutePath() : null)
+                .accessories(app.accBehind(), app.accFront(), app.accFrame()), new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+        LinearLayout mid = new LinearLayout(this);
+        mid.setOrientation(LinearLayout.VERTICAL);
+        mid.setPadding(dp(14), 0, 0, 0);
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView n = text(app.myName().isEmpty() ? T.youName() : app.myName(), 17, Pal.text, true);
+        n.setSingleLine(true);
+        n.setEllipsize(TextUtils.TruncateAt.END);
+        top.addView(n, new LinearLayout.LayoutParams(-2, -2));
+        TextView badge = text(T.youName(), 11, Pal.onAccent, true);
+        badge.setPadding(dp(8), dp(2), dp(8), dp(2));
+        badge.setBackground(round(Pal.accent, 0, 10));
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, -2);
+        bp.setMargins(dp(8), 0, 0, 0);
+        top.addView(badge, bp);
+        mid.addView(top);
+        String pron = app.prefs.getString("pronouns", "");
+        String bioS = app.prefs.getString("bio", "").replace('\n', ' ');
+        String sub = (pron.isEmpty() ? "" : pron + (bioS.isEmpty() ? "" : "  ·  ")) + bioS;
+        if (!sub.isEmpty()) {
+            TextView s = text(sub, 14, Pal.dim, false);
+            s.setSingleLine(true);
+            s.setEllipsize(TextUtils.TruncateAt.END);
+            mid.addView(s);
+        }
+        r.addView(mid, new LinearLayout.LayoutParams(0, -2, 1f));
+        r.setOnClickListener(v -> {
+            startActivity(new Intent(this, MainActivity.class).putExtra("openProfile", true)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            finish();
+        });
+        return r;
     }
 
     private String thumbPath(Net.DirEntry e) {
