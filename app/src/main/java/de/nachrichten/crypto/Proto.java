@@ -42,6 +42,20 @@ public final class Proto {
         return sb.append('}').toString();
     }
 
+    /** Eigene Ereignis-Arten: Quittungen (werden gespeichert) und Tippen (flüchtig, Relays speichern es nicht). */
+    public static final int KIND_RECEIPT = 4445, KIND_TYPING = 25044;
+
+    public static String receipt(int status, java.util.List<String> ids) {
+        StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"receipt\",\"s\":").append(status).append(",\"ids\":[");
+        for (int i = 0; i < ids.size(); i++) {
+            if (i > 0) sb.append(',');
+            Event.str(sb, ids.get(i));
+        }
+        return sb.append("]}").toString();
+    }
+
+    public static String typing() { return "{\"nx\":1,\"t\":\"typing\"}"; }
+
     public static int chunkCount(int size) { return Math.max(1, (size + CHUNK - 1) / CHUNK); }
 
     /** Ein Stück eines Anhangs. meta nur bei i == 0. */

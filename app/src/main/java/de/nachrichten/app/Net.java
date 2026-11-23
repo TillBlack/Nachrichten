@@ -34,6 +34,8 @@ final class Net {
         /** peer == null: Liste allgemein neu laden. */
         void onChanged(String peer);
         void onStatus();
+        /** Kontakt tippt gerade. */
+        default void onTyping(String peer) { }
     }
 
     static final String[] DEFAULT_RELAYS = {
@@ -211,8 +213,9 @@ final class Net {
         long since = lastSeenAtStart > 0 ? lastSeenAtStart - 2 * 3600 : 0;
         String sinceJson = since > 0 ? ",\"since\":" + since : "";
         String req = "[\"REQ\",\"dm\","
-                + "{\"kinds\":[4],\"#p\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
-                + "{\"kinds\":[4],\"authors\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000}]";
+                + "{\"kinds\":[4," + Proto.KIND_RECEIPT + "],\"#p\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
+                + "{\"kinds\":[4],\"authors\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
+                + "{\"kinds\":[" + Proto.KIND_TYPING + "],\"#p\":[\"" + me + "\"],\"since\":" + (System.currentTimeMillis() / 1000 - 30) + "}]";
         w.send(req);
     }
 
@@ -243,11 +246,12 @@ final class Net {
     }
 
     private void handleEvent(JSONObject o) throws Exception {
-        if (o.optInt("kind") != 4) return;
+        int kind = o.optInt("kind");
+        if (kind != 4 && kind != Proto.KIND_RECEIPT && kind != Proto.KIND_TYPING) return;
         String id = o.getString("id");
         if (seen.contains(id)) return;
         seen.add(id);
-        if (app.db.hasMessage(id)) return;
+        if (kind == 4 && app.db.hasMessage(id)) return;
 
         String me = app.keys.pubHex();
         String author = o.getString("pubkey");
@@ -269,6 +273,29 @@ final class Net {
         if (plain == null) return;
 
         long createdAt = o.optLong("created_at");
+        if (kind == Proto.KIND_TYPING) {
+            long now = System.currentTimeMillis() / 1000;
+            if (!outgoing && Math.abs(now - createdAt) < 30 && app.db.contact(peer) != null) {
+                main.post(() -> { for (Listener l : listeners) l.onTyping(peer); });
+            }
+            return;
+        }
+        if (kind == Proto.KIND_RECEIPT) {
+            if (outgoing) return;
+            try {
+                JSONObject env = new JSONObject(plain);
+                int s = env.optInt("s");
+                JSONArray ids = env.optJSONArray("ids");
+                if ((s != Db.DELIVERED && s != Db.READ) || ids == null) return;
+                List<String> list = new ArrayList<>();
+                for (int i = 0; i < ids.length() && i < 500; i++) {
+                    String x = ids.optString(i);
+                    if (x.matches("[0-9a-f]{32,64}")) list.add(x);
+                }
+                if (app.db.applyReceipt(peer, list, s)) changed(peer);
+            } catch (Exception ignored) { }
+            return;
+        }
         if (app.db.contact(peer) == null) app.db.addContact(peer, "");
         updateLastSeen(createdAt);
 
@@ -297,10 +324,69 @@ final class Net {
         m.replyTo = replyTo;
         m.ts = createdAt * 1000L;
         m.status = Db.SENT;
+        // bei der ersten Wiederherstellung keine Quittungen für alte Nachrichten verschicken
+        m.receipt = fresh(createdAt) ? 0 : Db.READ;
         boolean isNew = app.db.insert(m);
         if (!isNew) return;
         changed(peer);
         notifyIfNew(peer, outgoing, createdAt, body);
+        if (!outgoing) receiptSoon(peer);
+    }
+
+    private boolean fresh(long createdAt) {
+        return lastSeenAtStart > 0 || createdAt > startedAt - 120;
+    }
+
+    // ------------------------------------------------------------------ Quittungen und Tippen
+
+    private final Set<String> receiptPeers = new HashSet<>();
+
+    /** Zugestellt-Quittungen sammeln und kurz danach gebündelt verschicken. */
+    private void receiptSoon(String peer) {
+        if (receiptPeers.isEmpty()) worker.postDelayed(this::flushReceipts, 1500);
+        receiptPeers.add(peer);
+    }
+
+    private void flushReceipts() {
+        for (String peer : new ArrayList<>(receiptPeers)) {
+            boolean read = peer.equals(openChat) && app.prefs.getBoolean("readReceipts", true);
+            sendReceipts(peer, read ? Db.READ : Db.DELIVERED);
+        }
+        receiptPeers.clear();
+    }
+
+    private void sendReceipts(String peer, int level) {
+        List<String> ids = app.db.needReceipt(peer, level);
+        if (ids.isEmpty()) return;
+        try {
+            Event e = event(peer, Proto.receipt(level, ids), System.currentTimeMillis(), Proto.KIND_RECEIPT);
+            seen.add(e.id);
+            String raw = e.toJson();
+            app.db.addOutbox(e.id, "rcpt:" + peer, raw, 0);
+            app.db.markReceipt(ids, level);
+            broadcast(raw);
+        } catch (Exception ignored) { }
+    }
+
+    /** Chat ist offen: Nachrichten als gelesen melden (oder nur zugestellt, wenn ausgeschaltet). */
+    void chatSeen(String peer) {
+        worker.post(() -> sendReceipts(peer, app.prefs.getBoolean("readReceipts", true) ? Db.READ : Db.DELIVERED));
+    }
+
+    private long lastTypingSent;
+
+    /** Ich tippe gerade (höchstens alle 3 Sekunden, flüchtig). */
+    void typing(String peer) {
+        long now = System.currentTimeMillis();
+        if (now - lastTypingSent < 3000 || !app.prefs.getBoolean("typing", true)) return;
+        lastTypingSent = now;
+        worker.post(() -> {
+            try {
+                Event e = event(peer, Proto.typing(), System.currentTimeMillis(), Proto.KIND_TYPING);
+                seen.add(e.id);
+                broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
     }
 
     private static String cleanId(String s) {
@@ -421,6 +507,8 @@ final class Net {
                 try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
                     out.write(all);
                     app.db.fileDone(fid, f.getAbsolutePath());
+                    if (!outgoing && fresh(createdAt)) receiptSoon(peer);
+                    else if (!outgoing) app.db.markReceipt(java.util.Collections.singletonList(fid), Db.READ);
                     notifyIfNew(peer, outgoing, createdAt, m.kind == Db.IMAGE ? T.photo() : T.fileLabel() + ": " + m.fileName);
                 } catch (Exception ignored) { }
             }
@@ -430,9 +518,11 @@ final class Net {
 
     // ------------------------------------------------------------------ Senden
 
-    private Event event(String peer, String plain, long now) {
+    private Event event(String peer, String plain, long now) { return event(peer, plain, now, 4); }
+
+    private Event event(String peer, String plain, long now, int kind) {
         Event e = new Event();
-        e.kind = 4;
+        e.kind = kind;
         e.createdAt = now / 1000;
         e.tags = new String[][]{{"p", peer}};
         e.content = Nip44.encrypt(plain, convKey(peer));

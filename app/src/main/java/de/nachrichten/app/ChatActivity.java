@@ -57,6 +57,10 @@ public class ChatActivity extends Base implements Net.Listener {
     };
 
     private String peer;
+    private TextView subtitle;
+    private View typingRow;
+    private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable stopTyping = this::hideTyping;
     private LinearLayout header, list, inputBar, replyBar;
     private ScrollView scroll;
     private EditText input;
@@ -112,6 +116,7 @@ public class ChatActivity extends Base implements Net.Listener {
         Notifs.clear(this, peer);
         shownCount = -1;
         reload();
+        app.net.chatSeen(peer);
     }
 
     @Override
@@ -170,6 +175,7 @@ public class ChatActivity extends Base implements Net.Listener {
         TextView et = text(T.encrypted(), 12, Pal.dim, false);
         et.setPadding(dp(4), 0, 0, 0);
         enc.addView(et);
+        subtitle = et;
         titles.addView(enc);
         titles.setOnClickListener(v -> contactMenu());
         header.addView(titles, new LinearLayout.LayoutParams(0, -2, 1f));
@@ -255,6 +261,7 @@ public class ChatActivity extends Base implements Net.Listener {
             public void onTextChanged(CharSequence s, int a, int b, int c) { }
             public void afterTextChanged(Editable s) {
                 boolean on = s.toString().trim().length() > 0;
+                if (on) app.net.typing(peer);
                 if (on != send.on) { send.on = on; send.invalidate(); }
             }
         });
@@ -275,14 +282,60 @@ public class ChatActivity extends Base implements Net.Listener {
     @Override
     public void onChanged(String p) {
         if (p == null || p.equals(peer)) {
+            String before = lastShownId;
             nameView.setText(app.nameOf(peer));
             reload();
             app.db.markRead(peer);
+            Db.Msg last = lastShownId == null ? null : byId.get(lastShownId);
+            if (last != null && !last.outgoing && !lastShownId.equals(before)) hideTyping();
+            if (typingRow != null && typingRow.getParent() == null) list.addView(typingRow);
+            app.net.chatSeen(peer);
         }
     }
 
     @Override
     public void onStatus() { }
+
+    @Override
+    public void onTyping(String p) {
+        if (!p.equals(peer)) return;
+        boolean wasBottom = atBottom();
+        if (typingRow == null || typingRow.getParent() == null) {
+            typingRow = typingBubble();
+            list.addView(typingRow);
+            if (wasBottom) scrollToEnd();
+        }
+        subtitle.setText(T.typing());
+        subtitle.setTextColor(Pal.accent);
+        ui.removeCallbacks(stopTyping);
+        ui.postDelayed(stopTyping, 6000);
+    }
+
+    private void hideTyping() {
+        ui.removeCallbacks(stopTyping);
+        if (typingRow != null && typingRow.getParent() != null) list.removeView(typingRow);
+        typingRow = null;
+        if (subtitle != null) {
+            subtitle.setText(T.encrypted());
+            subtitle.setTextColor(Pal.dim);
+        }
+    }
+
+    private View typingBubble() {
+        FrameLayout row = new FrameLayout(this);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Pal.bubbleIn);
+        float r = dp(16), small = dp(5);
+        bg.setCornerRadii(new float[]{small, small, r, r, r, r, r, r});
+        bg.setStroke(Math.max(1, dp(1) / 2), Pal.line);
+        TypingDots dots = new TypingDots(this);
+        dots.setBackground(bg);
+        row.addView(dots, new FrameLayout.LayoutParams(dp(64), dp(36), Gravity.START));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.setMargins(0, dp(6), 0, 0);
+        row.setLayoutParams(lp);
+        return row;
+    }
 
     // ------------------------------------------------------------------ Antworten
 
@@ -488,10 +541,11 @@ public class ChatActivity extends Base implements Net.Listener {
         TextView tm = text(time(m.ts), 11, metaColor, false);
         meta.addView(tm);
         if (m.outgoing) {
-            Ico st = new Ico(this, m.status == Db.SENT ? Ico.CHECK : Ico.CLOCK);
-            st.color = metaColor;
-            st.setContentDescription(m.status == Db.SENT ? "sent" : T.pendingInfo());
-            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(dp(16), dp(14));
+            Ico st = new Ico(this, m.status == Db.PENDING ? Ico.CLOCK : m.status == Db.SENT ? Ico.CHECK : Ico.CHECK2);
+            st.color = m.status == Db.READ ? (Pal.light ? 0xFF1E88E5 : 0xFF5BC0F8) : metaColor;
+            st.setContentDescription(m.status == Db.PENDING ? T.pendingInfo() : m.status == Db.SENT ? T.statusSent()
+                    : m.status == Db.DELIVERED ? T.statusDelivered() : T.statusRead());
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(dp(22), dp(16));
             sp.setMargins(dp(3), 0, 0, 0);
             meta.addView(st, sp);
         }
@@ -573,7 +627,9 @@ public class ChatActivity extends Base implements Net.Listener {
                 ? new String[]{T.reply(), T.saveFile(), T.openWith(), T.delete()}
                 : new String[]{T.reply(), T.copy(), T.delete()};
         int[] colors = file ? new int[]{0, 0, 0, Pal.red} : new int[]{0, 0, Pal.red};
-        menu(null, items, colors, i -> {
+        String title = !m.outgoing ? null : m.status == Db.PENDING ? T.pendingInfo() : m.status == Db.SENT ? T.statusSent()
+                : m.status == Db.DELIVERED ? T.statusDelivered() : T.statusRead();
+        menu(title, items, colors, i -> {
             String it = items[i];
             if (it.equals(T.reply())) setReply(m.id);
             else if (it.equals(T.copy())) copy(m.body);

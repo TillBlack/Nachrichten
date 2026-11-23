@@ -12,7 +12,7 @@ import java.util.List;
 /** Kontakte, Nachrichten, Datei-Stücke und Ausgang in SQLite. */
 final class Db extends SQLiteOpenHelper {
 
-    static final int PENDING = 0, SENT = 1;
+    static final int PENDING = 0, SENT = 1, DELIVERED = 2, READ = 3;
     static final int TEXT = 0, IMAGE = 1, FILE = 2;
 
     static final class Contact {
@@ -35,11 +35,13 @@ final class Db extends SQLiteOpenHelper {
         String fileName, fileMime, filePath;
         long fileSize;
         int have, total;
+        /** nur empfangene Nachrichten: schon verschickte Quittung (0, 2 zugestellt, 3 gelesen) */
+        int receipt;
 
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 3); }
+    Db(Context c) { super(c, "nachrichten.db", null, 4); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -50,6 +52,14 @@ final class Db extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE deleted (id TEXT PRIMARY KEY)");
         upgradeTo2(db);
         upgradeTo3(db);
+        upgradeTo4(db);
+    }
+
+    /** Spalte receipt: welche Quittung ich für eine empfangene Nachricht schon geschickt habe. */
+    private static void upgradeTo4(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE messages ADD COLUMN receipt INTEGER NOT NULL DEFAULT 0");
+        // für alles, was schon da war, keine Quittungen mehr nachschicken
+        db.execSQL("UPDATE messages SET receipt = 3 WHERE outgoing = 0");
     }
 
     private static void upgradeTo3(SQLiteDatabase db) {
@@ -62,6 +72,7 @@ final class Db extends SQLiteOpenHelper {
     public void onUpgrade(SQLiteDatabase db, int o, int n) {
         if (o < 2) upgradeTo2(db);
         if (o < 3) upgradeTo3(db);
+        if (o < 4) upgradeTo4(db);
     }
 
     private static void upgradeTo2(SQLiteDatabase db) {
@@ -208,6 +219,7 @@ final class Db extends SQLiteOpenHelper {
         v.put("file_path", m.filePath);
         v.put("have", m.have);
         v.put("total", m.total);
+        v.put("receipt", m.receipt);
         return getWritableDatabase().insertWithOnConflict("messages", null, v, SQLiteDatabase.CONFLICT_IGNORE) != -1;
     }
 
@@ -303,6 +315,41 @@ final class Db extends SQLiteOpenHelper {
         v.put("raw", raw);
         v.put("ord", ord);
         getWritableDatabase().insertWithOnConflict("outbox", null, v, SQLiteDatabase.CONFLICT_IGNORE);
+    }
+
+    // ------------------------------------------------------------------ Quittungen
+
+    /** Status meiner gesendeten Nachrichten erhöhen (zugestellt / gelesen). */
+    synchronized boolean applyReceipt(String peer, List<String> ids, int status) {
+        SQLiteDatabase db = getWritableDatabase();
+        int changed = 0;
+        for (String id : ids) {
+            ContentValues v = new ContentValues();
+            v.put("status", status);
+            changed += db.update("messages", v, "id = ? AND peer = ? AND outgoing = 1 AND status < ?",
+                    new String[]{id, peer, String.valueOf(status)});
+        }
+        return changed > 0;
+    }
+
+    /** Empfangene, vollständige Nachrichten, für die noch keine Quittung dieser Stufe verschickt wurde. */
+    synchronized List<String> needReceipt(String peer, int level) {
+        List<String> out = new ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT id FROM messages WHERE peer = ? AND outgoing = 0 AND receipt < ? AND (kind = 0 OR file_path IS NOT NULL) ORDER BY ts LIMIT 200",
+                new String[]{peer, String.valueOf(level)})) {
+            while (c.moveToNext()) out.add(c.getString(0));
+        }
+        return out;
+    }
+
+    synchronized void markReceipt(List<String> ids, int level) {
+        SQLiteDatabase db = getWritableDatabase();
+        for (String id : ids) {
+            ContentValues v = new ContentValues();
+            v.put("receipt", level);
+            db.update("messages", v, "id = ? AND receipt < ?", new String[]{id, String.valueOf(level)});
+        }
     }
 
     // ------------------------------------------------------------------ Empfang von Anhängen

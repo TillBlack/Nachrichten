@@ -172,6 +172,18 @@ final class T {
             "Obtainium je besplatna aplikacija otvorenog koda koja instalira ažuriranja izravno s GitHuba. Ako je imaš, \"Ažuriraj\" otvara Nachrichten u Obtainiumu. Bez nje Android preuzima ažuriranje, a ti dodirneš obavijest za instalaciju."); }
     static String helperInstall() { return s("Get Obtainium", "Obtainium holen", "Obtener Obtainium", "Скачать Obtainium", "Preuzmi Obtainium"); }
     static String github() { return s("Developer on GitHub", "Entwickler auf GitHub", "Desarrollador en GitHub", "Разработчик на GitHub", "Razvojni programer na GitHubu"); }
+    static String typing() { return s("typing…", "schreibt…", "escribiendo…", "печатает…", "piše…"); }
+    static String statusSent() { return s("Sent", "Gesendet", "Enviado", "Отправлено", "Poslano"); }
+    static String statusDelivered() { return s("Delivered", "Zugestellt", "Entregado", "Доставлено", "Dostavljeno"); }
+    static String statusRead() { return s("Read", "Gelesen", "Leído", "Прочитано", "Pročitano"); }
+    static String readReceipts() { return s("Read receipts", "Lesebestätigungen", "Confirmaciones de lectura", "Отчёты о прочтении", "Potvrde čitanja"); }
+    static String readReceiptsInfo() { return s(
+            "If off, others don't see when you read their messages (they still see \"delivered\").",
+            "Wenn aus, sehen andere nicht, wann du ihre Nachrichten gelesen hast (\"zugestellt\" sehen sie weiterhin).",
+            "Si está desactivado, los demás no ven cuándo lees sus mensajes (siguen viendo \"entregado\").",
+            "Если выключено, другие не видят, когда ты прочитал их сообщения (\"доставлено\" видно).",
+            "Ako je isključeno, drugi ne vide kad si pročitao njihove poruke (i dalje vide \"dostavljeno\")."); }
+    static String showTyping() { return s("Show when I'm typing", "Anzeigen, wenn ich schreibe", "Mostrar cuando escribo", "Показывать, что я печатаю", "Prikaži kad pišem"); }
     static String later() { return s("Later", "Später", "Más tarde", "Позже", "Kasnije"); }
     static String updateNow() { return s("Update", "Aktualisieren", "Actualizar", "Обновить", "Ažuriraj"); }
     static String downloading() { return s("Downloading…", "Wird geladen…", "Descargando…", "Загрузка…", "Preuzimanje…"); }

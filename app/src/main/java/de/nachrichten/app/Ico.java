@@ -11,7 +11,7 @@ import android.view.View;
 final class Ico extends View {
 
     static final int PLUS = 0, SETTINGS = 1, BACK = 2, SEND = 3, QR = 4, MORE = 5, CLOCK = 6, CHECK = 7,
-            RADIO = 8, TOGGLE = 9, LOCK = 10, ATTACH = 11, CLOSE = 12, FILE = 13;
+            RADIO = 8, TOGGLE = 9, LOCK = 10, ATTACH = 11, CLOSE = 12, FILE = 13, CHECK2 = 14;
 
     final int kind;
     boolean on;
@@ -113,11 +113,25 @@ final class Ico extends View {
                 break;
             }
             case CHECK: {
-                p.setStrokeWidth(1.6f * d);
+                p.setStrokeWidth(1.9f * d);
                 path.reset();
-                path.moveTo(cx - 5f * d, cy);
-                path.lineTo(cx - 1.5f * d, cy + 3.5f * d);
-                path.lineTo(cx + 5f * d, cy - 3.5f * d);
+                path.moveTo(cx - 5.5f * d, cy + 0.5f * d);
+                path.lineTo(cx - 1.8f * d, cy + 4f * d);
+                path.lineTo(cx + 5.5f * d, cy - 4f * d);
+                c.drawPath(path, p);
+                break;
+            }
+            case CHECK2: {
+                p.setStrokeWidth(1.9f * d);
+                float o = 3.2f * d;
+                path.reset();
+                path.moveTo(cx - 7.5f * d, cy + 0.5f * d);
+                path.lineTo(cx - 3.8f * d, cy + 4f * d);
+                path.lineTo(cx + 3.5f * d, cy - 4f * d);
+                c.drawPath(path, p);
+                path.reset();
+                path.moveTo(cx - 3.8f * d + o, cy + 4f * d);
+                path.lineTo(cx + 3.5f * d + o, cy - 4f * d);
                 c.drawPath(path, p);
                 break;
             }

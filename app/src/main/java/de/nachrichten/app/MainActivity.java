@@ -629,6 +629,13 @@ public class MainActivity extends Base implements Net.Listener {
         hidei.setPadding(0, dp(6), 0, 0);
         box.addView(hidei);
 
+        // Privatsphäre im Chat
+        box.addView(prefToggle(T.readReceipts(), "readReceipts"));
+        TextView rri = text(T.readReceiptsInfo(), 13, Pal.dim, false);
+        rri.setPadding(0, dp(4), 0, 0);
+        box.addView(rri);
+        box.addView(prefToggle(T.showTyping(), "typing"));
+
         // Updates
         LinearLayout up = new LinearLayout(this);
         up.setGravity(Gravity.CENTER_VERTICAL);
@@ -811,6 +818,25 @@ public class MainActivity extends Base implements Net.Listener {
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    /** Zeile mit Schalter für eine Einstellung (Standard an). */
+    private View prefToggle(String label, String key) {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(0, dp(18), 0, 0);
+        r.addView(text(label, 16, Pal.text, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        Ico tg = new Ico(this, Ico.TOGGLE);
+        tg.on = app.prefs.getBoolean(key, true);
+        r.addView(tg, new LinearLayout.LayoutParams(dp(52), dp(40)));
+        r.setOnClickListener(v -> {
+            boolean on = !app.prefs.getBoolean(key, true);
+            app.prefs.edit().putBoolean(key, on).apply();
+            tg.on = on;
+            tg.invalidate();
+        });
+        tg.setOnClickListener(v -> r.performClick());
+        return r;
     }
 
     private View optionRow(String name, boolean selected, View.OnClickListener click) {
