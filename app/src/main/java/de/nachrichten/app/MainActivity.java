@@ -69,6 +69,8 @@ public class MainActivity extends Base implements Net.Listener {
                 Updater.checkOnStart(this);
             }
             showObtainiumChip();
+            askDirectoryConsent();
+            app.net.publishDirectory(false);
         }
     }
 
@@ -312,6 +314,7 @@ public class MainActivity extends Base implements Net.Listener {
         if (list == null || onboarding) return;
         updateStatus();
         list.removeAllViews();
+        list.addView(discoverRow());
         List<Db.Contact> cs = app.db.contacts();
         if (cs.isEmpty()) {
             TextView e = text(T.noChats(), 16, Pal.dim, false);
@@ -323,6 +326,83 @@ public class MainActivity extends Base implements Net.Listener {
             return;
         }
         for (Db.Contact c : cs) list.addView(row(c));
+    }
+
+    private View discoverRow() {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        FrameLayout ic = new FrameLayout(this);
+        ic.setBackground(round(Pal.field, Pal.line, 24));
+        Avatar a1 = new Avatar("discover-a", "?");
+        Avatar a2 = new Avatar("discover-b", "?");
+        ic.addView(a1, new FrameLayout.LayoutParams(dp(26), dp(26), Gravity.TOP | Gravity.LEFT));
+        FrameLayout.LayoutParams p2 = new FrameLayout.LayoutParams(dp(26), dp(26), Gravity.BOTTOM | Gravity.RIGHT);
+        ic.addView(a2, p2);
+        ic.setPadding(dp(6), dp(6), dp(6), dp(6));
+        r.addView(ic, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setPadding(dp(14), 0, 0, 0);
+        t.addView(text(T.discover(), 17, Pal.text, true));
+        t.addView(text(T.discoverSub(), 14, Pal.dim, false));
+        r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        Ico arrow = new Ico(this, Ico.BACK);
+        arrow.color = Pal.dim;
+        arrow.setRotation(180);
+        r.addView(arrow, new LinearLayout.LayoutParams(dp(24), dp(24)));
+        r.setOnClickListener(v -> startActivity(new Intent(this, DirectoryActivity.class)));
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.addView(r);
+        View line = new View(this);
+        line.setBackgroundColor(Pal.line);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Math.max(1, dp(1) / 2));
+        lp.setMargins(dp(12), dp(2), dp(12), dp(6));
+        wrap.addView(line, lp);
+        return wrap;
+    }
+
+    /** Einmal fragen: im öffentlichen Verzeichnis erscheinen oder privat stellen. */
+    private void askDirectoryConsent() {
+        if (app.prefs.contains("dirConsent") || onboarding) return;
+        if (app.prefs.getBoolean("profilePrivate", false)) {
+            app.prefs.edit().putBoolean("dirConsent", false).apply();
+            return;
+        }
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(text(T.consentTitle(), 19, Pal.text, true));
+        TextView info = text(T.consentText(), 15, Pal.dim, false);
+        info.setPadding(0, dp(8), 0, 0);
+        info.setLineSpacing(0, 1.15f);
+        box.addView(info);
+        LinearLayout buttons = buttonRow();
+        TextView priv = button(T.goPrivate(), false);
+        priv.setOnClickListener(v -> {
+            app.prefs.edit().putBoolean("dirConsent", false).putBoolean("profilePrivate", true)
+                    .putLong("profileTs", System.currentTimeMillis()).apply();
+            app.net.profileChanged();
+            dlg.dismiss();
+            refresh();
+        });
+        addTo(buttons, priv, true);
+        TextView pub = button(T.stayPublic(), true);
+        pub.setOnClickListener(v -> {
+            app.prefs.edit().putBoolean("dirConsent", true).apply();
+            app.net.publishDirectory(true);
+            dlg.dismiss();
+        });
+        addTo(buttons, pub, false);
+        addRow(box, buttons, 18);
+        dlg.setCancelable(false);
+        showDialog(dlg, box);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent.getBooleanExtra("openProfile", false) && app.keys.has()) editProfile();
     }
 
     private View row(Db.Contact c) {
@@ -909,6 +989,7 @@ public class MainActivity extends Base implements Net.Listener {
                     || !allowed.equals(app.prefs.getStringSet("profileAllowed", java.util.Collections.emptySet()));
             if (!changed) return;
             app.prefs.edit().putString("name", n).putString("pronouns", p).putString("bio", b)
+                    .putBoolean("dirConsent", !priv[0])
                     .putBoolean("profilePrivate", priv[0]).putStringSet("profileAllowed", new java.util.HashSet<>(allowed))
                     .putLong("profileTs", System.currentTimeMillis()).apply();
             app.net.profileChanged();

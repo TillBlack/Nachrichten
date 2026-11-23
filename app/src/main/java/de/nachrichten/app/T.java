@@ -150,7 +150,7 @@ final class T {
     static String noBio() { return s("No bio yet.", "Noch keine Biografie.", "Aún no hay biografía.", "Пока ничего не написано.", "Još nema biografije."); }
     static String visibility() { return s("Who can see my profile", "Wer mein Profil sieht", "Quién ve mi perfil", "Кто видит мой профиль", "Tko vidi moj profil"); }
     static String visPublic() { return s("Public", "Öffentlich", "Público", "Публичный", "Javno"); }
-    static String visPublicInfo() { return s("All your contacts", "Alle deine Kontakte", "Todos tus contactos", "Все твои контакты", "Svi tvoji kontakti"); }
+    static String visPublicInfo() { return s("All contacts and the public list \"Discover people\"", "Alle Kontakte und die öffentliche Liste \"Nutzer entdecken\"", "Todos tus contactos y la lista pública", "Все контакты и публичный список", "Svi kontakti i javni popis"); }
     static String visPrivate() { return s("Private", "Privat", "Privado", "Приватный", "Privatno"); }
     static String visPrivateInfo() { return s("Only the people you switch on below", "Nur die Leute, die du unten einschaltest", "Solo las personas que actives abajo", "Только те, кого ты включишь ниже", "Samo osobe koje uključiš ispod"); }
     static String openChat() { return s("Chat", "Chat", "Chat", "Чат", "Razgovor"); }
@@ -166,6 +166,38 @@ final class T {
 
     static String getObtainiumChip() { return s("Install Obtainium for updates", "Obtainium für Updates installieren", "Instala Obtainium para actualizar", "Установи Obtainium для обновлений", "Instaliraj Obtainium za ažuriranja"); }
     static String directDownload() { return s("Download directly", "Direkt herunterladen", "Descargar directamente", "Скачать напрямую", "Preuzmi izravno"); }
+
+    static String discover() { return s("Discover people", "Nutzer entdecken", "Descubrir personas", "Найти людей", "Otkrij ljude"); }
+    static String discoverSub() { return s("Everyone with a public profile", "Alle mit öffentlichem Profil", "Todos con perfil público", "Все с публичным профилем", "Svi s javnim profilom"); }
+    static String dirLoading() { return s("Searching…", "Wird gesucht…", "Buscando…", "Поиск…", "Traženje…"); }
+    static String dirEmpty() { return s("Nobody found yet", "Noch niemand gefunden", "Aún no hay nadie", "Пока никого нет", "Još nikoga nema"); }
+    static String dirCount(int n, int online) {
+        switch (lang) {
+            case 1: return n + " Nutzer, " + online + " gerade online";
+            case 2: return n + " personas, " + online + " en línea";
+            case 3: return "Пользователей: " + n + ", онлайн: " + online;
+            case 4: return "Korisnika: " + n + ", na mreži: " + online;
+            default: return n + " people, " + online + " online now";
+        }
+    }
+    static String online() { return s("online", "online", "en línea", "онлайн", "na mreži"); }
+    static String dirHint() { return s(
+            "To be invisible here: Profile → Who can see my profile → Private.",
+            "So wirst du hier unsichtbar: Profil → Wer mein Profil sieht → Privat.",
+            "Para ser invisible aquí: Perfil → Quién ve mi perfil → Privado.",
+            "Чтобы стать невидимым: Профиль → Кто видит мой профиль → Приватный.",
+            "Da budeš nevidljiv ovdje: Profil → Tko vidi moj profil → Privatno."); }
+    static String dirHintButton() { return s("Go", "Hin", "Ir", "Перейти", "Idi"); }
+    static String write() { return s("Message", "Schreiben", "Escribir", "Написать", "Piši"); }
+    static String consentTitle() { return s("New: public user list", "Neu: öffentliche Nutzerliste", "Nuevo: lista pública", "Новое: публичный список", "Novo: javni popis"); }
+    static String consentText() { return s(
+            "With a public profile you appear in \"Discover people\". Your name, picture, pronouns and bio are then visible to anyone, not only your contacts, and unencrypted. With a private profile you are not listed.",
+            "Mit öffentlichem Profil erscheinst du unter \"Nutzer entdecken\". Name, Bild, Pronomen und Biografie sind dann für jeden sichtbar, nicht nur für deine Kontakte, und unverschlüsselt. Mit privatem Profil stehst du nicht in der Liste.",
+            "Con perfil público apareces en \"Descubrir personas\". Tu nombre, foto, pronombres y biografía serán visibles para cualquiera y sin cifrar. Con perfil privado no apareces.",
+            "С публичным профилем ты появишься в \"Найти людей\". Имя, фото, местоимения и описание увидит кто угодно, без шифрования. С приватным профилем тебя нет в списке.",
+            "S javnim profilom pojavljuješ se u \"Otkrij ljude\". Ime, slika, zamjenice i biografija tada su vidljivi svima, nešifrirano. S privatnim profilom nisi na popisu."); }
+    static String stayPublic() { return s("Stay public", "Öffentlich bleiben", "Seguir público", "Оставить публичным", "Ostani javan"); }
+    static String goPrivate() { return s("Make private", "Privat stellen", "Hacer privado", "Сделать приватным", "Postavi privatno"); }
 
     // Updates
     static String updateTitle() { return s("Update available", "Update verfügbar", "Actualización disponible", "Доступно обновление", "Dostupno ažuriranje"); }

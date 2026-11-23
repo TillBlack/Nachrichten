@@ -178,6 +178,7 @@ final class Net {
             // läuft im Thread dieses Relays, bevor gelesen wird
             subscribe(w);
             for (String raw : app.db.pendingRaw()) enqueue("[\"EVENT\"," + raw + "]");
+            worker.postDelayed(() -> publishDirectory(false), 4000);
             status();
         }
 
@@ -225,7 +226,11 @@ final class Net {
         try {
             JSONArray a = new JSONArray(text);
             String type = a.optString(0);
-            if (type.equals("EVENT") && a.length() >= 3) {
+            if (type.equals("EVENT") && a.length() >= 3 && "dir".equals(a.optString(1))) {
+                handleDirectory(a.getJSONObject(2));
+            } else if (type.equals("EOSE") && "dir".equals(a.optString(1))) {
+                main.post(() -> { DirListener l = dirListener; if (l != null) l.done(); });
+            } else if (type.equals("EVENT") && a.length() >= 3) {
                 handleEvent(a.getJSONObject(2));
             } else if (type.equals("OK") && a.length() >= 3) {
                 if (a.optBoolean(2)) {
@@ -465,7 +470,136 @@ final class Net {
     }
 
     /** Mein Profil hat sich geändert: an alle Kontakte schicken. */
+    // ------------------------------------------------------------------ öffentliche Nutzerliste
+
+    static final int KIND_DIR = 30078;
+    static final String DIR_D = "nachrichten-profile", DIR_T = "nachrichten-dir";
+
+    static final class DirEntry {
+        String pub, name, bio, pronouns;
+        byte[] thumb;
+        long seen;
+    }
+
+    interface DirListener {
+        void entry(DirEntry e);
+        void done();
+    }
+
+    private volatile DirListener dirListener;
+    private long lastDirPublish;
+
+    /** Liste abfragen (alle, die in den letzten 30 Tagen aktiv waren). */
+    void loadDirectory(DirListener l) {
+        dirListener = l;
+        String req = "[\"REQ\",\"dir\",{\"kinds\":[" + KIND_DIR + "],\"#t\":[\"" + DIR_T + "\"],\"since\":"
+                + (System.currentTimeMillis() / 1000 - 30L * 86400) + ",\"limit\":500}]";
+        for (Conn c : new ArrayList<>(conns.values())) if (c.open) c.enqueue(req);
+    }
+
+    void closeDirectory() {
+        dirListener = null;
+        for (Conn c : new ArrayList<>(conns.values())) if (c.open) c.enqueue("[\"CLOSE\",\"dir\"]");
+    }
+
+    private void handleDirectory(JSONObject o) {
+        try {
+            if (o.optInt("kind") != KIND_DIR) return;
+            Event e = new Event();
+            e.id = o.getString("id");
+            e.pubkey = o.getString("pubkey");
+            e.createdAt = o.getLong("created_at");
+            e.kind = KIND_DIR;
+            e.content = o.optString("content");
+            e.sig = o.getString("sig");
+            JSONArray tags = o.optJSONArray("tags");
+            List<String[]> tl = new ArrayList<>();
+            if (tags != null) for (int i = 0; i < tags.length(); i++) {
+                JSONArray t = tags.getJSONArray(i);
+                String[] arr = new String[t.length()];
+                for (int j = 0; j < t.length(); j++) arr[j] = t.getString(j);
+                tl.add(arr);
+            }
+            e.tags = tl.toArray(new String[0][]);
+            if (!DIR_D.equals(e.tag("d")) || e.content.isEmpty()) return; // leer = zurückgezogen
+            if (e.pubkey.equals(app.keys.pubHex())) return;
+            if (!e.verify()) return; // öffentlich und unverschlüsselt: Signatur selbst prüfen
+            JSONObject c = new JSONObject(e.content);
+            DirEntry d = new DirEntry();
+            d.pub = e.pubkey;
+            d.seen = e.createdAt;
+            d.name = trim(c.optString("name"), 40);
+            d.bio = trim(c.optString("bio"), 500);
+            d.pronouns = trim(c.optString("pron"), 40);
+            String img = c.optString("img");
+            if (!img.isEmpty() && img.length() < 20000) {
+                try { d.thumb = java.util.Base64.getDecoder().decode(img); } catch (Exception ignored) { }
+            }
+            if (d.name.isEmpty()) return;
+            main.post(() -> { DirListener l = dirListener; if (l != null) l.entry(d); });
+        } catch (Exception ignored) { }
+    }
+
+    private static String trim(String s, int max) {
+        s = s == null ? "" : s.trim();
+        return s.length() > max ? s.substring(0, max) : s;
+    }
+
+    /** Eigenen Eintrag veröffentlichen (öffentlich) oder zurückziehen (privat / nicht zugestimmt). */
+    void publishDirectory(boolean force) {
+        worker.post(() -> {
+            long now = System.currentTimeMillis();
+            if (!force && now - lastDirPublish < 5 * 60 * 1000L) return;
+            if (connectedCount() == 0) return;
+            boolean visible = app.prefs.getBoolean("dirConsent", false) && !app.prefs.getBoolean("profilePrivate", false)
+                    && !app.myName().isEmpty();
+            boolean wasPublished = app.prefs.getBoolean("dirPublished", false);
+            if (!visible && !wasPublished) return;
+            lastDirPublish = now;
+            try {
+                String content = "";
+                if (visible) {
+                    StringBuilder sb = new StringBuilder("{\"name\":");
+                    Event.str(sb, app.myName());
+                    sb.append(",\"pron\":");
+                    Event.str(sb, app.prefs.getString("pronouns", ""));
+                    sb.append(",\"bio\":");
+                    Event.str(sb, app.prefs.getString("bio", ""));
+                    sb.append(",\"img\":");
+                    Event.str(sb, thumbBase64());
+                    content = sb.append('}').toString();
+                }
+                Event e = new Event();
+                e.kind = KIND_DIR;
+                e.createdAt = now / 1000;
+                e.tags = new String[][]{{"d", DIR_D}, {"t", DIR_T}};
+                e.content = content;
+                e.sign(app.keys.priv());
+                seen.add(e.id);
+                broadcast(e.toJson());
+                app.prefs.edit().putBoolean("dirPublished", visible).apply();
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /** Kleines Vorschaubild (96 px) des eigenen Profilbilds als base64. */
+    private String thumbBase64() {
+        java.io.File f = app.myAvatar();
+        if (f == null) return "";
+        try {
+            android.graphics.Bitmap b = android.graphics.BitmapFactory.decodeFile(f.getAbsolutePath());
+            if (b == null) return "";
+            android.graphics.Bitmap s = android.graphics.Bitmap.createScaledBitmap(b, 96, 96, true);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            s.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, out);
+            return java.util.Base64.getEncoder().encodeToString(out.toByteArray());
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
     void profileChanged() {
+        publishDirectory(true);
         worker.post(() -> {
             for (String p : app.db.contactKeys()) {
                 try { sendProfileIfNeeded(p); } catch (Exception ignored) { }
