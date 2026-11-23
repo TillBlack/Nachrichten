@@ -178,6 +178,40 @@ final class T {
         }
     }
     static String discoverSub() { return s("Everyone with a public profile", "Alle mit öffentlichem Profil", "Todos con perfil público", "Все с публичным профилем", "Svi s javnim profilom"); }
+
+    // ---- Vorschläge ----
+    static String suggestions() { return s("Suggestions", "Vorschläge", "Sugerencias", "Предложения", "Prijedlozi"); }
+    static String suggestionsSub(int n) {
+        switch (lang) {
+            case 1: return n == 1 ? "1 Vorschlag" : n + " Vorschläge";
+            case 2: return n == 1 ? "1 sugerencia" : n + " sugerencias";
+            case 3: return "Предложений: " + n;
+            case 4: return n == 1 ? "1 prijedlog" : n + " prijedloga";
+            default: return n == 1 ? "1 suggestion" : n + " suggestions";
+        }
+    }
+    static String suggestOpen() { return s("Send a suggestion", "Vorschlag senden", "Enviar una sugerencia", "Отправить предложение", "Pošalji prijedlog"); }
+    static String suggestInfo() { return s(
+            "Write a wish for a future update. It is sent anonymously to the developer — your name and contact are not shared.",
+            "Schreib einen Wunsch für ein künftiges Update. Er geht anonym an den Entwickler – dein Name und Kontakt werden nicht übermittelt.",
+            "Escribe un deseo para una futura actualización. Se envía de forma anónima al desarrollador; tu nombre y contacto no se comparten.",
+            "Напиши пожелание для будущего обновления. Оно отправляется анонимно разработчику — твоё имя и контакт не передаются.",
+            "Napiši želju za buduće ažuriranje. Šalje se anonimno razvijatelju – tvoje ime i kontakt se ne dijele."); }
+    static String suggestHint() { return s("Your suggestion…", "Dein Vorschlag…", "Tu sugerencia…", "Твоё предложение…", "Tvoj prijedlog…"); }
+    static String suggestSend() { return s("Send", "Senden", "Enviar", "Отправить", "Pošalji"); }
+    static String suggestThanks() { return s("Thanks! Your suggestion was sent.", "Danke! Dein Vorschlag wurde gesendet.", "¡Gracias! Tu sugerencia se envió.", "Спасибо! Предложение отправлено.", "Hvala! Prijedlog je poslan."); }
+    static String suggestEmpty() { return s("Please write something first", "Bitte schreib zuerst etwas", "Escribe algo primero", "Сначала что-нибудь напиши", "Prvo nešto napiši"); }
+    static String suggestOff() { return s("Suggestions aren't available right now", "Vorschläge sind gerade nicht verfügbar", "Las sugerencias no están disponibles ahora", "Предложения сейчас недоступны", "Prijedlozi trenutačno nisu dostupni"); }
+    static String suggestNone() { return s("No suggestions yet", "Noch keine Vorschläge", "Aún no hay sugerencias", "Пока нет предложений", "Još nema prijedloga"); }
+    static String suggestAnon() { return s("Anonymous", "Anonym", "Anónimo", "Аноним", "Anonimno"); }
+    static String suggestDelete() { return s("Delete this suggestion?", "Diesen Vorschlag löschen?", "¿Eliminar esta sugerencia?", "Удалить это предложение?", "Obrisati ovaj prijedlog?"); }
+    static String devSetupTitle() { return s("Suggestions inbox", "Vorschläge-Postfach", "Buzón de sugerencias", "Почтовый ящик предложений", "Pretinac za prijedloge"); }
+    static String devSetupInfo() { return s(
+            "This is a separate inbox for anonymous suggestions, independent of your contact code. Send this ID to the developer so it can be added to the app. Only keep it if you are the developer.",
+            "Dies ist ein separates Postfach für anonyme Vorschläge, unabhängig von deinem Kontaktcode. Schick diese ID an den Entwickler, damit sie in die App eingetragen wird. Behalte sie nur, wenn du der Entwickler bist.",
+            "Este es un buzón aparte para sugerencias anónimas, independiente de tu código de contacto. Envía esta ID al desarrollador para añadirla a la app. Consérvala solo si eres el desarrollador.",
+            "Это отдельный ящик для анонимных предложений, независимый от твоего контактного кода. Отправь этот ID разработчику, чтобы добавить его в приложение. Храни его, только если ты разработчик.",
+            "Ovo je zaseban pretinac za anonimne prijedloge, neovisan o tvom kontakt kodu. Pošalji ovaj ID razvijatelju da se doda u aplikaciju. Zadrži ga samo ako si razvijatelj."); }
     static String dirLoading() { return s("Searching…", "Wird gesucht…", "Buscando…", "Поиск…", "Traženje…"); }
     static String dirEmpty() { return s("Nobody found yet", "Noch niemand gefunden", "Aún no hay nadie", "Пока никого нет", "Još nikoga nema"); }
     static String dirCount(int n, int online) {

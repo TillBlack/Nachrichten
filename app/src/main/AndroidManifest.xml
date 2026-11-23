@@ -52,6 +52,10 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
         <activity
+            android:name=".app.SuggestionsActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
+        <activity
             android:name=".app.ScanActivity"
             android:exported="false"
             android:screenOrientation="portrait"

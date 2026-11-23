@@ -49,6 +49,8 @@ public final class Proto {
 
     /** Eigene Ereignis-Arten: Quittungen (werden gespeichert) und Tippen (flüchtig, Relays speichern es nicht). */
     public static final int KIND_RECEIPT = 4445, KIND_TYPING = 25044, KIND_PRESENCE = 20002;
+    /** Anonymer Verbesserungsvorschlag an den Entwickler (von einem Wegwerf-Schlüssel signiert). */
+    public static final int KIND_SUGGEST = 4446;
 
     public static String receipt(int status, java.util.List<String> ids) {
         StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"receipt\",\"s\":").append(status).append(",\"ids\":[");

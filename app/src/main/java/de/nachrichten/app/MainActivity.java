@@ -333,6 +333,9 @@ public class MainActivity extends Base implements Net.Listener {
     @Override
     public void onStatus() { updateStatus(); }
 
+    @Override
+    public void onSuggestion() { refresh(); }
+
     private void updateStatus() {
         if (statusView == null) return;
         int n = app.net.connectedCount(), total = app.relays().size();
@@ -343,6 +346,7 @@ public class MainActivity extends Base implements Net.Listener {
         if (list == null || onboarding) return;
         updateStatus();
         list.removeAllViews();
+        if (app.isDev()) list.addView(suggestionsRow());
         list.addView(discoverRow());
         List<Db.Contact> cs = app.db.contacts();
         if (cs.isEmpty()) {
@@ -377,6 +381,98 @@ public class MainActivity extends Base implements Net.Listener {
         steps.add(new TutorialOverlay.Step(hProfile, T.tuProfile()));
         TutorialOverlay ov = new TutorialOverlay(this, steps, () -> app.prefs.edit().putBoolean("tutorialDone", true).apply());
         root.addView(ov, new FrameLayout.LayoutParams(-1, -1));
+    }
+
+    /** Nur für den Entwickler: Liste der anonymen Vorschläge, ganz oben in der Chatliste. */
+    private View suggestionsRow() {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        FrameLayout ic = new FrameLayout(this);
+        ic.setBackground(round(Pal.accent, 0, 24));
+        Ico f = new Ico(this, Ico.FILE);
+        f.color = Pal.onAccent;
+        ic.addView(f, new FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER));
+        r.addView(ic, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setPadding(dp(14), 0, 0, 0);
+        t.addView(text(T.suggestions(), 17, Pal.text, true));
+        t.addView(text(T.suggestionsSub(app.db.suggestionCount()), 14, Pal.dim, false));
+        r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        Ico arrow = new Ico(this, Ico.BACK);
+        arrow.color = Pal.dim;
+        arrow.setRotation(180);
+        r.addView(arrow, new LinearLayout.LayoutParams(dp(24), dp(24)));
+        r.setOnClickListener(v -> startActivity(new Intent(this, SuggestionsActivity.class)));
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.addView(r);
+        View line = new View(this);
+        line.setBackgroundColor(Pal.line);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Math.max(1, dp(1) / 2));
+        lp.setMargins(dp(12), dp(2), dp(12), dp(6));
+        wrap.addView(line, lp);
+        return wrap;
+    }
+
+    /** Entwickler-Einrichtung: erzeugt/zeigt die öffentliche ID des Vorschlags-Postfachs zum Weitergeben. */
+    private void openDevSetup() {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(text(T.devSetupTitle(), 20, Pal.text, true));
+        TextView info = text(T.devSetupInfo(), 14, Pal.dim, false);
+        info.setLineSpacing(0, 1.2f);
+        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(-1, -2);
+        ip.setMargins(0, dp(6), 0, dp(10));
+        box.addView(info, ip);
+        String id = app.ensureSugKey();
+        TextView idv = text(id, 13, Pal.text, false);
+        idv.setTypeface(android.graphics.Typeface.MONOSPACE);
+        idv.setTextIsSelectable(true);
+        idv.setBackground(round(Pal.field, Pal.line, 10));
+        idv.setPadding(dp(12), dp(10), dp(12), dp(10));
+        box.addView(idv, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout buttons = buttonRow();
+        TextView close = button(T.close(), false);
+        close.setOnClickListener(v -> dlg.dismiss());
+        addTo(buttons, close, true);
+        TextView copyBtn = button(T.copy(), true);
+        copyBtn.setOnClickListener(v -> { copy(id); toast(T.copied()); });
+        addTo(buttons, copyBtn, false);
+        addRow(box, buttons, 18);
+        showScrollDialog(dlg, box);
+    }
+
+    /** Dialog zum Einreichen eines anonymen Vorschlags. */
+    private void openSuggestion() {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(text(T.suggestions(), 20, Pal.text, true));
+        TextView info = text(T.suggestInfo(), 14, Pal.dim, false);
+        info.setLineSpacing(0, 1.2f);
+        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(-1, -2);
+        ip.setMargins(0, dp(6), 0, dp(10));
+        box.addView(info, ip);
+        EditText fld = field(T.suggestHint(), true);
+        fld.setMaxLines(8);
+        box.addView(fld, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout buttons = buttonRow();
+        TextView cancel = button(T.cancel(), false);
+        cancel.setOnClickListener(v -> dlg.dismiss());
+        addTo(buttons, cancel, true);
+        TextView send = button(T.suggestSend(), true);
+        send.setOnClickListener(v -> {
+            String s = fld.getText().toString().trim();
+            if (s.isEmpty()) { toast(T.suggestEmpty()); return; }
+            if (!app.suggestReady()) { toast(T.suggestOff()); return; }
+            app.net.sendSuggestion(s);
+            dlg.dismiss();
+            toast(T.suggestThanks());
+        });
+        addTo(buttons, send, false);
+        addRow(box, buttons, 18);
+        showScrollDialog(dlg, box);
     }
 
     private View discoverRow() {
@@ -710,7 +806,10 @@ public class MainActivity extends Base implements Net.Listener {
     private void openSettings() {
         Dialog dlg = dialog();
         LinearLayout box = panel();
-        box.addView(text(T.settings(), 20, Pal.text, true));
+        TextView settTitle = text(T.settings(), 20, Pal.text, true);
+        // Verstecktes Entwickler-Postfach: langer Druck auf den Titel.
+        settTitle.setOnLongClickListener(v -> { dlg.dismiss(); openDevSetup(); return true; });
+        box.addView(settTitle);
 
         settingsDlg = dlg;
         box.addView(label(T.language()));
@@ -814,6 +913,25 @@ public class MainActivity extends Base implements Net.Listener {
         TextView uti = text(T.autoUpdatesInfo(Updater.installedVersion(this)), 13, Pal.dim, false);
         uti.setPadding(0, dp(4), 0, 0);
         box.addView(uti);
+
+        // Vorschläge – nur sichtbar, wenn ein Postfach im Code hinterlegt ist.
+        if (app.suggestReady()) {
+            box.addView(label(T.suggestions()));
+            LinearLayout sug = new LinearLayout(this);
+            sug.setGravity(Gravity.CENTER_VERTICAL);
+            sug.setPadding(dp(12), dp(10), dp(12), dp(10));
+            sug.setBackground(round(Pal.field, Pal.line, 12));
+            TextView sst = text(T.suggestOpen(), 16, Pal.text, false);
+            sug.addView(sst, new LinearLayout.LayoutParams(0, -2, 1f));
+            Ico sarr = new Ico(this, Ico.BACK);
+            sarr.color = Pal.dim;
+            sarr.setRotation(180);
+            sug.addView(sarr, new LinearLayout.LayoutParams(dp(22), dp(22)));
+            sug.setOnClickListener(v -> { dlg.dismiss(); openSuggestion(); });
+            LinearLayout.LayoutParams sugp = new LinearLayout.LayoutParams(-1, -2);
+            sugp.setMargins(0, dp(6), 0, 0);
+            box.addView(sug, sugp);
+        }
 
         // Relays
         box.addView(label(T.relays()));

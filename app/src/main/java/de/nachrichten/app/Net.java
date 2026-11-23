@@ -38,6 +38,8 @@ final class Net {
         default void onTyping(String peer) { }
         /** Kontakt ist gerade online geworden. */
         default void onPresence(String peer) { }
+        /** Ein neuer anonymer Vorschlag ist eingegangen (nur beim Entwickler). */
+        default void onSuggestion() { }
     }
 
     static final String[] DEFAULT_RELAYS = {
@@ -241,10 +243,14 @@ final class Net {
         String me = app.keys.pubHex();
         long since = lastSeenAtStart > 0 ? lastSeenAtStart - 2 * 3600 : 0;
         String sinceJson = since > 0 ? ",\"since\":" + since : "";
+        String suggest = app.isDev()
+                ? ",{\"kinds\":[" + Proto.KIND_SUGGEST + "],\"#p\":[\"" + App.SUGGEST_PUBKEY + "\"],\"limit\":1000}"
+                : "";
         String req = "[\"REQ\",\"dm\","
                 + "{\"kinds\":[4," + Proto.KIND_RECEIPT + "],\"#p\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
                 + "{\"kinds\":[4],\"authors\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
-                + "{\"kinds\":[" + Proto.KIND_TYPING + "," + Proto.KIND_PRESENCE + "],\"#p\":[\"" + me + "\"],\"since\":" + (System.currentTimeMillis() / 1000 - 120) + "}]";
+                + "{\"kinds\":[" + Proto.KIND_TYPING + "," + Proto.KIND_PRESENCE + "],\"#p\":[\"" + me + "\"],\"since\":" + (System.currentTimeMillis() / 1000 - 120) + "}"
+                + suggest + "]";
         w.send(req);
     }
 
@@ -282,7 +288,8 @@ final class Net {
 
     private void handleEvent(JSONObject o) throws Exception {
         int kind = o.optInt("kind");
-        if (kind != 4 && kind != Proto.KIND_RECEIPT && kind != Proto.KIND_TYPING && kind != Proto.KIND_PRESENCE) return;
+        if (kind != 4 && kind != Proto.KIND_RECEIPT && kind != Proto.KIND_TYPING
+                && kind != Proto.KIND_PRESENCE && kind != Proto.KIND_SUGGEST) return;
         String id = o.getString("id");
         if (seen.contains(id)) return;
         seen.add(id);
@@ -297,6 +304,20 @@ final class Net {
             if (t != null && t.length() >= 2 && "p".equals(t.optString(0))) { p = t.optString(1); break; }
         }
         if (p == null || !p.matches("[0-9a-f]{64}") || !author.matches("[0-9a-f]{64}")) return;
+
+        if (kind == Proto.KIND_SUGGEST) {
+            // Anonymer Vorschlag ans getrennte Postfach – mit dessen privatem Schlüssel entschlüsseln.
+            if (!app.isDev() || !App.SUGGEST_PUBKEY.equals(p)) return;
+            byte[] sp = app.sugPriv();
+            if (sp == null) return;
+            String sPlain = Nip44.decrypt(o.optString("content"), Nip44.conversationKey(sp, Event.unhex(author)));
+            if (sPlain == null) return;
+            if (app.db.addSuggestion(id, sPlain, o.optLong("created_at"))) {
+                main.post(() -> { for (Listener l : listeners) l.onSuggestion(); });
+            }
+            return;
+        }
+
         boolean outgoing = author.equals(me);
         if (!outgoing && !p.equals(me)) return;
         String peer = outgoing ? p : author;
@@ -757,6 +778,30 @@ final class Net {
     private void broadcast(String raw) {
         String msg = "[\"EVENT\"," + raw + "]";
         for (Conn c : new ArrayList<>(conns.values())) if (c.open) c.enqueue(msg);
+    }
+
+    /**
+     * Schickt einen anonymen Verbesserungsvorschlag an den Entwickler.
+     * Signiert mit einem frischen Wegwerf-Schlüssel, damit der Absender nicht erkennbar ist
+     * und kein Kontakt entsteht. Verschlüsselt (NIP-44) an den Entwickler-Schlüssel.
+     */
+    void sendSuggestion(String text) {
+        final String t = text == null ? "" : text.trim();
+        if (t.isEmpty() || App.SUGGEST_PUBKEY.isEmpty()) return;
+        worker.post(() -> {
+            try {
+                byte[] target = Event.unhex(App.SUGGEST_PUBKEY);
+                byte[] eph = Secp.newPrivateKey();
+                byte[] ck = Nip44.conversationKey(eph, target);
+                Event e = new Event();
+                e.kind = Proto.KIND_SUGGEST;
+                e.createdAt = System.currentTimeMillis() / 1000;
+                e.tags = new String[][]{{"p", App.SUGGEST_PUBKEY}};
+                e.content = Nip44.encrypt(t, ck);
+                e.sign(eph);
+                broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
     }
 
     /** Verschlüsselt, signiert und verschickt eine Nachricht. */

@@ -91,6 +91,46 @@ public final class App extends Application {
     int accFront() { return prefs.getInt("accFront", -1); }
     int accFrame() { return prefs.getInt("accFrame", -1); }
 
+    /**
+     * Öffentliche ID (Hex) des Vorschlags-Postfachs des Entwicklers. Leer = noch nicht eingerichtet.
+     * Das ist KEIN persönlicher Kontaktcode, sondern ein separates Postfach nur für anonyme Vorschläge –
+     * wer es liest, kann den Entwickler damit nicht als Kontakt anschreiben.
+     */
+    static final String SUGGEST_PUBKEY = "";
+
+    private byte[] sugPrivCache;
+
+    /** Privater Schlüssel des lokalen Vorschlags-Postfachs (nur auf dem Entwickler-Gerät), oder null. */
+    byte[] sugPriv() {
+        if (sugPrivCache == null) {
+            String h = prefs.getString("sugPriv", null);
+            if (h != null) sugPrivCache = de.nachrichten.crypto.Event.unhex(h);
+        }
+        return sugPrivCache;
+    }
+
+    /** Öffentliche ID des lokalen Vorschlags-Postfachs als Hex ("" wenn keines eingerichtet). */
+    String sugPubHex() {
+        byte[] p = sugPriv();
+        return p == null ? "" : de.nachrichten.crypto.Event.hex(de.nachrichten.crypto.Secp.publicKey(p));
+    }
+
+    /** Erzeugt bei Bedarf ein Vorschlags-Postfach und gibt dessen öffentliche ID (Hex) zurück. */
+    String ensureSugKey() {
+        if (sugPriv() == null) {
+            byte[] k = de.nachrichten.crypto.Secp.newPrivateKey();
+            sugPrivCache = k;
+            prefs.edit().putString("sugPriv", de.nachrichten.crypto.Event.hex(k)).apply();
+        }
+        return sugPubHex();
+    }
+
+    /** Kann überhaupt ein Vorschlag gesendet werden (Ziel im Code hinterlegt)? */
+    boolean suggestReady() { return !SUGGEST_PUBKEY.isEmpty(); }
+
+    /** Ist dieses Gerät das eingetragene Vorschlags-Postfach? Nur dann wird die Liste gezeigt. */
+    boolean isDev() { return !SUGGEST_PUBKEY.isEmpty() && SUGGEST_PUBKEY.equals(sugPubHex()); }
+
     /** Takt fürs Zählen: höchstens alle 10 Sekunden zählt eine Nachricht. */
     static final long COUNT_INTERVAL_MS = 10_000L;
 

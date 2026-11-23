@@ -42,7 +42,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 6); }
+    Db(Context c) { super(c, "nachrichten.db", null, 7); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -56,6 +56,12 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo4(db);
         upgradeTo5(db);
         upgradeTo6(db);
+        upgradeTo7(db);
+    }
+
+    /** Anonyme Verbesserungsvorschläge (nur beim Entwickler befüllt). */
+    private static void upgradeTo7(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE suggestions (id TEXT PRIMARY KEY, body TEXT NOT NULL, ts INTEGER NOT NULL)");
     }
 
     private static void upgradeTo6(SQLiteDatabase db) {
@@ -89,6 +95,42 @@ final class Db extends SQLiteOpenHelper {
         if (o < 4) upgradeTo4(db);
         if (o < 5) upgradeTo5(db);
         if (o < 6) upgradeTo6(db);
+        if (o < 7) upgradeTo7(db);
+    }
+
+    // ------------------------------------------------------------------ Vorschläge
+
+    static final class Suggestion { String id, body; long ts; }
+
+    /** Speichert einen Vorschlag. Gibt true zurück, wenn er neu war. */
+    synchronized boolean addSuggestion(String id, String body, long tsSec) {
+        ContentValues v = new ContentValues();
+        v.put("id", id);
+        v.put("body", body == null ? "" : body);
+        v.put("ts", tsSec * 1000L);
+        return getWritableDatabase().insertWithOnConflict("suggestions", null, v, SQLiteDatabase.CONFLICT_IGNORE) != -1;
+    }
+
+    synchronized int suggestionCount() {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM suggestions", null)) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        }
+    }
+
+    synchronized java.util.List<Suggestion> suggestions() {
+        java.util.List<Suggestion> out = new java.util.ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT id, body, ts FROM suggestions ORDER BY ts DESC", null)) {
+            while (c.moveToNext()) {
+                Suggestion s = new Suggestion();
+                s.id = c.getString(0); s.body = c.getString(1); s.ts = c.getLong(2);
+                out.add(s);
+            }
+        }
+        return out;
+    }
+
+    synchronized void deleteSuggestion(String id) {
+        getWritableDatabase().delete("suggestions", "id = ?", new String[]{id});
     }
 
     private static void upgradeTo2(SQLiteDatabase db) {
