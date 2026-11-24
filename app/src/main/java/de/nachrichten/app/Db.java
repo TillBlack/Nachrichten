@@ -31,6 +31,7 @@ final class Db extends SQLiteOpenHelper {
         String id, peer, body, raw, replyTo;
         /** Bei Gruppen: öffentlicher Schlüssel des Absenders (sonst null). */
         String sender;
+        int deleted;
         boolean outgoing;
         long ts;
         int status, kind;
@@ -44,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 8); }
+    Db(Context c) { super(c, "nachrichten.db", null, 9); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -60,6 +61,12 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo6(db);
         upgradeTo7(db);
         upgradeTo8(db);
+        upgradeTo9(db);
+    }
+
+    /** Löschzustand pro Nachricht (0 = normal, 1 = gelöscht → Platzhalter). */
+    private static void upgradeTo9(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0");
     }
 
     /** Anonyme Verbesserungsvorschläge (nur beim Entwickler befüllt). */
@@ -107,6 +114,21 @@ final class Db extends SQLiteOpenHelper {
         if (o < 6) upgradeTo6(db);
         if (o < 7) upgradeTo7(db);
         if (o < 8) upgradeTo8(db);
+        if (o < 9) upgradeTo9(db);
+    }
+
+    /** Nachricht als gelöscht markieren (zeigt den Platzhalter). */
+    synchronized void markDeleted(String id) {
+        ContentValues v = new ContentValues();
+        v.put("deleted", 1);
+        getWritableDatabase().update("messages", v, "id = ?", new String[]{id});
+    }
+
+    /** Eine vom Gegenüber gesendete Nachricht als gelöscht markieren (nur eingehende). */
+    synchronized void markDeletedByPeer(String id) {
+        ContentValues v = new ContentValues();
+        v.put("deleted", 1);
+        getWritableDatabase().update("messages", v, "id = ? AND outgoing = 0", new String[]{id});
     }
 
     // ------------------------------------------------------------------ Vorschläge
@@ -421,17 +443,18 @@ final class Db extends SQLiteOpenHelper {
         v.put("total", m.total);
         v.put("receipt", m.receipt);
         v.put("sender", m.sender);
+        v.put("deleted", m.deleted);
         return getWritableDatabase().insertWithOnConflict("messages", null, v, SQLiteDatabase.CONFLICT_IGNORE) != -1;
     }
 
-    private static final String COLS = "id, peer, outgoing, body, ts, status, kind, reply_to, file_name, file_mime, file_size, file_path, have, total, sender";
+    private static final String COLS = "id, peer, outgoing, body, ts, status, kind, reply_to, file_name, file_mime, file_size, file_path, have, total, sender, deleted";
 
     private static Msg read(Cursor c) {
         Msg m = new Msg();
         m.id = c.getString(0); m.peer = c.getString(1); m.outgoing = c.getInt(2) == 1; m.body = c.getString(3);
         m.ts = c.getLong(4); m.status = c.getInt(5); m.kind = c.getInt(6); m.replyTo = c.getString(7);
         m.fileName = c.getString(8); m.fileMime = c.getString(9); m.fileSize = c.getLong(10); m.filePath = c.getString(11);
-        m.have = c.getInt(12); m.total = c.getInt(13); m.sender = c.getString(14);
+        m.have = c.getInt(12); m.total = c.getInt(13); m.sender = c.getString(14); m.deleted = c.getInt(15);
         return m;
     }
 

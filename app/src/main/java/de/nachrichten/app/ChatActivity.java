@@ -433,6 +433,7 @@ public class ChatActivity extends Base implements Net.Listener {
     }
 
     private String snippet(Db.Msg m) {
+        if (m.deleted != 0) return T.msgDeleted();
         if (m.kind == Db.IMAGE) return T.photo();
         if (isVoice(m)) return T.voiceMessage();
         if (m.kind == Db.FILE) return T.fileLabel() + (m.fileName != null ? ": " + m.fileName : "");
@@ -551,6 +552,11 @@ public class ChatActivity extends Base implements Net.Listener {
         int textColor = m.outgoing ? Pal.onOut : Pal.text;
         int metaColor = m.outgoing ? (Pal.light ? 0xFF4A6B62 : 0xFF9CC3B7) : Pal.dim;
 
+        if (m.deleted != 0) {
+            TextView dv = text(T.msgDeleted(), 15, metaColor, false);
+            dv.setTypeface(dv.getTypeface(), android.graphics.Typeface.ITALIC);
+            b.addView(dv, new LinearLayout.LayoutParams(-2, -2));
+        } else {
         // Zitat
         if (m.replyTo != null) {
             View q = quote(m.replyTo, m.outgoing, maxW);
@@ -615,6 +621,7 @@ public class ChatActivity extends Base implements Net.Listener {
             f.setOnLongClickListener(v -> { messageMenu(m); return true; });
             b.addView(f, new LinearLayout.LayoutParams(-2, -2));
         }
+        }
 
         LinearLayout meta = new LinearLayout(this);
         meta.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
@@ -635,7 +642,7 @@ public class ChatActivity extends Base implements Net.Listener {
         b.addView(meta, mp);
 
         b.setOnLongClickListener(v -> { messageMenu(m); return true; });
-        if (m.kind == Db.FILE && m.complete() && !isVoice(m)) b.setOnClickListener(v -> openFile(m));
+        if (m.kind == Db.FILE && m.complete() && !isVoice(m) && m.deleted == 0) b.setOnClickListener(v -> openFile(m));
         return b;
     }
 
@@ -702,27 +709,52 @@ public class ChatActivity extends Base implements Net.Listener {
     // ------------------------------------------------------------------ Menü je Nachricht
 
     private void messageMenu(Db.Msg m) {
+        // Bereits gelöscht: nur noch ganz aus dem Chat entfernen.
+        if (m.deleted != 0) {
+            menu(null, new String[]{T.removeFromChat()}, new int[]{Pal.red}, i -> hardRemove(m));
+            return;
+        }
         boolean file = m.kind != Db.TEXT && m.complete();
-        String[] items = file
-                ? new String[]{T.reply(), T.saveFile(), T.openWith(), T.delete()}
-                : new String[]{T.reply(), T.copy(), T.delete()};
-        int[] colors = file ? new int[]{0, 0, 0, Pal.red} : new int[]{0, 0, Pal.red};
+        java.util.List<String> items = new java.util.ArrayList<>();
+        java.util.List<Integer> colors = new java.util.ArrayList<>();
+        items.add(T.reply()); colors.add(0);
+        if (file && !isVoice(m)) { items.add(T.saveFile()); colors.add(0); items.add(T.openWith()); colors.add(0); }
+        else if (m.kind == Db.TEXT) { items.add(T.copy()); colors.add(0); }
+        items.add(T.deleteForMe()); colors.add(Pal.red);
+        if (m.outgoing) { items.add(T.deleteForAll()); colors.add(Pal.red); }
+        String[] itemArr = items.toArray(new String[0]);
+        int[] colArr = new int[colors.size()];
+        for (int k = 0; k < colArr.length; k++) colArr[k] = colors.get(k);
         String title = !m.outgoing ? null : m.status == Db.PENDING ? T.pendingInfo() : m.status == Db.SENT ? T.statusSent()
                 : m.status == Db.DELIVERED ? T.statusDelivered() : T.statusRead();
-        menu(title, items, colors, i -> {
-            String it = items[i];
+        menu(title, itemArr, colArr, i -> {
+            String it = itemArr[i];
             if (it.equals(T.reply())) setReply(m.id);
             else if (it.equals(T.copy())) copy(m.body);
             else if (it.equals(T.saveFile())) saveFile(m);
             else if (it.equals(T.openWith())) openFile(m);
-            else confirm(T.deleteMsgQ(), T.delete(), () -> {
-                String path = app.db.deleteMessage(m.id);
-                if (path != null && !m.outgoing) new File(path).delete();
-                else if (path != null) new File(path).delete();
+            else if (it.equals(T.deleteForMe())) {
+                app.db.markDeleted(m.id);
+                if (m.filePath != null) new File(m.filePath).delete();
                 if (m.id.equals(replyTo)) setReply(null);
                 reload();
-            });
+            } else if (it.equals(T.deleteForAll())) {
+                confirm(T.deleteForAllQ(), T.deleteForAll(), () -> {
+                    app.net.deleteForEveryone(peer, m.id);
+                    if (m.filePath != null) new File(m.filePath).delete();
+                    if (m.id.equals(replyTo)) setReply(null);
+                    reload();
+                });
+            }
         });
+    }
+
+    /** Eine (bereits gelöschte) Nachricht ganz aus dem lokalen Chat entfernen. */
+    private void hardRemove(Db.Msg m) {
+        String path = app.db.deleteMessage(m.id);
+        if (path != null) new File(path).delete();
+        if (m.id.equals(replyTo)) setReply(null);
+        reload();
     }
 
     private void viewImage(Db.Msg m) {

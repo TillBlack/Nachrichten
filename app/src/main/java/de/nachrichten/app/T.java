@@ -192,6 +192,13 @@ final class T {
     static String recordError() { return s("Couldn't start recording", "Aufnahme nicht möglich", "No se pudo grabar", "Не удалось записать", "Snimanje nije uspjelo"); }
     static String recordTooShort() { return s("Too short", "Zu kurz", "Demasiado corto", "Слишком коротко", "Prekratko"); }
     static String playError() { return s("Couldn't play", "Abspielen nicht möglich", "No se pudo reproducir", "Не удалось воспроизвести", "Reprodukcija nije uspjela"); }
+
+    // ---- Nachrichten löschen ----
+    static String deleteForMe() { return s("Delete for me", "Für mich löschen", "Eliminar para mí", "Удалить у себя", "Obriši kod mene"); }
+    static String deleteForAll() { return s("Delete for everyone", "Für alle löschen", "Eliminar para todos", "Удалить у всех", "Obriši za sve"); }
+    static String deleteForAllQ() { return s("Delete this message for everyone?", "Diese Nachricht für alle löschen?", "¿Eliminar este mensaje para todos?", "Удалить это сообщение у всех?", "Obrisati ovu poruku za sve?"); }
+    static String removeFromChat() { return s("Remove", "Entfernen", "Quitar", "Убрать", "Ukloni"); }
+    static String msgDeleted() { return s("This message was deleted", "Diese Nachricht wurde gelöscht", "Este mensaje fue eliminado", "Это сообщение удалено", "Ova poruka je obrisana"); }
     static String allUsersSection() { return s("All users", "Alle Nutzer", "Todos los usuarios", "Все пользователи", "Svi korisnici"); }
     static String linkContacts() { return s("Link contacts", "Kontakte verknüpfen", "Vincular contactos", "Связать контакты", "Poveži kontakte"); }
     static String unlinkContacts() { return s("Turn off contact linking", "Kontakteverknüpfung deaktivieren", "Desactivar vinculación", "Отключить связь контактов", "Isključi povezivanje kontakata"); }

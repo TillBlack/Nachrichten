@@ -187,7 +187,6 @@ final class Net {
             for (String raw : app.db.pendingRaw()) enqueue("[\"EVENT\"," + raw + "]");
             worker.postDelayed(() -> publishDirectory(false), 4000);
             worker.postDelayed(() -> maybePresence(), 3000);
-            worker.postDelayed(() -> maybeAutoLink(), 5000);
             status();
         }
 
@@ -389,7 +388,13 @@ final class Net {
                 String t = env.optString("t");
                 if (t.equals("file")) { handleChunk(peer, outgoing, createdAt, env); return; }
                 if (t.equals("profile")) { if (!outgoing) handleProfile(peer, env); return; }
-                if (t.equals("link")) { if (!outgoing) handleLink(peer, env); return; }
+                if (t.equals("del")) {
+                    if (!outgoing) {
+                        String did = env.optString("id", null);
+                        if (did != null) { app.db.markDeletedByPeer(did); changed(peer); }
+                    }
+                    return;
+                }
                 if (t.equals("text")) {
                     body = env.optString("b");
                     replyTo = cleanId(env.optString("r", null));
@@ -524,47 +529,20 @@ final class Net {
         changed(null);
     }
 
-    /** Schickt mein Profil an einen Kontakt, wenn er die aktuelle Fassung noch nicht hat. */
-    // ------------------------------------------------------------------ Kontakte-Verknüpfung (E2E)
-
-    /** Eingehende Verknüpfungs-Nachricht eines Kontakts (verschlüsselt): merkt, dass er mit mir verknüpft ist. */
-    private void handleLink(String peer, JSONObject env) {
-        boolean on = env.optInt("on", 1) == 1;
-        java.util.Set<String> set = new HashSet<>(app.prefs.getStringSet("linkedBy", java.util.Collections.emptySet()));
-        boolean changed = on ? set.add(peer) : set.remove(peer);
-        if (changed) {
-            app.prefs.edit().putStringSet("linkedBy", set).apply();
-            main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
-        }
-    }
-
-    /** Verschlüsselte Verknüpfungs-Nachricht an einen Kontakt senden. */
-    private void sendLink(String peer, boolean on) {
-        final String p = peer;
-        final boolean o = on;
+    /** Nachricht für alle löschen: lokal als gelöscht markieren und dem Kontakt ein Lösch-Signal schicken. */
+    void deleteForEveryone(String peer, String msgId) {
+        app.db.markDeleted(msgId);
+        changed(peer);
         worker.post(() -> {
             try {
-                Event e = event(p, "{\"nx\":1,\"t\":\"link\",\"on\":" + (o ? 1 : 0) + "}", System.currentTimeMillis());
+                Event e = event(peer, "{\"nx\":1,\"t\":\"del\",\"id\":\"" + msgId + "\"}", System.currentTimeMillis());
                 seen.add(e.id);
                 broadcast(e.toJson());
             } catch (Exception ignored) { }
         });
     }
 
-    /** Allen Kontakten die eigene Verknüpfung an- oder absagen (verschlüsselt, über die Relays). */
-    void linkAnnounce(boolean on) {
-        worker.post(() -> { for (String p : app.db.contactKeys()) sendLink(p, on); });
-    }
-
-    private volatile boolean linkAnnouncedSession = false;
-
-    /** Einmal pro Sitzung allen Kontakten automatisch die Verknüpfung signalisieren (wenn aktiv). */
-    private void maybeAutoLink() {
-        if (linkAnnouncedSession || !app.contactsLinked() || connectedCount() == 0) return;
-        linkAnnouncedSession = true;
-        linkAnnounce(true);
-    }
-
+    /** Schickt mein Profil an einen Kontakt, wenn er die aktuelle Fassung noch nicht hat. */
     private void sendProfileIfNeeded(String peer) {
         long ts = app.prefs.getLong("profileTs", 0);
         if (ts == 0) return;
@@ -586,7 +564,6 @@ final class Net {
         app.db.addOutbox(e.id, "profile:" + peer, raw, 0);
         app.db.setProfileSent(peer, ts);
         broadcast(raw);
-        if (app.contactsLinked()) sendLink(peer, true);
     }
 
     /** Mein Profil hat sich geändert: an alle Kontakte schicken. */
