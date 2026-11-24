@@ -347,6 +347,7 @@ public class MainActivity extends Base implements Net.Listener {
         updateStatus();
         list.removeAllViews();
         if (app.isDev()) list.addView(suggestionsRow());
+        if (app.isDev() || app.db.pollCount() > 0) list.addView(pollsRow());
         list.addView(discoverRow());
         List<Db.Contact> cs = app.db.contacts();
         List<Db.Group> gs = app.db.groupList();
@@ -434,7 +435,7 @@ public class MainActivity extends Base implements Net.Listener {
     }
 
     private void shareApp() {
-        String link = "https://github.com/TillBlack/Nachrichten/releases/latest";
+        String link = "https://github.com/TillBlack/Nachrichten/releases/latest/download/Nachrichten.apk";
         Intent s = new Intent(Intent.ACTION_SEND).setType("text/plain")
                 .putExtra(Intent.EXTRA_TEXT, T.shareAppText() + "\n" + link);
         try { startActivity(Intent.createChooser(s, T.shareApp())); } catch (Exception e) { toast(T.noApp()); }
@@ -514,6 +515,39 @@ public class MainActivity extends Base implements Net.Listener {
         addTo(buttons, copyBtn, false);
         addRow(box, buttons, 18);
         showScrollDialog(dlg, box);
+    }
+
+    /** Umfragen-Zeile in der Chatliste (für alle, wenn es Umfragen gibt; für den Admin immer). */
+    private View pollsRow() {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        FrameLayout ic = new FrameLayout(this);
+        ic.setBackground(round(Pal.accent, 0, 24));
+        Ico f = new Ico(this, Ico.CHECK2);
+        f.color = Pal.onAccent;
+        ic.addView(f, new FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER));
+        r.addView(ic, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setPadding(dp(14), 0, 0, 0);
+        t.addView(text(T.polls(), 17, Pal.text, true));
+        t.addView(text(T.pollsSub(app.db.pollCount()), 14, Pal.dim, false));
+        r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        Ico arrow = new Ico(this, Ico.BACK);
+        arrow.color = Pal.dim;
+        arrow.setRotation(180);
+        r.addView(arrow, new LinearLayout.LayoutParams(dp(24), dp(24)));
+        r.setOnClickListener(v -> startActivity(new Intent(this, PollsActivity.class)));
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.addView(r);
+        View line = new View(this);
+        line.setBackgroundColor(Pal.line);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Math.max(1, dp(1) / 2));
+        lp.setMargins(dp(12), dp(2), dp(12), dp(6));
+        wrap.addView(line, lp);
+        return wrap;
     }
 
     /** Dialog zum Einreichen eines anonymen Vorschlags. */

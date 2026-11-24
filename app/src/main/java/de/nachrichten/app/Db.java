@@ -45,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 10); }
+    Db(Context c) { super(c, "nachrichten.db", null, 11); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -63,6 +63,13 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo8(db);
         upgradeTo9(db);
         upgradeTo10(db);
+        upgradeTo11(db);
+    }
+
+    /** Umfragen und Stimmen. */
+    private static void upgradeTo11(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE polls (id TEXT PRIMARY KEY, title TEXT, opts TEXT, ts INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0)");
+        db.execSQL("CREATE TABLE votes (poll TEXT NOT NULL, voter TEXT NOT NULL, opt INTEGER NOT NULL, ts INTEGER NOT NULL, PRIMARY KEY (poll, voter))");
     }
 
     /** Löschzustand pro Nachricht (0 = normal, 1 = gelöscht → Platzhalter). */
@@ -122,6 +129,96 @@ final class Db extends SQLiteOpenHelper {
         if (o < 8) upgradeTo8(db);
         if (o < 9) upgradeTo9(db);
         if (o < 10) upgradeTo10(db);
+        if (o < 11) upgradeTo11(db);
+    }
+
+    // ------------------------------------------------------------------ Umfragen
+
+    static final class Poll {
+        String id, title;
+        java.util.List<String> options = new java.util.ArrayList<>();
+        long ts;
+        boolean deleted;
+    }
+
+    /** Umfrage einfügen/aktualisieren (nur wenn neuer als die vorhandene). */
+    synchronized void upsertPoll(String id, String title, String optsJson, long ts, boolean deleted) {
+        SQLiteDatabase db = getWritableDatabase();
+        try (Cursor c = db.rawQuery("SELECT ts FROM polls WHERE id = ?", new String[]{id})) {
+            if (c.moveToFirst() && c.getLong(0) >= ts) return;
+        }
+        ContentValues v = new ContentValues();
+        v.put("id", id); v.put("title", title); v.put("opts", optsJson);
+        v.put("ts", ts); v.put("deleted", deleted ? 1 : 0);
+        db.insertWithOnConflict("polls", null, v, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    private static Poll readPoll(Cursor c) {
+        Poll p = new Poll();
+        p.id = c.getString(0); p.title = c.getString(1); p.ts = c.getLong(3); p.deleted = c.getInt(4) == 1;
+        try {
+            org.json.JSONArray a = new org.json.JSONArray(c.getString(2) == null ? "[]" : c.getString(2));
+            for (int i = 0; i < a.length(); i++) p.options.add(a.optString(i));
+        } catch (Exception ignored) { }
+        return p;
+    }
+
+    synchronized java.util.List<Poll> polls() {
+        java.util.List<Poll> out = new java.util.ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT id,title,opts,ts,deleted FROM polls WHERE deleted = 0 ORDER BY ts DESC", null)) {
+            while (c.moveToNext()) out.add(readPoll(c));
+        }
+        return out;
+    }
+
+    synchronized Poll poll(String id) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT id,title,opts,ts,deleted FROM polls WHERE id = ?", new String[]{id})) {
+            return c.moveToFirst() ? readPoll(c) : null;
+        }
+    }
+
+    synchronized int pollCount() {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM polls WHERE deleted = 0", null)) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        }
+    }
+
+    synchronized java.util.List<String> pollIds() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT id FROM polls", null)) {
+            while (c.moveToNext()) out.add(c.getString(0));
+        }
+        return out;
+    }
+
+    /** Stimme einfügen/aktualisieren (eine pro Wähler und Umfrage, neueste gilt). */
+    synchronized void upsertVote(String poll, String voter, int opt, long ts) {
+        SQLiteDatabase db = getWritableDatabase();
+        try (Cursor c = db.rawQuery("SELECT ts FROM votes WHERE poll = ? AND voter = ?", new String[]{poll, voter})) {
+            if (c.moveToFirst() && c.getLong(0) >= ts) return;
+        }
+        ContentValues v = new ContentValues();
+        v.put("poll", poll); v.put("voter", voter); v.put("opt", opt); v.put("ts", ts);
+        db.insertWithOnConflict("votes", null, v, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    /** Stimmenzahl je Option. */
+    synchronized int[] voteCounts(String poll, int optionCount) {
+        int[] counts = new int[optionCount];
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT opt, COUNT(*) FROM votes WHERE poll = ? GROUP BY opt", new String[]{poll})) {
+            while (c.moveToNext()) {
+                int o = c.getInt(0);
+                if (o >= 0 && o < optionCount) counts[o] = c.getInt(1);
+            }
+        }
+        return counts;
+    }
+
+    /** Welche Option ich gewählt habe (-1 = keine). */
+    synchronized int myVote(String poll, String me) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT opt FROM votes WHERE poll = ? AND voter = ?", new String[]{poll, me})) {
+            return c.moveToFirst() ? c.getInt(0) : -1;
+        }
     }
 
     /** Nachricht als gelöscht markieren (zeigt den Platzhalter). */

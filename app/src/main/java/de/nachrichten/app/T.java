@@ -204,6 +204,39 @@ final class T {
     static String tagsLabel() { return s("Hashtags", "Hashtags", "Hashtags", "Хэштеги", "Hashtagovi"); }
     static String tagsHint() { return s("#example #music", "#beispiel #musik", "#ejemplo #música", "#пример #музыка", "#primjer #glazba"); }
     static String tagsInfo() { return s("Just for show on your profile — others see them when they open it.", "Nur zur Anzeige im Profil — andere sehen sie, wenn sie dein Profil öffnen.", "Solo para mostrar en tu perfil; otros los ven al abrirlo.", "Просто для показа в профиле — другие видят их, открыв профиль.", "Samo za prikaz na profilu — drugi ih vide kad ga otvore."); }
+
+    // ---- Umfragen ----
+    static String polls() { return s("Polls", "Umfragen", "Encuestas", "Опросы", "Ankete"); }
+    static String pollsSub(int n) {
+        switch (lang) {
+            case 1: return n == 1 ? "1 Umfrage" : n + " Umfragen";
+            case 2: return n == 1 ? "1 encuesta" : n + " encuestas";
+            case 3: return "Опросов: " + n;
+            case 4: return n == 1 ? "1 anketa" : n + " anketa";
+            default: return n == 1 ? "1 poll" : n + " polls";
+        }
+    }
+    static String pollsNone() { return s("No polls yet", "Noch keine Umfragen", "Aún no hay encuestas", "Пока нет опросов", "Još nema anketa"); }
+    static String newPoll() { return s("New poll", "Neue Umfrage", "Nueva encuesta", "Новый опрос", "Nova anketa"); }
+    static String editPoll() { return s("Edit poll", "Umfrage bearbeiten", "Editar encuesta", "Изменить опрос", "Uredi anketu"); }
+    static String deletePoll() { return s("Delete poll", "Umfrage löschen", "Eliminar encuesta", "Удалить опрос", "Obriši anketu"); }
+    static String deletePollQ() { return s("Delete this poll?", "Diese Umfrage löschen?", "¿Eliminar esta encuesta?", "Удалить этот опрос?", "Obrisati ovu anketu?"); }
+    static String pollTitleHint() { return s("Question", "Frage", "Pregunta", "Вопрос", "Pitanje"); }
+    static String pollOptions() { return s("Options", "Optionen", "Opciones", "Варианты", "Opcije"); }
+    static String pollOption() { return s("Option", "Option", "Opción", "Вариант", "Opcija"); }
+    static String pollAddOption() { return s("Add option", "Option hinzufügen", "Añadir opción", "Добавить вариант", "Dodaj opciju"); }
+    static String pollNeedTitle() { return s("Enter a question", "Gib eine Frage ein", "Escribe una pregunta", "Введите вопрос", "Unesi pitanje"); }
+    static String pollNeedOptions() { return s("At least two options", "Mindestens zwei Optionen", "Al menos dos opciones", "Минимум два варианта", "Najmanje dvije opcije"); }
+    static String pollYouVoted() { return s("You voted", "Du hast abgestimmt", "Has votado", "Ты проголосовал", "Glasao si"); }
+    static String pollVotes(int n) {
+        switch (lang) {
+            case 1: return n == 1 ? "1 Stimme" : n + " Stimmen";
+            case 2: return n == 1 ? "1 voto" : n + " votos";
+            case 3: return "Голосов: " + n;
+            case 4: return n == 1 ? "1 glas" : n + " glasova";
+            default: return n == 1 ? "1 vote" : n + " votes";
+        }
+    }
     static String allUsersSection() { return s("All users", "Alle Nutzer", "Todos los usuarios", "Все пользователи", "Svi korisnici"); }
     static String linkContacts() { return s("Link contacts", "Kontakte verknüpfen", "Vincular contactos", "Связать контакты", "Poveži kontakte"); }
     static String unlinkContacts() { return s("Turn off contact linking", "Kontakteverknüpfung deaktivieren", "Desactivar vinculación", "Отключить связь контактов", "Isključi povezivanje kontakata"); }

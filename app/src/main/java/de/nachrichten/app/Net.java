@@ -246,6 +246,17 @@ final class Net {
         String suggest = app.isDev()
                 ? ",{\"kinds\":[" + Proto.KIND_SUGGEST + "],\"#p\":[\"" + App.SUGGEST_PUBKEY + "\"],\"limit\":1000}"
                 : "";
+        String polls = "";
+        if (!App.SUGGEST_PUBKEY.isEmpty()) {
+            polls = ",{\"kinds\":[" + Proto.KIND_POLL + "],\"authors\":[\"" + App.SUGGEST_PUBKEY + "\"],\"limit\":200}";
+            java.util.List<String> pollIds = app.db.pollIds();
+            if (!pollIds.isEmpty()) {
+                StringBuilder pb = new StringBuilder(",{\"kinds\":[" + Proto.KIND_VOTE + "],\"#e\":[");
+                for (int i = 0; i < pollIds.size(); i++) { if (i > 0) pb.append(','); pb.append('"').append(pollIds.get(i)).append('"'); }
+                pb.append("],\"limit\":5000}");
+                polls += pb.toString();
+            }
+        }
         String groups = "";
         java.util.List<String> gids = app.db.gids();
         if (!gids.isEmpty()) {
@@ -258,7 +269,7 @@ final class Net {
                 + "{\"kinds\":[4," + Proto.KIND_RECEIPT + "],\"#p\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
                 + "{\"kinds\":[4],\"authors\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
                 + "{\"kinds\":[" + Proto.KIND_TYPING + "," + Proto.KIND_PRESENCE + "],\"#p\":[\"" + me + "\"],\"since\":" + (System.currentTimeMillis() / 1000 - 120) + "}"
-                + suggest + groups + "]";
+                + suggest + groups + polls + "]";
         w.send(req);
     }
 
@@ -297,7 +308,8 @@ final class Net {
     private void handleEvent(JSONObject o) throws Exception {
         int kind = o.optInt("kind");
         if (kind != 4 && kind != Proto.KIND_RECEIPT && kind != Proto.KIND_TYPING
-                && kind != Proto.KIND_PRESENCE && kind != Proto.KIND_SUGGEST && kind != Proto.KIND_GROUP) return;
+                && kind != Proto.KIND_PRESENCE && kind != Proto.KIND_SUGGEST && kind != Proto.KIND_GROUP
+                && kind != Proto.KIND_POLL && kind != Proto.KIND_VOTE) return;
         String id = o.getString("id");
         if (seen.contains(id)) return;
         seen.add(id);
@@ -307,6 +319,8 @@ final class Net {
         String author = o.getString("pubkey");
 
         if (kind == Proto.KIND_GROUP) { handleGroupMessage(o, id, author, me); return; }
+        if (kind == Proto.KIND_POLL) { handlePoll(o, author); return; }
+        if (kind == Proto.KIND_VOTE) { handleVote(o, author); return; }
         String p = null;
         JSONArray tags = o.optJSONArray("tags");
         if (tags != null) for (int i = 0; i < tags.length(); i++) {
@@ -1019,6 +1033,87 @@ final class Net {
                 app.countMessage();
                 changed(gid);
                 broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
+    }
+
+    // ------------------------------------------------------------------ Umfragen
+
+    private void handlePoll(JSONObject o, String author) {
+        try {
+            if (!App.SUGGEST_PUBKEY.equals(author)) return; // nur Admin-Umfragen zählen
+            JSONObject j = new JSONObject(o.optString("content"));
+            String id = j.optString("id", null);
+            if (id == null || !id.matches("[0-9a-f]{64}")) return;
+            String title = j.optString("title", "");
+            boolean del = j.optInt("del", 0) == 1;
+            JSONArray opts = j.optJSONArray("opts");
+            StringBuilder arr = new StringBuilder("[");
+            if (opts != null) for (int i = 0; i < opts.length(); i++) {
+                if (i > 0) arr.append(',');
+                Event.str(arr, opts.optString(i));
+            }
+            arr.append(']');
+            app.db.upsertPoll(id, title, arr.toString(), o.optLong("created_at") * 1000L, del);
+            resubscribeAll();
+            main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
+        } catch (Exception ignored) { }
+    }
+
+    private void handleVote(JSONObject o, String author) {
+        try {
+            JSONObject j = new JSONObject(o.optString("content"));
+            String pid = j.optString("poll", null);
+            if (pid == null || app.db.poll(pid) == null) return;
+            int opt = j.optInt("opt", -1);
+            if (opt < 0) return;
+            app.db.upsertVote(pid, author, opt, o.optLong("created_at") * 1000L);
+            main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
+        } catch (Exception ignored) { }
+    }
+
+    /** Umfrage erstellen oder ändern (nur Admin). del=true löscht sie. */
+    void savePoll(String id, String title, java.util.List<String> options, boolean del) {
+        if (!app.isDev()) return;
+        worker.post(() -> {
+            try {
+                long ts = System.currentTimeMillis() / 1000;
+                StringBuilder arr = new StringBuilder("[");
+                for (int i = 0; i < options.size(); i++) { if (i > 0) arr.append(','); Event.str(arr, options.get(i)); }
+                arr.append(']');
+                StringBuilder c = new StringBuilder("{\"id\":\"").append(id).append("\",\"title\":");
+                Event.str(c, title);
+                c.append(",\"opts\":").append(arr).append(",\"del\":").append(del ? 1 : 0).append("}");
+                Event e = new Event();
+                e.kind = Proto.KIND_POLL;
+                e.createdAt = ts;
+                e.tags = new String[][]{{"d", id}};
+                e.content = c.toString();
+                e.sign(app.sugPriv());
+                seen.add(e.id);
+                broadcast(e.toJson());
+                app.db.upsertPoll(id, title, arr.toString(), ts * 1000L, del);
+                resubscribeAll();
+                main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /** Für eine Umfrage abstimmen (eine Stimme pro Umfrage, änderbar). */
+    void vote(String pollId, int option) {
+        worker.post(() -> {
+            try {
+                long ts = System.currentTimeMillis() / 1000;
+                Event e = new Event();
+                e.kind = Proto.KIND_VOTE;
+                e.createdAt = ts;
+                e.tags = new String[][]{{"e", pollId}};
+                e.content = "{\"poll\":\"" + pollId + "\",\"opt\":" + option + ",\"ts\":" + ts + "}";
+                e.sign(app.keys.priv());
+                seen.add(e.id);
+                broadcast(e.toJson());
+                app.db.upsertVote(pollId, app.keys.pubHex(), option, ts * 1000L);
+                main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
             } catch (Exception ignored) { }
         });
     }
