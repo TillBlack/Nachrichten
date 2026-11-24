@@ -11,11 +11,14 @@ import android.view.View;
 final class Ico extends View {
 
     static final int PLUS = 0, SETTINGS = 1, BACK = 2, SEND = 3, QR = 4, MORE = 5, CLOCK = 6, CHECK = 7,
-            RADIO = 8, TOGGLE = 9, LOCK = 10, ATTACH = 11, CLOSE = 12, FILE = 13, CHECK2 = 14, SHARE = 15, BAG = 16;
+            RADIO = 8, TOGGLE = 9, LOCK = 10, ATTACH = 11, CLOSE = 12, FILE = 13, CHECK2 = 14, SHARE = 15, BAG = 16,
+            MIC = 17, PLAY = 18, PAUSE = 19;
 
-    final int kind;
+    int kind;
     boolean on;
     int color;
+
+    void setKind(int k) { kind = k; invalidate(); }
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final RectF r = new RectF();
@@ -262,6 +265,34 @@ final class Ico extends View {
                 c.drawRoundRect(r, 1.5f * d, 1.5f * d, p);
                 r.set(cx - 3f * d, cy - 6f * d, cx + 3f * d, cy + 2f * d);
                 c.drawArc(r, 180, 180, false, p);
+                break;
+            }
+            case MIC: {
+                p.setStrokeWidth(2f * d);
+                r.set(cx - 3f * d, cy - 8f * d, cx + 3f * d, cy + 1f * d);
+                c.drawRoundRect(r, 3f * d, 3f * d, p);
+                r.set(cx - 5.5f * d, cy - 4f * d, cx + 5.5f * d, cy + 4f * d);
+                c.drawArc(r, 20, 140, false, p);
+                c.drawLine(cx, cy + 4f * d, cx, cy + 8f * d, p);
+                c.drawLine(cx - 3.5f * d, cy + 8f * d, cx + 3.5f * d, cy + 8f * d, p);
+                break;
+            }
+            case PLAY: {
+                p.setStyle(Paint.Style.FILL);
+                path.reset();
+                path.moveTo(cx - 3.5f * d, cy - 5.5f * d);
+                path.lineTo(cx + 5.5f * d, cy);
+                path.lineTo(cx - 3.5f * d, cy + 5.5f * d);
+                path.close();
+                c.drawPath(path, p);
+                break;
+            }
+            case PAUSE: {
+                p.setStyle(Paint.Style.FILL);
+                r.set(cx - 4.2f * d, cy - 5.5f * d, cx - 1.2f * d, cy + 5.5f * d);
+                c.drawRect(r, p);
+                r.set(cx + 1.2f * d, cy - 5.5f * d, cx + 4.2f * d, cy + 5.5f * d);
+                c.drawRect(r, p);
                 break;
             }
         }

@@ -51,7 +51,20 @@ import de.nachrichten.crypto.Proto;
 public class ChatActivity extends Base implements Net.Listener {
 
     private static final int MAX_SHOWN = 400;
-    private static final int REQ_PHOTO = 11, REQ_FILE = 12, REQ_SAVE = 13;
+    private static final int REQ_PHOTO = 11, REQ_FILE = 12, REQ_SAVE = 13, REQ_AUDIO = 14;
+
+    // Sprachnachrichten: Aufnahme + Wiedergabe
+    private LinearLayout inputRow, recBar;
+    private Ico mic;
+    private TextView recTime;
+    private android.media.MediaRecorder recorder;
+    private File recFile;
+    private boolean recording;
+    private long recStart;
+    private Runnable recTick;
+    private android.media.MediaPlayer player;
+    private String playingPath;
+    private Ico playingBtn;
     private static final LruCache<String, Bitmap> THUMBS = new LruCache<String, Bitmap>(24 * 1024 * 1024) {
         @Override protected int sizeOf(String k, Bitmap b) { return b.getByteCount(); }
     };
@@ -131,6 +144,8 @@ public class ChatActivity extends Base implements Net.Listener {
         app.net.removeListener(this);
         app.net.release("ui");
         app.db.markRead(peer);
+        stopPlayer();
+        if (recording) cancelRecording();
     }
 
     @Override
@@ -237,7 +252,8 @@ public class ChatActivity extends Base implements Net.Listener {
         rbp.setMargins(dp(2), 0, dp(2), dp(6));
         inputBar.addView(replyBar, rbp);
 
-        LinearLayout row = new LinearLayout(this);
+        inputRow = new LinearLayout(this);
+        LinearLayout row = inputRow;
         row.setGravity(Gravity.BOTTOM);
         Ico attach = new Ico(this, Ico.ATTACH);
         attach.color = Pal.dim;
@@ -257,11 +273,19 @@ public class ChatActivity extends Base implements Net.Listener {
         LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(0, -2, 1f);
         ip.setMargins(dp(2), 0, 0, 0);
         row.addView(input, ip);
+        mic = new Ico(this, Ico.MIC);
+        mic.color = Pal.dim;
+        mic.setContentDescription(T.voiceRecord());
+        mic.setOnClickListener(v -> startRecording());
+        LinearLayout.LayoutParams micp = new LinearLayout.LayoutParams(dp(46), dp(46));
+        micp.setMargins(dp(4), 0, 0, 0);
+        row.addView(mic, micp);
         send = new Ico(this, Ico.SEND);
         send.setOnClickListener(v -> doSend());
         send.setContentDescription(T.messageHint());
+        send.setVisibility(View.GONE);
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(dp(46), dp(46));
-        sp.setMargins(dp(8), 0, 0, 0);
+        sp.setMargins(dp(4), 0, 0, 0);
         row.addView(send, sp);
         input.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
@@ -270,9 +294,39 @@ public class ChatActivity extends Base implements Net.Listener {
                 boolean on = s.toString().trim().length() > 0;
                 if (s.toString().trim().length() >= 2) app.net.typing(peer);
                 if (on != send.on) { send.on = on; send.invalidate(); }
+                send.setVisibility(on ? View.VISIBLE : View.GONE);
+                mic.setVisibility(on ? View.GONE : View.VISIBLE);
             }
         });
         inputBar.addView(row);
+
+        // Aufnahmeleiste (verborgen, bis aufgenommen wird)
+        recBar = new LinearLayout(this);
+        recBar.setGravity(Gravity.CENTER_VERTICAL);
+        recBar.setVisibility(View.GONE);
+        recBar.setPadding(dp(10), dp(8), dp(10), dp(8));
+        View dot = new View(this);
+        dot.setBackground(round(Pal.red, 0, 6));
+        recBar.addView(dot, new LinearLayout.LayoutParams(dp(11), dp(11)));
+        recTime = text("0:00", 15, Pal.text, true);
+        recTime.setPadding(dp(10), 0, 0, 0);
+        recBar.addView(recTime);
+        TextView recLbl = text(T.voiceRecording(), 13, Pal.dim, false);
+        recLbl.setPadding(dp(10), 0, 0, 0);
+        recBar.addView(recLbl);
+        recBar.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+        Ico cancelRec = new Ico(this, Ico.CLOSE);
+        cancelRec.color = Pal.dim;
+        cancelRec.setOnClickListener(v -> cancelRecording());
+        recBar.addView(cancelRec, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        Ico stopRec = new Ico(this, Ico.SEND);
+        stopRec.on = true;
+        stopRec.setOnClickListener(v -> stopAndSend());
+        LinearLayout.LayoutParams stp = new LinearLayout.LayoutParams(dp(46), dp(46));
+        stp.setMargins(dp(4), 0, 0, 0);
+        recBar.addView(stopRec, stp);
+        inputBar.addView(recBar);
+
         col.addView(inputBar);
         onInsets();
     }
@@ -380,6 +434,7 @@ public class ChatActivity extends Base implements Net.Listener {
 
     private String snippet(Db.Msg m) {
         if (m.kind == Db.IMAGE) return T.photo();
+        if (isVoice(m)) return T.voiceMessage();
         if (m.kind == Db.FILE) return T.fileLabel() + (m.fileName != null ? ": " + m.fileName : "");
         return m.body.replace('\n', ' ');
     }
@@ -538,6 +593,8 @@ public class ChatActivity extends Base implements Net.Listener {
             }
             iv.setOnClickListener(v -> viewImage(m));
             iv.setOnLongClickListener(v -> { messageMenu(m); return true; });
+        } else if (isVoice(m)) {
+            b.addView(voicePlayer(m, textColor, metaColor), new LinearLayout.LayoutParams(-2, -2));
         } else {
             LinearLayout f = new LinearLayout(this);
             f.setGravity(Gravity.CENTER_VERTICAL);
@@ -578,7 +635,7 @@ public class ChatActivity extends Base implements Net.Listener {
         b.addView(meta, mp);
 
         b.setOnLongClickListener(v -> { messageMenu(m); return true; });
-        if (m.kind == Db.FILE && m.complete()) b.setOnClickListener(v -> openFile(m));
+        if (m.kind == Db.FILE && m.complete() && !isVoice(m)) b.setOnClickListener(v -> openFile(m));
         return b;
     }
 
@@ -732,6 +789,181 @@ public class ChatActivity extends Base implements Net.Listener {
     }
 
     // ------------------------------------------------------------------ Anhängen
+
+    // ------------------------------------------------------------------ Sprachnachrichten
+
+    private void startRecording() {
+        if (recording) return;
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, REQ_AUDIO);
+            return;
+        }
+        try {
+            recFile = new File(getCacheDir(), "rec_" + System.currentTimeMillis() + ".m4a");
+            recorder = new android.media.MediaRecorder();
+            recorder.setAudioSource(android.media.MediaRecorder.AudioSource.MIC);
+            recorder.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4);
+            recorder.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC);
+            recorder.setAudioEncodingBitRate(64000);
+            recorder.setAudioSamplingRate(44100);
+            recorder.setOutputFile(recFile.getAbsolutePath());
+            recorder.prepare();
+            recorder.start();
+            recording = true;
+            recStart = System.currentTimeMillis();
+            stopPlayer();
+            inputRow.setVisibility(View.GONE);
+            recBar.setVisibility(View.VISIBLE);
+            recTick = new Runnable() {
+                public void run() {
+                    if (!recording) return;
+                    long s = (System.currentTimeMillis() - recStart) / 1000;
+                    recTime.setText(s / 60 + ":" + String.format(Locale.US, "%02d", s % 60));
+                    ui.postDelayed(this, 300);
+                }
+            };
+            ui.post(recTick);
+        } catch (Exception e) {
+            toast(T.recordError());
+            cleanupRecorder();
+            resetRecUI();
+        }
+    }
+
+    private File finishRecording() {
+        recording = false;
+        if (recTick != null) ui.removeCallbacks(recTick);
+        File f = recFile;
+        try {
+            if (recorder != null) recorder.stop();
+        } catch (Exception e) {
+            f = null; // zu kurz oder fehlgeschlagen
+        }
+        cleanupRecorder();
+        return f;
+    }
+
+    private void cleanupRecorder() {
+        try { if (recorder != null) recorder.release(); } catch (Exception ignored) { }
+        recorder = null;
+    }
+
+    private void resetRecUI() {
+        if (recBar != null) recBar.setVisibility(View.GONE);
+        if (inputRow != null) inputRow.setVisibility(View.VISIBLE);
+    }
+
+    private void cancelRecording() {
+        File f = finishRecording();
+        resetRecUI();
+        if (f != null) f.delete();
+    }
+
+    private void stopAndSend() {
+        long dur = System.currentTimeMillis() - recStart;
+        File rec = finishRecording();
+        resetRecUI();
+        if (rec == null) return;
+        if (dur < 800) { rec.delete(); toast(T.recordTooShort()); return; }
+        String reply = replyTo;
+        setReply(null);
+        new Thread(() -> {
+            try {
+                byte[] data = java.nio.file.Files.readAllBytes(rec.toPath());
+                rec.delete();
+                if (data.length == 0 || data.length > Proto.MAX_FILE) { runOnUiThread(() -> toast(T.tooLarge())); return; }
+                String fid = Proto.newFileId();
+                File f = new File(app.mediaDir(), fid + "_voice.m4a");
+                try (FileOutputStream out = new FileOutputStream(f)) { out.write(data); }
+                app.net.sendFile(peer, f.getAbsolutePath(), "Sprachnachricht.m4a", "audio/mp4", false, reply);
+            } catch (Throwable t) {
+                runOnUiThread(() -> toast(T.readError()));
+            }
+        }).start();
+    }
+
+    private static boolean isVoice(Db.Msg m) {
+        return m.kind == Db.FILE && m.fileMime != null && m.fileMime.startsWith("audio/");
+    }
+
+    private View voicePlayer(Db.Msg m, int textColor, int metaColor) {
+        LinearLayout v = new LinearLayout(this);
+        v.setGravity(Gravity.CENTER_VERTICAL);
+        boolean playingThis = playingPath != null && playingPath.equals(m.filePath);
+        Ico btn = new Ico(this, playingThis ? Ico.PAUSE : Ico.PLAY);
+        btn.color = textColor;
+        v.addView(btn, new LinearLayout.LayoutParams(dp(36), dp(36)));
+        LinearLayout col2 = new LinearLayout(this);
+        col2.setOrientation(LinearLayout.VERTICAL);
+        col2.setPadding(dp(8), 0, dp(4), 0);
+        View track = new View(this);
+        track.setBackground(round(Pal.line, 0, 2));
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(dp(130), dp(3));
+        tp.setMargins(0, 0, 0, dp(5));
+        col2.addView(track, tp);
+        col2.addView(text(T.voiceMessage() + " · " + formatDur(durationOf(m.filePath)), 12, metaColor, false));
+        v.addView(col2);
+        View.OnClickListener clk = x -> togglePlay(m.filePath, btn);
+        btn.setOnClickListener(clk);
+        v.setOnClickListener(clk);
+        v.setOnLongClickListener(x -> { messageMenu(m); return true; });
+        return v;
+    }
+
+    private void togglePlay(String path, Ico btn) {
+        try {
+            if (playingPath != null && playingPath.equals(path) && player != null) {
+                if (player.isPlaying()) { player.pause(); btn.setKind(Ico.PLAY); }
+                else { player.start(); btn.setKind(Ico.PAUSE); playingBtn = btn; }
+                return;
+            }
+            stopPlayer();
+            player = new android.media.MediaPlayer();
+            player.setDataSource(path);
+            player.prepare();
+            player.start();
+            playingPath = path;
+            playingBtn = btn;
+            btn.setKind(Ico.PAUSE);
+            player.setOnCompletionListener(mp -> stopPlayer());
+        } catch (Exception e) {
+            toast(T.playError());
+            stopPlayer();
+        }
+    }
+
+    private void stopPlayer() {
+        if (playingBtn != null) playingBtn.setKind(Ico.PLAY);
+        try { if (player != null) { player.stop(); player.release(); } } catch (Exception ignored) { }
+        player = null;
+        playingPath = null;
+        playingBtn = null;
+    }
+
+    private String formatDur(long ms) {
+        long s = Math.max(0, ms) / 1000;
+        return s / 60 + ":" + String.format(Locale.US, "%02d", s % 60);
+    }
+
+    private long durationOf(String path) {
+        try {
+            android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
+            r.setDataSource(path);
+            String d = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+            r.release();
+            return d == null ? 0 : Long.parseLong(d);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(req, perms, res);
+        if (req == REQ_AUDIO && res.length > 0 && res[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            startRecording();
+        }
+    }
 
     private void attachMenu() {
         menu(null, new String[]{T.attachPhoto(), T.attachFile()}, null, i -> {

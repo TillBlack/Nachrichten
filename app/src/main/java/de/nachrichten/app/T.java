@@ -184,6 +184,14 @@ final class T {
     static String visibleToAllInfo() { return s("When on, you appear under \"All users\".", "Wenn an, erscheinst du unter „Alle Nutzer\".", "Si está activado, apareces en «Todos».", "Если включено, ты в списке «Все».", "Ako je uključeno, prikazan si pod „Svi\"."); }
     static String contactsSection() { return s("Contacts", "Kontakte", "Contactos", "Контакты", "Kontakti"); }
     static String linkedLabel() { return s("Linked", "Verknüpft", "Vinculado", "Связан", "Povezan"); }
+
+    // ---- Sprachnachrichten ----
+    static String voiceRecord() { return s("Record voice message", "Sprachnachricht aufnehmen", "Grabar mensaje de voz", "Записать голосовое", "Snimi glasovnu poruku"); }
+    static String voiceRecording() { return s("Recording…", "Aufnahme läuft…", "Grabando…", "Запись…", "Snimanje…"); }
+    static String voiceMessage() { return s("Voice message", "Sprachnachricht", "Mensaje de voz", "Голосовое сообщение", "Glasovna poruka"); }
+    static String recordError() { return s("Couldn't start recording", "Aufnahme nicht möglich", "No se pudo grabar", "Не удалось записать", "Snimanje nije uspjelo"); }
+    static String recordTooShort() { return s("Too short", "Zu kurz", "Demasiado corto", "Слишком коротко", "Prekratko"); }
+    static String playError() { return s("Couldn't play", "Abspielen nicht möglich", "No se pudo reproducir", "Не удалось воспроизвести", "Reprodukcija nije uspjela"); }
     static String allUsersSection() { return s("All users", "Alle Nutzer", "Todos los usuarios", "Все пользователи", "Svi korisnici"); }
     static String linkContacts() { return s("Link contacts", "Kontakte verknüpfen", "Vincular contactos", "Связать контакты", "Poveži kontakte"); }
     static String unlinkContacts() { return s("Turn off contact linking", "Kontakteverknüpfung deaktivieren", "Desactivar vinculación", "Отключить связь контактов", "Isključi povezivanje kontakata"); }
