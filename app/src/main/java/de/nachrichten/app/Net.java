@@ -388,6 +388,7 @@ final class Net {
                 String t = env.optString("t");
                 if (t.equals("file")) { handleChunk(peer, outgoing, createdAt, env); return; }
                 if (t.equals("profile")) { if (!outgoing) handleProfile(peer, env); return; }
+                if (t.equals("link")) { if (!outgoing) handleLink(peer, env); return; }
                 if (t.equals("text")) {
                     body = env.optString("b");
                     replyTo = cleanId(env.optString("r", null));
@@ -523,6 +524,37 @@ final class Net {
     }
 
     /** Schickt mein Profil an einen Kontakt, wenn er die aktuelle Fassung noch nicht hat. */
+    // ------------------------------------------------------------------ Kontakte-Verknüpfung (E2E)
+
+    /** Eingehende Verknüpfungs-Nachricht eines Kontakts (verschlüsselt): merkt, dass er mit mir verknüpft ist. */
+    private void handleLink(String peer, JSONObject env) {
+        boolean on = env.optInt("on", 1) == 1;
+        java.util.Set<String> set = new HashSet<>(app.prefs.getStringSet("linkedBy", java.util.Collections.emptySet()));
+        boolean changed = on ? set.add(peer) : set.remove(peer);
+        if (changed) {
+            app.prefs.edit().putStringSet("linkedBy", set).apply();
+            main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
+        }
+    }
+
+    /** Verschlüsselte Verknüpfungs-Nachricht an einen Kontakt senden. */
+    private void sendLink(String peer, boolean on) {
+        final String p = peer;
+        final boolean o = on;
+        worker.post(() -> {
+            try {
+                Event e = event(p, "{\"nx\":1,\"t\":\"link\",\"on\":" + (o ? 1 : 0) + "}", System.currentTimeMillis());
+                seen.add(e.id);
+                broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /** Allen Kontakten die eigene Verknüpfung an- oder absagen (verschlüsselt, über die Relays). */
+    void linkAnnounce(boolean on) {
+        worker.post(() -> { for (String p : app.db.contactKeys()) sendLink(p, on); });
+    }
+
     private void sendProfileIfNeeded(String peer) {
         long ts = app.prefs.getLong("profileTs", 0);
         if (ts == 0) return;
@@ -544,6 +576,7 @@ final class Net {
         app.db.addOutbox(e.id, "profile:" + peer, raw, 0);
         app.db.setProfileSent(peer, ts);
         broadcast(raw);
+        if (app.contactsLinked()) sendLink(peer, true);
     }
 
     /** Mein Profil hat sich geändert: an alle Kontakte schicken. */
@@ -671,8 +704,7 @@ final class Net {
             if (!force && !showOnline && app.prefs.getBoolean("dirPublished", false)) return;
             if (connectedCount() == 0) return;
             boolean pubList = app.prefs.getBoolean("dirConsent", false) && !app.prefs.getBoolean("profilePrivate", false);
-            boolean linked = app.prefs.getBoolean("contactsLinked", false);
-            boolean visible = (pubList || linked) && !app.myName().isEmpty();
+            boolean visible = pubList && !app.myName().isEmpty();
             boolean wasPublished = app.prefs.getBoolean("dirPublished", false);
             if (!visible && !wasPublished) return;
             lastDirPublish = now;
@@ -688,7 +720,7 @@ final class Net {
                     sb.append(",\"img\":");
                     Event.str(sb, thumbBase64());
                     sb.append(",\"st\":").append(showOnline ? 1 : 0);
-                    sb.append(",\"pub\":").append(pubList ? 1 : 0).append(",\"con\":").append(linked ? 1 : 0);
+                    sb.append(",\"pub\":").append(pubList ? 1 : 0);
                     sb.append(",\"ab\":").append(app.accBehind()).append(",\"af\":").append(app.accFront()).append(",\"ar\":").append(app.accFrame());
                     content = sb.append('}').toString();
                 }

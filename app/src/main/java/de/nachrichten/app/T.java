@@ -183,6 +183,7 @@ final class T {
     static String visibleToAll() { return s("Visible to everyone", "Für alle sichtbar", "Visible para todos", "Виден всем", "Vidljiv svima"); }
     static String visibleToAllInfo() { return s("When on, you appear under \"All users\".", "Wenn an, erscheinst du unter „Alle Nutzer\".", "Si está activado, apareces en «Todos».", "Если включено, ты в списке «Все».", "Ako je uključeno, prikazan si pod „Svi\"."); }
     static String contactsSection() { return s("Contacts", "Kontakte", "Contactos", "Контакты", "Kontakti"); }
+    static String linkedLabel() { return s("Linked", "Verknüpft", "Vinculado", "Связан", "Povezan"); }
     static String allUsersSection() { return s("All users", "Alle Nutzer", "Todos los usuarios", "Все пользователи", "Svi korisnici"); }
     static String linkContacts() { return s("Link contacts", "Kontakte verknüpfen", "Vincular contactos", "Связать контакты", "Poveži kontakte"); }
     static String unlinkContacts() { return s("Turn off contact linking", "Kontakteverknüpfung deaktivieren", "Desactivar vinculación", "Отключить связь контактов", "Isključi povezivanje kontakata"); }

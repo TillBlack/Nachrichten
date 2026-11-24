@@ -159,35 +159,58 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         list.removeAllViews();
         if (visTg != null) { visTg.on = app.selfListed(); visTg.invalidate(); }
         String myPub = app.keys.has() ? app.keys.pubHex() : null;
-        java.util.Set<String> myContacts = new java.util.HashSet<>();
-        for (Db.Contact c : app.db.contacts()) myContacts.add(c.pub);
         boolean iLinked = app.contactsLinked();
+        java.util.Set<String> linkedBy = app.prefs.getStringSet("linkedBy", java.util.Collections.emptySet());
 
-        List<Net.DirEntry> contacts = new ArrayList<>(), others = new ArrayList<>();
+        // Kontakte-Sektion: eigene Kontakte, gegenseitig verknüpft – rein lokal, Ende-zu-Ende.
+        List<Db.Contact> mutual = new ArrayList<>();
+        java.util.Set<String> mutualPubs = new java.util.HashSet<>();
+        if (iLinked) for (Db.Contact c : app.db.contacts())
+            if (linkedBy.contains(c.pub)) { mutual.add(c); mutualPubs.add(c.pub); }
+        mutual.sort((a, b) -> app.nameOf(a.pub).compareToIgnoreCase(app.nameOf(b.pub)));
+
+        // "Alle Nutzer": öffentliches Verzeichnis, ohne mich und ohne die Kontakte-Sektion.
+        List<Net.DirEntry> others = new ArrayList<>();
         for (Net.DirEntry e : entries.values()) {
             if (myPub != null && e.pub.equals(myPub)) continue;
-            boolean isContact = myContacts.contains(e.pub);
-            if (isContact && e.linked && iLinked) contacts.add(e);
-            else if (e.listed) others.add(e);
+            if (mutualPubs.contains(e.pub)) continue;
+            if (e.listed) others.add(e);
         }
-        java.util.Comparator<Net.DirEntry> byName = (a, b) -> a.name.compareToIgnoreCase(b.name);
-        contacts.sort(byName);
-        others.sort(byName);
+        others.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
 
-        int total = contacts.size() + others.size() + (app.selfListed() ? 1 : 0);
-        status.setText(contacts.isEmpty() && others.isEmpty()
+        int total = mutual.size() + others.size() + (app.selfListed() ? 1 : 0);
+        status.setText(mutual.isEmpty() && others.isEmpty()
                 ? (loaded ? T.dirEmpty() : T.dirLoading()) : T.discoverCount(total));
 
-        // Eigenes Profil immer ganz oben, als "Du" gekennzeichnet.
         if (myPub != null) list.addView(selfRow());
-        if (!contacts.isEmpty()) {
+        if (!mutual.isEmpty()) {
             list.addView(sectionHeader(T.contactsSection()));
-            for (Net.DirEntry e : contacts) list.addView(row(e));
+            for (Db.Contact c : mutual) list.addView(contactRow(c));
         }
         if (!others.isEmpty()) {
             list.addView(sectionHeader(T.allUsersSection()));
             for (Net.DirEntry e : others) list.addView(row(e));
         }
+    }
+
+    private View contactRow(Db.Contact c) {
+        String nm = app.nameOf(c.pub);
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        r.addView(avatarWithDot(c.pub, nm, c.avatar, app.net.isOnline(c.pub), 48, c.accBehind, c.accFront, c.accFrame),
+                new LinearLayout.LayoutParams(dp(48), dp(48)));
+        LinearLayout mid = new LinearLayout(this);
+        mid.setOrientation(LinearLayout.VERTICAL);
+        mid.setPadding(dp(14), 0, 0, 0);
+        TextView n = text(nm, 17, Pal.text, true);
+        n.setSingleLine(true);
+        n.setEllipsize(TextUtils.TruncateAt.END);
+        mid.addView(n);
+        mid.addView(text(T.linkedLabel(), 13, Pal.accent, false));
+        r.addView(mid, new LinearLayout.LayoutParams(0, -2, 1f));
+        r.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class).putExtra("peer", c.pub)));
+        return r;
     }
 
     private View sectionHeader(String s) {

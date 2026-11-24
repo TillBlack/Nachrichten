@@ -1325,9 +1325,9 @@ public class MainActivity extends Base implements Net.Listener {
         };
         Runnable clToggle = () -> {
             boolean val = !app.prefs.getBoolean("contactsLinked", false);
-            app.prefs.edit().putBoolean("contactsLinked", val).putLong("profileTs", System.currentTimeMillis()).apply();
+            app.prefs.edit().putBoolean("contactsLinked", val).apply();
             clRefresh.run();
-            app.net.publishDirectory(true);
+            app.net.linkAnnounce(val);
         };
         cl.setOnClickListener(v -> clToggle.run());
         clTg.setOnClickListener(v -> clToggle.run());
