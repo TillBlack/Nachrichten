@@ -681,7 +681,18 @@ public class MainActivity extends Base implements Net.Listener {
         TextView nv = text(name, 17, Pal.text, true);
         nv.setSingleLine(true);
         nv.setEllipsize(TextUtils.TruncateAt.END);
-        top.addView(nv, new LinearLayout.LayoutParams(0, -2, 1f));
+        top.addView(nv, new LinearLayout.LayoutParams(-2, -2));
+        String sub = app.subName(c.pub);
+        if (sub != null) {
+            TextView sn = text(sub, 12, Pal.dim, false);
+            sn.setSingleLine(true);
+            sn.setEllipsize(TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(0, -2, 1f);
+            sp.setMargins(dp(6), dp(1), dp(6), 0);
+            top.addView(sn, sp);
+        } else {
+            top.addView(new View(this), new LinearLayout.LayoutParams(0, -2, 1f));
+        }
         TextView tv = text(c.lastText != null ? shortWhen(c.lastTs) : "", 12, c.unread > 0 ? Pal.accent : Pal.dim, false);
         top.addView(tv);
         mid.addView(top);
@@ -964,6 +975,8 @@ public class MainActivity extends Base implements Net.Listener {
 
     // ------------------------------------------------------------------ Einstellungen
 
+    private String appVersion() { return String.valueOf(Updater.installedVersion(this)); }
+
     private void openSettings() {
         Dialog dlg = dialog();
         LinearLayout box = panel();
@@ -974,6 +987,9 @@ public class MainActivity extends Base implements Net.Listener {
             return true;
         });
         box.addView(settTitle);
+        TextView ver = text(T.versionLabel() + " " + appVersion(), 13, Pal.dim, false);
+        ver.setPadding(0, dp(3), 0, 0);
+        box.addView(ver);
 
         settingsDlg = dlg;
         box.addView(label(T.language()));

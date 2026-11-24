@@ -206,12 +206,30 @@ public final class App extends Application {
     void useAppealAdmin() { resetAppealIfNewBan(); prefs.edit().putInt("appealAdmin", prefs.getInt("appealAdmin", 0) + 1).apply(); }
     void useAppealContact() { resetAppealIfNewBan(); prefs.edit().putInt("appealContact", prefs.getInt("appealContact", 0) + 1).apply(); }
 
+    /** Ersatzname, wenn jemand gar keinen Namen hat: "User<Zahl>" (stabil aus dem Schlüssel). */
+    String fallbackName(String pub) {
+        long n;
+        try { n = Long.parseLong(pub.substring(0, 8), 16) % 100000L; }
+        catch (Exception e) { n = 0; }
+        return "User" + n;
+    }
+
+    /** Großer Anzeigename: Admin-Überschreibung > lokal gespeicherter Name > selbst gewählter Name > User<Zahl>. */
     String nameOf(String pub) {
         String ov = db.nameOverride(pub);
-        if (ov != null) return ov;
+        if (ov != null) return ov.trim().isEmpty() ? fallbackName(pub) : ov;
         Db.Contact c = db.contact(pub);
         if (c != null && c.name != null && !c.name.trim().isEmpty()) return c.name;
-        String npub = de.nachrichten.crypto.Bech32.encode("npub", de.nachrichten.crypto.Event.unhex(pub));
-        return npub.substring(0, 12) + "…" + npub.substring(npub.length() - 4);
+        String self = db.profileName(pub);
+        if (self != null) return self;
+        return fallbackName(pub);
+    }
+
+    /** Kleiner Zusatz unter dem Namen: der vom Nutzer selbst gewählte Name, falls er sich unterscheidet. */
+    String subName(String pub) {
+        if (db.nameOverride(pub) != null) return null; // Admin-Name ersetzt alles
+        String self = db.profileName(pub);
+        if (self == null) return null;
+        return self.equals(nameOf(pub)) ? null : self;
     }
 }

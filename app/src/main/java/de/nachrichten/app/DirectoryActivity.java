@@ -229,6 +229,22 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         return f.getAbsolutePath();
     }
 
+    /** Großer Name in der Nutzerliste: Admin-Überschreibung > lokal gespeicherter Name > selbst gewählter Name. */
+    private String dirBigName(Net.DirEntry e) {
+        String ov = app.db.nameOverride(e.pub);
+        if (ov != null) return ov.trim().isEmpty() ? app.fallbackName(e.pub) : ov;
+        Db.Contact c = app.db.contact(e.pub);
+        if (c != null && c.name != null && !c.name.trim().isEmpty()) return c.name;
+        return e.name == null || e.name.isEmpty() ? app.fallbackName(e.pub) : e.name;
+    }
+
+    /** Kleiner Zusatz: der selbst gewählte Name, falls er sich vom großen Namen unterscheidet. */
+    private String dirSubName(Net.DirEntry e) {
+        if (app.db.nameOverride(e.pub) != null) return null;
+        if (e.name == null || e.name.isEmpty()) return null;
+        return e.name.equals(dirBigName(e)) ? null : e.name;
+    }
+
     private View row(Net.DirEntry e) {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
@@ -240,17 +256,29 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         mid.setPadding(dp(14), 0, 0, 0);
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        String nameOv = app.db.nameOverride(e.pub);
-        TextView n = text(nameOv != null ? nameOv : e.name, 17, Pal.text, true);
+        TextView n = text(dirBigName(e), 17, Pal.text, true);
         n.setSingleLine(true);
         n.setEllipsize(TextUtils.TruncateAt.END);
-        top.addView(n, new LinearLayout.LayoutParams(0, -2, 1f));
+        top.addView(n, new LinearLayout.LayoutParams(-2, -2));
+        String subName = dirSubName(e);
+        if (subName != null) {
+            TextView sn = text(subName, 12, Pal.dim, false);
+            sn.setSingleLine(true);
+            sn.setEllipsize(TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams snp = new LinearLayout.LayoutParams(0, -2, 1f);
+            snp.setMargins(dp(6), dp(1), dp(6), 0);
+            top.addView(sn, snp);
+        } else {
+            top.addView(new android.view.View(this), new LinearLayout.LayoutParams(0, -2, 1f));
+        }
         if (app.isDev() && app.db.isBanned(e.pub)) {
-            TextView badge = text("  " + T.modActive(), 12, Pal.red, true);
+            TextView badge = text(T.modActive(), 12, Pal.red, true);
             top.addView(badge, new LinearLayout.LayoutParams(-2, -2));
         }
         mid.addView(top);
-        String sub = (e.pronouns.isEmpty() ? "" : e.pronouns + (e.bio.isEmpty() ? "" : "  ·  ")) + e.bio.replace('\n', ' ');
+        // unter dem Namen die Biografie (statt der Pronomen)
+        String bioOv = app.db.bioOverride(e.pub);
+        String sub = (bioOv != null ? bioOv : e.bio).replace('\n', ' ');
         if (!sub.isEmpty()) {
             TextView s = text(sub, 14, Pal.dim, false);
             s.setSingleLine(true);
@@ -272,12 +300,19 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(112), dp(112));
         ap.setMargins(0, dp(4), 0, dp(12));
         box.addView(av, ap);
-        String nameOv = app.db.nameOverride(e.pub);
-        TextView n = text(nameOv != null ? nameOv : e.name, 22, Pal.text, true);
+        TextView n = text(dirBigName(e), 22, Pal.text, true);
         n.setGravity(Gravity.CENTER);
         box.addView(n, new LinearLayout.LayoutParams(-1, -2));
-        if (!e.pronouns.isEmpty()) {
-            TextView pr = text(e.pronouns, 14, Pal.dim, false);
+        String subName = dirSubName(e);
+        if (subName != null) {
+            TextView sn = text(subName, 14, Pal.dim, false);
+            sn.setGravity(Gravity.CENTER);
+            box.addView(sn, new LinearLayout.LayoutParams(-1, -2));
+        }
+        String pronOv = app.db.pronOverride(e.pub);
+        String pron = pronOv != null ? pronOv : e.pronouns;
+        if (pron != null && !pron.isEmpty()) {
+            TextView pr = text(pron, 14, Pal.dim, false);
             pr.setGravity(Gravity.CENTER);
             box.addView(pr, new LinearLayout.LayoutParams(-1, -2));
         }

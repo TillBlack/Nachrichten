@@ -45,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 12); }
+    Db(Context c) { super(c, "nachrichten.db", null, 13); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -65,6 +65,15 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo10(db);
         upgradeTo11(db);
         upgradeTo12(db);
+        upgradeTo13(db);
+    }
+
+    /** Selbst gewählter Name eines Kontakts (pname) und Pronomen-Überschreibung durch den Admin. */
+    private static void upgradeTo13(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE contacts ADD COLUMN pname TEXT");
+        db.execSQL("ALTER TABLE mods ADD COLUMN opron TEXT");
+        db.execSQL("ALTER TABLE mods ADD COLUMN opron_until INTEGER NOT NULL DEFAULT 0");
+        db.execSQL("ALTER TABLE mods ADD COLUMN opron_ts INTEGER NOT NULL DEFAULT 0");
     }
 
     /** Moderation: Bann, Namens-/Bio-Überschreibung, Verwarnung je Nutzer (mit Zeitstempel-Schutz pro Feld). */
@@ -141,6 +150,7 @@ final class Db extends SQLiteOpenHelper {
         if (o < 10) upgradeTo10(db);
         if (o < 11) upgradeTo11(db);
         if (o < 12) upgradeTo12(db);
+        if (o < 13) upgradeTo13(db);
     }
 
     // ------------------------------------------------------------------ Moderation
@@ -185,6 +195,16 @@ final class Db extends SQLiteOpenHelper {
         getWritableDatabase().update("mods", v, "pub = ?", new String[]{pub});
     }
 
+    synchronized void setPronOverride(String pub, String pron, long until, long evTs) {
+        ensureMod(pub);
+        if (evTs < modTs(pub, "opron_ts")) return;
+        ContentValues v = new ContentValues();
+        v.put("opron", pron);
+        v.put("opron_until", until);
+        v.put("opron_ts", evTs);
+        getWritableDatabase().update("mods", v, "pub = ?", new String[]{pub});
+    }
+
     synchronized void setWarn(String pub, String text, long ts) {
         ensureMod(pub);
         if (ts < modTs(pub, "warn_ts")) return;
@@ -222,6 +242,29 @@ final class Db extends SQLiteOpenHelper {
             if (c.moveToFirst() && c.getString(0) != null && active(c.getLong(1))) return c.getString(0);
         }
         return null;
+    }
+
+    synchronized String pronOverride(String pub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT opron, opron_until FROM mods WHERE pub = ?", new String[]{pub})) {
+            if (c.moveToFirst() && c.getString(0) != null && active(c.getLong(1))) return c.getString(0);
+        }
+        return null;
+    }
+
+    /** Vom Kontakt selbst gewählter Name (pname), oder null. */
+    synchronized String profileName(String pub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT pname FROM contacts WHERE pub = ?", new String[]{pub})) {
+            if (c.moveToFirst()) { String s = c.getString(0); return s == null || s.trim().isEmpty() ? null : s; }
+        }
+        return null;
+    }
+
+    /** Selbst gewählten Namen eines Kontakts speichern. */
+    synchronized void setProfileName(String pub, String name) {
+        if (name == null) return;
+        ContentValues v = new ContentValues();
+        v.put("pname", name);
+        getWritableDatabase().update("contacts", v, "pub = ?", new String[]{pub});
     }
 
     /** Aktuelle Verwarnung {text, ts} oder null. */

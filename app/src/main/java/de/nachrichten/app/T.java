@@ -87,6 +87,7 @@ final class T {
     static String save() { return s("Save", "Speichern", "Guardar", "Сохранить", "Spremi"); }
     static String cancel() { return s("Cancel", "Abbrechen", "Cancelar", "Отмена", "Odustani"); }
     static String ok() { return s("OK", "OK", "OK", "ОК", "U redu"); }
+    static String versionLabel() { return s("Version", "Version", "Versión", "Версия", "Verzija"); }
     static String delete() { return s("Delete", "Löschen", "Eliminar", "Удалить", "Obriši"); }
     static String close() { return s("Close", "Schließen", "Cerrar", "Закрыть", "Zatvori"); }
 
@@ -537,6 +538,7 @@ final class T {
     static String modUnban() { return s("Unblock", "Entsperren", "Desbloquear", "Разблокировать", "Odblokiraj"); }
     static String modSetName() { return s("Change name", "Name ändern", "Cambiar nombre", "Изменить имя", "Promijeni ime"); }
     static String modSetBio() { return s("Change bio", "Biografie ändern", "Cambiar biografía", "Изменить биографию", "Promijeni biografiju"); }
+    static String modSetPron() { return s("Change pronouns", "Pronomen ändern", "Cambiar pronombres", "Изменить местоимения", "Promijeni zamjenice"); }
     static String modWarn() { return s("Warn", "Verwarnen", "Advertir", "Предупредить", "Upozori"); }
     static String modDuration() { return s("Duration", "Zeitraum", "Duración", "Срок", "Trajanje"); }
     static String durPermanent() { return s("Permanent", "Dauerhaft", "Permanente", "Постоянно", "Trajno"); }

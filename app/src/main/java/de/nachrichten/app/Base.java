@@ -297,8 +297,8 @@ abstract class Base extends Activity {
         boolean banned = app.db.isBanned(pub);
         String[] items = {
                 banned ? T.modUnban() : T.modBan(),
-                T.modSetName(), T.modSetBio(), T.modWarn()};
-        int[] colors = {banned ? Pal.accent : Pal.red, Pal.text, Pal.text, Pal.red};
+                T.modSetName(), T.modSetBio(), T.modSetPron(), T.modWarn()};
+        int[] colors = {banned ? Pal.accent : Pal.red, Pal.text, Pal.text, Pal.text, Pal.red};
         menu(T.moderate() + " · " + (curName == null ? "" : curName), items, colors, k -> {
             switch (k) {
                 case 0:
@@ -314,6 +314,10 @@ abstract class Base extends Activity {
                             pickDuration(until -> app.net.adminCommand("bio", pub, until, v)));
                     break;
                 case 3:
+                    ask(T.modSetPron(), app.db.pronOverride(pub), false, v ->
+                            pickDuration(until -> app.net.adminCommand("pron", pub, until, v)));
+                    break;
+                case 4:
                     ask(T.modWarn(), null, true, v -> app.net.adminCommand("warn", pub, -1, v));
                     break;
             }
@@ -337,8 +341,16 @@ abstract class Base extends Activity {
         TextView n = text(app.nameOf(pub), 22, Pal.text, true);
         n.setGravity(Gravity.CENTER);
         box.addView(n, new LinearLayout.LayoutParams(-1, -2));
-        if (c.pronouns != null && !c.pronouns.isEmpty()) {
-            TextView pr = text(c.pronouns, 14, Pal.dim, false);
+        String sub = app.subName(pub);
+        if (sub != null) {
+            TextView sn = text(sub, 14, Pal.dim, false);
+            sn.setGravity(Gravity.CENTER);
+            box.addView(sn, new LinearLayout.LayoutParams(-1, -2));
+        }
+        String pronOv = app.db.pronOverride(pub);
+        String pron = pronOv != null ? pronOv : c.pronouns;
+        if (pron != null && !pron.isEmpty()) {
+            TextView pr = text(pron, 14, Pal.dim, false);
             pr.setGravity(Gravity.CENTER);
             pr.setPadding(0, dp(2), 0, 0);
             box.addView(pr, new LinearLayout.LayoutParams(-1, -2));

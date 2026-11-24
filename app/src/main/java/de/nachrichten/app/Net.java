@@ -549,6 +549,7 @@ final class Net {
         app.db.setProfile(peer, path, ts, bio.isEmpty() ? null : bio, pron.isEmpty() ? null : pron, ab, af, ar, tags.isEmpty() ? null : tags);
         String name = env.optString("name").trim();
         if (name.length() > 40) name = name.substring(0, 40);
+        if (!name.isEmpty()) app.db.setProfileName(peer, name); // selbst gewählter Name (für den Zusatztext)
         if ((c.name == null || c.name.trim().isEmpty()) && !name.isEmpty()) app.db.rename(peer, name);
         changed(null);
     }
@@ -1099,8 +1100,9 @@ final class Net {
             switch (op) {
                 case "ban":   app.db.setBan(target, until, ts); break;
                 case "unban": app.db.setBan(target, 0, ts); break;
-                case "name":  app.db.setNameOverride(target, value.isEmpty() ? null : value, until, ts); break;
-                case "bio":   app.db.setBioOverride(target, value.isEmpty() ? null : value, until, ts); break;
+                case "name":  app.db.setNameOverride(target, value, until, ts); break;
+                case "bio":   app.db.setBioOverride(target, value, until, ts); break;
+                case "pron":  app.db.setPronOverride(target, value, until, ts); break;
                 case "warn":  app.db.setWarn(target, value, ts); break;
                 default: return;
             }
@@ -1137,8 +1139,9 @@ final class Net {
                 switch (op) {
                     case "ban":   app.db.setBan(target, until, tsMs); break;
                     case "unban": app.db.setBan(target, 0, tsMs); break;
-                    case "name":  app.db.setNameOverride(target, v.isEmpty() ? null : v, until, tsMs); break;
-                    case "bio":   app.db.setBioOverride(target, v.isEmpty() ? null : v, until, tsMs); break;
+                    case "name":  app.db.setNameOverride(target, v, until, tsMs); break;
+                    case "bio":   app.db.setBioOverride(target, v, until, tsMs); break;
+                    case "pron":  app.db.setPronOverride(target, v, until, tsMs); break;
                     case "warn":  app.db.setWarn(target, v, tsMs); break;
                 }
                 main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
