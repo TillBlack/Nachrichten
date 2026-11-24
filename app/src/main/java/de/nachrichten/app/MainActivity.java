@@ -1318,10 +1318,10 @@ public class MainActivity extends Base implements Net.Listener {
         cli.setPadding(0, dp(4), 0, 0);
         cli.setLineSpacing(0, 1.12f);
         Runnable clRefresh = () -> {
-            boolean on = app.prefs.getBoolean("contactsLinked", false);
-            clLabel.setText(on ? T.unlinkContacts() : T.linkContacts());
-            cli.setText(on ? T.linkContactsOnInfo() : T.linkContactsOffInfo());
-            clTg.on = on; clTg.invalidate();
+            boolean linkedOn = app.prefs.getBoolean("contactsLinked", false);
+            clLabel.setText(linkedOn ? T.unlinkContacts() : T.linkContacts());
+            cli.setText(linkedOn ? T.linkContactsOnInfo() : T.linkContactsOffInfo());
+            clTg.on = linkedOn; clTg.invalidate();
         };
         Runnable clToggle = () -> {
             boolean val = !app.prefs.getBoolean("contactsLinked", false);
