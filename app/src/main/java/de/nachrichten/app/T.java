@@ -199,6 +199,11 @@ final class T {
     static String deleteForAllQ() { return s("Delete this message for everyone?", "Diese Nachricht für alle löschen?", "¿Eliminar este mensaje para todos?", "Удалить это сообщение у всех?", "Obrisati ovu poruku za sve?"); }
     static String removeFromChat() { return s("Remove", "Entfernen", "Quitar", "Убрать", "Ukloni"); }
     static String msgDeleted() { return s("This message was deleted", "Diese Nachricht wurde gelöscht", "Este mensaje fue eliminado", "Это сообщение удалено", "Ova poruka je obrisana"); }
+
+    // ---- Hashtags ----
+    static String tagsLabel() { return s("Hashtags", "Hashtags", "Hashtags", "Хэштеги", "Hashtagovi"); }
+    static String tagsHint() { return s("#example #music", "#beispiel #musik", "#ejemplo #música", "#пример #музыка", "#primjer #glazba"); }
+    static String tagsInfo() { return s("Just for show on your profile — others see them when they open it.", "Nur zur Anzeige im Profil — andere sehen sie, wenn sie dein Profil öffnen.", "Solo para mostrar en tu perfil; otros los ven al abrirlo.", "Просто для показа в профиле — другие видят их, открыв профиль.", "Samo za prikaz na profilu — drugi ih vide kad ga otvore."); }
     static String allUsersSection() { return s("All users", "Alle Nutzer", "Todos los usuarios", "Все пользователи", "Svi korisnici"); }
     static String linkContacts() { return s("Link contacts", "Kontakte verknüpfen", "Vincular contactos", "Связать контакты", "Poveži kontakte"); }
     static String unlinkContacts() { return s("Turn off contact linking", "Kontakteverknüpfung deaktivieren", "Desactivar vinculación", "Отключить связь контактов", "Isključi povezivanje kontakata"); }

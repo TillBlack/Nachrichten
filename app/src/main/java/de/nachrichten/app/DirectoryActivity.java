@@ -281,6 +281,11 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         bio.setBackground(round(Pal.field, Pal.line, 10));
         bio.setPadding(dp(12), dp(10), dp(12), dp(10));
         box.addView(bio, new LinearLayout.LayoutParams(-1, -2));
+        if (e.tags != null && !e.tags.isEmpty()) {
+            box.addView(label(T.tagsLabel()), new LinearLayout.LayoutParams(-1, -2));
+            TextView tg = text(e.tags, 15, Pal.accent, true);
+            box.addView(tg, new LinearLayout.LayoutParams(-1, -2));
+        }
         LinearLayout buttons = buttonRow();
         TextView close = button(T.close(), false);
         close.setOnClickListener(v -> dlg.dismiss());

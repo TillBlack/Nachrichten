@@ -34,13 +34,15 @@ public final class Proto {
     }
 
     /** Profil: Name und kleines Bild (JPEG, base64). img leer = Bild entfernt. */
-    public static String profile(long ts, String name, byte[] jpeg, String bio, String pronouns, int accB, int accF, int accR) {
+    public static String profile(long ts, String name, byte[] jpeg, String bio, String pronouns, int accB, int accF, int accR, String tags) {
         StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"profile\",\"ts\":").append(ts).append(",\"name\":");
         Event.str(sb, name == null ? "" : name);
         sb.append(",\"bio\":");
         Event.str(sb, bio == null ? "" : bio);
         sb.append(",\"pron\":");
         Event.str(sb, pronouns == null ? "" : pronouns);
+        sb.append(",\"tags\":");
+        Event.str(sb, tags == null ? "" : tags);
         sb.append(",\"img\":");
         Event.str(sb, jpeg == null ? "" : Base64.getEncoder().encodeToString(jpeg));
         sb.append(",\"ab\":").append(accB).append(",\"af\":").append(accF).append(",\"ar\":").append(accR);

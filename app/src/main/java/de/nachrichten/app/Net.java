@@ -391,7 +391,11 @@ final class Net {
                 if (t.equals("del")) {
                     if (!outgoing) {
                         String did = env.optString("id", null);
-                        if (did != null) { app.db.markDeletedByPeer(did); changed(peer); }
+                        if (did != null) {
+                            String path = app.db.deleteIncoming(did);
+                            if (path != null) new java.io.File(path).delete();
+                            changed(peer);
+                        }
                     }
                     return;
                 }
@@ -519,19 +523,22 @@ final class Net {
         }
         if (c.avatar != null) new java.io.File(c.avatar).delete();
         String bio = env.optString("bio").trim(), pron = env.optString("pron").trim();
+        String tags = env.optString("tags").trim();
         if (bio.length() > 500) bio = bio.substring(0, 500);
         if (pron.length() > 40) pron = pron.substring(0, 40);
+        if (tags.length() > 120) tags = tags.substring(0, 120);
         int ab = clampAcc(env.optInt("ab", -1)), af = clampAcc(env.optInt("af", -1)), ar = clampAcc(env.optInt("ar", -1));
-        app.db.setProfile(peer, path, ts, bio.isEmpty() ? null : bio, pron.isEmpty() ? null : pron, ab, af, ar);
+        app.db.setProfile(peer, path, ts, bio.isEmpty() ? null : bio, pron.isEmpty() ? null : pron, ab, af, ar, tags.isEmpty() ? null : tags);
         String name = env.optString("name").trim();
         if (name.length() > 40) name = name.substring(0, 40);
         if ((c.name == null || c.name.trim().isEmpty()) && !name.isEmpty()) app.db.rename(peer, name);
         changed(null);
     }
 
-    /** Nachricht für alle löschen: lokal als gelöscht markieren und dem Kontakt ein Lösch-Signal schicken. */
+    /** Nachricht für alle löschen: lokal entfernen und dem Kontakt ein Lösch-Signal schicken. */
     void deleteForEveryone(String peer, String msgId) {
-        app.db.markDeleted(msgId);
+        String path = app.db.deleteMessage(msgId);
+        if (path != null) new java.io.File(path).delete();
         changed(peer);
         worker.post(() -> {
             try {
@@ -553,10 +560,10 @@ final class Net {
             byte[] jpg = null;
             java.io.File f = app.myAvatar();
             if (f != null) try { jpg = java.nio.file.Files.readAllBytes(f.toPath()); } catch (Exception ignored) { }
-            plain = Proto.profile(ts, app.myName(), jpg, app.prefs.getString("bio", ""), app.prefs.getString("pronouns", ""), app.accBehind(), app.accFront(), app.accFrame());
+            plain = Proto.profile(ts, app.myName(), jpg, app.prefs.getString("bio", ""), app.prefs.getString("pronouns", ""), app.accBehind(), app.accFront(), app.accFrame(), app.prefs.getString("tags", ""));
         } else {
             // privat und nicht ausgewählt: leeres Profil (löscht ein früher geschicktes)
-            plain = Proto.profile(ts, "", null, "", "", -1, -1, -1);
+            plain = Proto.profile(ts, "", null, "", "", -1, -1, -1, "");
         }
         Event e = event(peer, plain, System.currentTimeMillis());
         seen.add(e.id);
@@ -573,7 +580,7 @@ final class Net {
     static final String DIR_D = "nachrichten-profile", DIR_T = "nachrichten-dir";
 
     static final class DirEntry {
-        String pub, name, bio, pronouns;
+        String pub, name, bio, pronouns, tags;
         byte[] thumb;
         long seen;
         boolean showStatus = true;
@@ -659,6 +666,7 @@ final class Net {
             d.name = trim(c.optString("name"), 40);
             d.bio = trim(c.optString("bio"), 500);
             d.pronouns = trim(c.optString("pron"), 40);
+            d.tags = trim(c.optString("tags"), 120);
             d.showStatus = c.optInt("st", 1) == 1;
             d.listed = c.optInt("pub", 1) == 1;
             d.linked = c.optInt("con", 0) == 1;
@@ -704,6 +712,8 @@ final class Net {
                     Event.str(sb, app.prefs.getString("pronouns", ""));
                     sb.append(",\"bio\":");
                     Event.str(sb, app.prefs.getString("bio", ""));
+                    sb.append(",\"tags\":");
+                    Event.str(sb, app.prefs.getString("tags", ""));
                     sb.append(",\"img\":");
                     Event.str(sb, thumbBase64());
                     sb.append(",\"st\":").append(showOnline ? 1 : 0);

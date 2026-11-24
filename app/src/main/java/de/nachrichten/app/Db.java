@@ -16,7 +16,7 @@ final class Db extends SQLiteOpenHelper {
     static final int TEXT = 0, IMAGE = 1, FILE = 2;
 
     static final class Contact {
-        String pub, name, avatar, bio, pronouns;
+        String pub, name, avatar, bio, pronouns, tags;
         long lastRead, avatarTs, profileSent;
         int accBehind = -1, accFront = -1, accFrame = -1;
         // für die Liste
@@ -45,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 9); }
+    Db(Context c) { super(c, "nachrichten.db", null, 10); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -62,11 +62,17 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo7(db);
         upgradeTo8(db);
         upgradeTo9(db);
+        upgradeTo10(db);
     }
 
     /** Löschzustand pro Nachricht (0 = normal, 1 = gelöscht → Platzhalter). */
     private static void upgradeTo9(SQLiteDatabase db) {
         db.execSQL("ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0");
+    }
+
+    /** Hashtags im Profil eines Kontakts. */
+    private static void upgradeTo10(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE contacts ADD COLUMN tags TEXT");
     }
 
     /** Anonyme Verbesserungsvorschläge (nur beim Entwickler befüllt). */
@@ -115,6 +121,7 @@ final class Db extends SQLiteOpenHelper {
         if (o < 7) upgradeTo7(db);
         if (o < 8) upgradeTo8(db);
         if (o < 9) upgradeTo9(db);
+        if (o < 10) upgradeTo10(db);
     }
 
     /** Nachricht als gelöscht markieren (zeigt den Platzhalter). */
@@ -299,13 +306,14 @@ final class Db extends SQLiteOpenHelper {
     // ------------------------------------------------------------------ Kontakte
 
     synchronized Contact contact(String pub) {
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, name, last_read, avatar, avatar_ts, profile_sent, bio, pronouns, accb, accf, accr FROM contacts WHERE pub = ?", new String[]{pub})) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, name, last_read, avatar, avatar_ts, profile_sent, bio, pronouns, accb, accf, accr, tags FROM contacts WHERE pub = ?", new String[]{pub})) {
             if (!c.moveToFirst()) return null;
             Contact k = new Contact();
             k.pub = c.getString(0); k.name = c.getString(1); k.lastRead = c.getLong(2);
             k.avatar = c.getString(3); k.avatarTs = c.getLong(4); k.profileSent = c.getLong(5);
             k.bio = c.getString(6); k.pronouns = c.getString(7);
             k.accBehind = c.getInt(8); k.accFront = c.getInt(9); k.accFrame = c.getInt(10);
+            k.tags = c.getString(11);
             return k;
         }
     }
@@ -340,7 +348,7 @@ final class Db extends SQLiteOpenHelper {
         return files;
     }
 
-    synchronized void setProfile(String pub, String path, long ts, String bio, String pronouns, int ab, int af, int ar) {
+    synchronized void setProfile(String pub, String path, long ts, String bio, String pronouns, int ab, int af, int ar, String tags) {
         ContentValues v = new ContentValues();
         v.put("avatar", path);
         v.put("avatar_ts", ts);
@@ -349,6 +357,7 @@ final class Db extends SQLiteOpenHelper {
         v.put("accb", ab);
         v.put("accf", af);
         v.put("accr", ar);
+        v.put("tags", tags);
         getWritableDatabase().update("contacts", v, "pub = ?", new String[]{pub});
     }
 
@@ -466,7 +475,7 @@ final class Db extends SQLiteOpenHelper {
 
     synchronized List<Msg> messages(String peer) {
         List<Msg> out = new ArrayList<>();
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT " + COLS + " FROM messages WHERE peer = ? ORDER BY ts, id", new String[]{peer})) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT " + COLS + " FROM messages WHERE peer = ? ORDER BY ts, rowid", new String[]{peer})) {
             while (c.moveToNext()) out.add(read(c));
         }
         return out;
@@ -481,6 +490,13 @@ final class Db extends SQLiteOpenHelper {
         db.delete("outbox", "msg_id = ?", new String[]{id});
         db.delete("messages", "id = ?", new String[]{id});
         return m != null ? m.filePath : null;
+    }
+
+    /** Löscht nur eine eingehende Nachricht (vom Gegenüber „für alle" gelöscht). Gibt Anhangpfad zurück. */
+    synchronized String deleteIncoming(String id) {
+        Msg m = message(id);
+        if (m == null || m.outgoing) return null;
+        return deleteMessage(id);
     }
 
     // ------------------------------------------------------------------ Senden / Bestätigung

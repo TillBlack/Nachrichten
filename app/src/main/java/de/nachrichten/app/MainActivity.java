@@ -1243,6 +1243,15 @@ public class MainActivity extends Base implements Net.Listener {
         bio.setText(app.prefs.getString("bio", ""));
         box.addView(bio, new LinearLayout.LayoutParams(-1, -2));
 
+        box.addView(label(T.tagsLabel()));
+        EditText tags = field(T.tagsHint(), false);
+        tags.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(120)});
+        tags.setText(app.prefs.getString("tags", ""));
+        box.addView(tags, new LinearLayout.LayoutParams(-1, -2));
+        TextView tagsInfo = text(T.tagsInfo(), 13, Pal.dim, false);
+        tagsInfo.setPadding(0, dp(4), 0, 0);
+        box.addView(tagsInfo);
+
         // Sichtbarkeit
         box.addView(label(T.visibility()));
         final boolean[] priv = {app.prefs.getBoolean("profilePrivate", false)};
@@ -1308,11 +1317,13 @@ public class MainActivity extends Base implements Net.Listener {
         // Speichern (auch vor dem Bildwechsel, damit nichts verloren geht)
         Runnable save = () -> {
             String n = name.getText().toString().trim(), p = pron.getText().toString().trim(), b = bio.getText().toString().trim();
+            String tg = tags.getText().toString().trim();
             boolean changed = !n.equals(app.myName()) || !p.equals(app.prefs.getString("pronouns", ""))
-                    || !b.equals(app.prefs.getString("bio", "")) || priv[0] != app.prefs.getBoolean("profilePrivate", false)
+                    || !b.equals(app.prefs.getString("bio", "")) || !tg.equals(app.prefs.getString("tags", ""))
+                    || priv[0] != app.prefs.getBoolean("profilePrivate", false)
                     || !allowed.equals(app.prefs.getStringSet("profileAllowed", java.util.Collections.emptySet()));
             if (!changed) return;
-            app.prefs.edit().putString("name", n).putString("pronouns", p).putString("bio", b)
+            app.prefs.edit().putString("name", n).putString("pronouns", p).putString("bio", b).putString("tags", tg)
                     .putBoolean("dirConsent", !priv[0])
                     .putBoolean("profilePrivate", priv[0]).putStringSet("profileAllowed", new java.util.HashSet<>(allowed))
                     .putLong("profileTs", System.currentTimeMillis()).apply();

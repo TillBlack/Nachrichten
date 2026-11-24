@@ -294,6 +294,12 @@ abstract class Base extends Activity {
         bio.setBackground(round(Pal.field, Pal.line, 10));
         bio.setPadding(dp(12), dp(10), dp(12), dp(10));
         box.addView(bio, new LinearLayout.LayoutParams(-1, -2));
+        if (c.tags != null && !c.tags.isEmpty()) {
+            box.addView(label(T.tagsLabel()), new LinearLayout.LayoutParams(-1, -2));
+            TextView tg = text(c.tags, 15, Pal.accent, true);
+            tg.setTextIsSelectable(true);
+            box.addView(tg, new LinearLayout.LayoutParams(-1, -2));
+        }
         LinearLayout buttons = buttonRow();
         TextView close = button(T.close(), !withChatButton);
         close.setOnClickListener(v -> dlg.dismiss());
