@@ -1309,22 +1309,22 @@ public class MainActivity extends Base implements Net.Listener {
         LinearLayout cl = new LinearLayout(this);
         cl.setGravity(Gravity.CENTER_VERTICAL);
         cl.setPadding(0, dp(18), 0, 0);
-        TextView clLabel = text(app.prefs.getBoolean("contactsLinked", false) ? T.unlinkContacts() : T.linkContacts(), 16, Pal.text, false);
+        TextView clLabel = text(app.prefs.getBoolean("contactsLinked", true) ? T.unlinkContacts() : T.linkContacts(), 16, Pal.text, false);
         cl.addView(clLabel, new LinearLayout.LayoutParams(0, -2, 1f));
         Ico clTg = new Ico(this, Ico.TOGGLE);
-        clTg.on = app.prefs.getBoolean("contactsLinked", false);
+        clTg.on = app.prefs.getBoolean("contactsLinked", true);
         cl.addView(clTg, new LinearLayout.LayoutParams(dp(52), dp(40)));
         TextView cli = text("", 13, Pal.dim, false);
         cli.setPadding(0, dp(4), 0, 0);
         cli.setLineSpacing(0, 1.12f);
         Runnable clRefresh = () -> {
-            boolean linkedOn = app.prefs.getBoolean("contactsLinked", false);
+            boolean linkedOn = app.prefs.getBoolean("contactsLinked", true);
             clLabel.setText(linkedOn ? T.unlinkContacts() : T.linkContacts());
             cli.setText(linkedOn ? T.linkContactsOnInfo() : T.linkContactsOffInfo());
             clTg.on = linkedOn; clTg.invalidate();
         };
         Runnable clToggle = () -> {
-            boolean val = !app.prefs.getBoolean("contactsLinked", false);
+            boolean val = !app.prefs.getBoolean("contactsLinked", true);
             app.prefs.edit().putBoolean("contactsLinked", val).apply();
             clRefresh.run();
             app.net.linkAnnounce(val);

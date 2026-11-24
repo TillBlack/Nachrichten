@@ -188,17 +188,17 @@ final class T {
     static String linkContacts() { return s("Link contacts", "Kontakte verknüpfen", "Vincular contactos", "Связать контакты", "Poveži kontakte"); }
     static String unlinkContacts() { return s("Turn off contact linking", "Kontakteverknüpfung deaktivieren", "Desactivar vinculación", "Отключить связь контактов", "Isključi povezivanje kontakata"); }
     static String linkContactsOffInfo() { return s(
-            "See which of your contacts use the app, and let them see you. Mutual: you only see each other if both of you turn it on.",
-            "Sieh, welche deiner Kontakte die App nutzen, und lass sie dich sehen. Gegenseitig: Ihr seht euch nur, wenn beide es anschalten.",
-            "Mira qué contactos usan la app y deja que te vean. Mutuo: solo se ven si ambos lo activan.",
-            "Смотри, кто из контактов пользуется приложением, и позволь им видеть тебя. Взаимно: видно только если оба включили.",
-            "Vidi koji tvoji kontakti koriste aplikaciju i neka vide tebe. Uzajamno: vidite se samo ako oboje uključite."); }
+            "Off — your contacts won't see you in their Contacts list and you won't see them there.",
+            "Aus — deine Kontakte sehen dich nicht in ihrer Kontakte-Liste und du sie dort nicht.",
+            "Desactivado — tus contactos no te verán en su lista de Contactos ni tú a ellos.",
+            "Выкл — твои контакты не увидят тебя в своём списке контактов, а ты их.",
+            "Isključeno — tvoji kontakti te neće vidjeti na popisu kontakata, ni ti njih."); }
     static String linkContactsOnInfo() { return s(
-            "Active — you and your linked contacts can see each other in the list.",
-            "Aktiv — du und deine verknüpften Kontakte seht euch in der Liste.",
-            "Activo — tú y tus contactos vinculados os veis en la lista.",
-            "Активно — ты и твои связанные контакты видите друг друга в списке.",
-            "Aktivno — ti i tvoji povezani kontakti vidite se na popisu."); }
+            "On (automatic) — your app contacts link with each other invisibly and appear in the Contacts list. Encrypted end-to-end; mutual.",
+            "An (automatisch) — deine App-Kontakte verknüpfen sich unsichtbar miteinander und erscheinen in der Kontakte-Liste. Ende-zu-Ende verschlüsselt; gegenseitig.",
+            "Activado (automático) — tus contactos de la app se vinculan de forma invisible y aparecen en Contactos. Cifrado de extremo a extremo; mutuo.",
+            "Вкл (автоматически) — контакты в приложении связываются незаметно и появляются в списке контактов. Сквозное шифрование; взаимно.",
+            "Uključeno (automatski) — tvoji kontakti u aplikaciji nevidljivo se povezuju i pojavljuju na popisu kontakata. Šifrirano s kraja na kraj; uzajamno."); }
 
     // ---- Vorschläge ----
     static String suggestions() { return s("Suggestions", "Vorschläge", "Sugerencias", "Предложения", "Prijedlozi"); }

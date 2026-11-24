@@ -187,6 +187,7 @@ final class Net {
             for (String raw : app.db.pendingRaw()) enqueue("[\"EVENT\"," + raw + "]");
             worker.postDelayed(() -> publishDirectory(false), 4000);
             worker.postDelayed(() -> maybePresence(), 3000);
+            worker.postDelayed(() -> maybeAutoLink(), 5000);
             status();
         }
 
@@ -553,6 +554,15 @@ final class Net {
     /** Allen Kontakten die eigene Verknüpfung an- oder absagen (verschlüsselt, über die Relays). */
     void linkAnnounce(boolean on) {
         worker.post(() -> { for (String p : app.db.contactKeys()) sendLink(p, on); });
+    }
+
+    private volatile boolean linkAnnouncedSession = false;
+
+    /** Einmal pro Sitzung allen Kontakten automatisch die Verknüpfung signalisieren (wenn aktiv). */
+    private void maybeAutoLink() {
+        if (linkAnnouncedSession || !app.contactsLinked() || connectedCount() == 0) return;
+        linkAnnouncedSession = true;
+        linkAnnounce(true);
     }
 
     private void sendProfileIfNeeded(String peer) {
