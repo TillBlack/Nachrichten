@@ -322,9 +322,9 @@ public class ChatActivity extends Base implements Net.Listener {
         Ico stopRec = new Ico(this, Ico.SEND);
         stopRec.on = true;
         stopRec.setOnClickListener(v -> stopAndSend());
-        LinearLayout.LayoutParams stp = new LinearLayout.LayoutParams(dp(46), dp(46));
-        stp.setMargins(dp(4), 0, 0, 0);
-        recBar.addView(stopRec, stp);
+        LinearLayout.LayoutParams strp = new LinearLayout.LayoutParams(dp(46), dp(46));
+        strp.setMargins(dp(4), 0, 0, 0);
+        recBar.addView(stopRec, strp);
         inputBar.addView(recBar);
 
         col.addView(inputBar);
