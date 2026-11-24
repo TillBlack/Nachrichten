@@ -60,6 +60,7 @@ public class MainActivity extends Base implements Net.Listener {
         if (app.keys.has()) {
             app.net.addListener(this);
             app.net.acquire("ui");
+            if (app.amBanned() && !app.isDev()) { startActivity(new Intent(this, BanActivity.class)); return; }
             app.applyBackground();
             refresh();
             app.net.warmDirectory(() -> {

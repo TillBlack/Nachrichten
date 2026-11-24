@@ -263,6 +263,63 @@ abstract class Base extends Activity {
         showDialog(dlg, box);
     }
 
+    /** Einfacher Eingabe-Dialog mit einem Textfeld. */
+    void ask(String title, String initial, boolean multi, java.util.function.Consumer<String> ok) {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(text(title, 18, Pal.text, true));
+        EditText f = field("", multi);
+        if (initial != null) f.setText(initial);
+        addRow(box, f, 14);
+        LinearLayout buttons = buttonRow();
+        TextView no = button(T.cancel(), false);
+        no.setOnClickListener(v -> dlg.dismiss());
+        addTo(buttons, no, true);
+        TextView yes = button(T.ok(), true);
+        yes.setOnClickListener(v -> { dlg.dismiss(); ok.accept(f.getText().toString().trim()); });
+        addTo(buttons, yes, false);
+        addRow(box, buttons, 18);
+        showDialog(dlg, box);
+    }
+
+    // ------------------------------------------------------------------ Moderation (nur Admin)
+
+    /** Dauer auswählen und als Ablaufzeitpunkt (ms) zurückgeben (-1 = dauerhaft). */
+    void pickDuration(java.util.function.LongConsumer ok) {
+        String[] items = {T.durPermanent(), T.durHour(), T.durDay(), T.durWeek(), T.durMonth()};
+        long[] ms = {-1, 3600_000L, 86_400_000L, 7 * 86_400_000L, 30 * 86_400_000L};
+        menu(T.modDuration(), items, null, k -> ok.accept(ms[k] < 0 ? -1 : System.currentTimeMillis() + ms[k]));
+    }
+
+    /** Admin-Werkzeuge für einen Nutzer: Sperren, Name/Biografie ändern, Verwarnen. */
+    void moderate(String pub, String curName) {
+        if (!app.isDev() || App.SUGGEST_PUBKEY.equals(pub)) return;
+        boolean banned = app.db.isBanned(pub);
+        String[] items = {
+                banned ? T.modUnban() : T.modBan(),
+                T.modSetName(), T.modSetBio(), T.modWarn()};
+        int[] colors = {banned ? Pal.accent : Pal.red, Pal.text, Pal.text, Pal.red};
+        menu(T.moderate() + " · " + (curName == null ? "" : curName), items, colors, k -> {
+            switch (k) {
+                case 0:
+                    if (banned) app.net.adminCommand("unban", pub, 0, "");
+                    else pickDuration(until -> app.net.adminCommand("ban", pub, until, ""));
+                    break;
+                case 1:
+                    ask(T.modSetName(), app.db.nameOverride(pub), false, v ->
+                            pickDuration(until -> app.net.adminCommand("name", pub, until, v)));
+                    break;
+                case 2:
+                    ask(T.modSetBio(), app.db.bioOverride(pub), true, v ->
+                            pickDuration(until -> app.net.adminCommand("bio", pub, until, v)));
+                    break;
+                case 3:
+                    ask(T.modWarn(), null, true, v -> app.net.adminCommand("warn", pub, -1, v));
+                    break;
+            }
+        });
+    }
+
     // ------------------------------------------------------------------ Profil ansehen
 
     /** Profil eines Kontakts: Bild, Name, Pronomen, Biografie. */
@@ -288,7 +345,10 @@ abstract class Base extends Activity {
         }
         TextView bl = label(T.bio());
         box.addView(bl, new LinearLayout.LayoutParams(-1, -2));
-        TextView bio = text(c.bio == null || c.bio.isEmpty() ? T.noBio() : c.bio, 15, c.bio == null || c.bio.isEmpty() ? Pal.dim : Pal.text, false);
+        String bioOv = app.db.bioOverride(pub);
+        String bioStr = bioOv != null ? bioOv : c.bio;
+        boolean bioEmpty = bioStr == null || bioStr.isEmpty();
+        TextView bio = text(bioEmpty ? T.noBio() : bioStr, 15, bioEmpty ? Pal.dim : Pal.text, false);
         bio.setLineSpacing(0, 1.2f);
         bio.setTextIsSelectable(true);
         bio.setBackground(round(Pal.field, Pal.line, 10));
@@ -299,6 +359,13 @@ abstract class Base extends Activity {
             TextView tg = text(c.tags, 15, Pal.accent, true);
             tg.setTextIsSelectable(true);
             box.addView(tg, new LinearLayout.LayoutParams(-1, -2));
+        }
+        if (app.isDev() && !App.SUGGEST_PUBKEY.equals(pub)) {
+            TextView mod = outlineButton(T.moderate(), Pal.red);
+            mod.setOnClickListener(v -> { dlg.dismiss(); moderate(pub, app.nameOf(pub)); });
+            LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-1, -2);
+            ml.setMargins(0, dp(16), 0, 0);
+            box.addView(mod, ml);
         }
         LinearLayout buttons = buttonRow();
         TextView close = button(T.close(), !withChatButton);

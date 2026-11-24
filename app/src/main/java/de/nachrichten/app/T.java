@@ -86,6 +86,7 @@ final class T {
     // Allgemein
     static String save() { return s("Save", "Speichern", "Guardar", "Сохранить", "Spremi"); }
     static String cancel() { return s("Cancel", "Abbrechen", "Cancelar", "Отмена", "Odustani"); }
+    static String ok() { return s("OK", "OK", "OK", "ОК", "U redu"); }
     static String delete() { return s("Delete", "Löschen", "Eliminar", "Удалить", "Obriši"); }
     static String close() { return s("Close", "Schließen", "Cerrar", "Закрыть", "Zatvori"); }
 
@@ -498,4 +499,51 @@ final class T {
             default: return n + " of " + total + " relays connected";
         }
     }
+
+    // Moderation / Bann
+    static String banned() { return s("You have been blocked", "Du wurdest gesperrt", "Has sido bloqueado", "Вы заблокированы", "Blokiran si"); }
+    static String bannedText() { return s(
+            "An administrator has blocked you. You cannot read or send messages while the block is active.",
+            "Ein Administrator hat dich gesperrt. Solange die Sperre gilt, kannst du keine Nachrichten lesen oder senden.",
+            "Un administrador te ha bloqueado. Mientras el bloqueo esté activo no puedes leer ni enviar mensajes.",
+            "Администратор заблокировал вас. Пока блокировка активна, вы не можете читать и отправлять сообщения.",
+            "Administrator te je blokirao. Dok je blokada aktivna, ne možeš čitati ni slati poruke."); }
+    static String bannedUntil(String when) { return s(
+            "Block ends: " + when, "Sperre endet: " + when, "El bloqueo termina: " + when,
+            "Блокировка заканчивается: " + when, "Blokada završava: " + when); }
+    static String bannedPermanent() { return s("Permanent block", "Dauerhafte Sperre", "Bloqueo permanente", "Постоянная блокировка", "Trajna blokada"); }
+    static String banAppealTag() { return s("Block appeal", "Einspruch Sperre", "Apelación de bloqueo", "Апелляция блокировки", "Žalba na blokadu"); }
+    static String banAppealAdmin() { return s("Message the administrator", "Dem Administrator schreiben", "Escribir al administrador", "Написать администратору", "Piši administratoru"); }
+    static String banAppealAdminInfo(int left) { return s(
+            "You can send " + left + " more message(s) to the administrator to explain yourself.",
+            "Du kannst noch " + left + " Nachricht(en) an den Administrator senden, um dich zu erklären.",
+            "Puedes enviar " + left + " mensaje(s) más al administrador para explicarte.",
+            "Вы можете отправить ещё " + left + " сообщени(я) администратору, чтобы объясниться.",
+            "Možeš poslati još " + left + " poruku(e) administratoru da se objasniš."); }
+    static String banAppealContact() { return s("Message a contact", "Einem Kontakt schreiben", "Escribir a un contacto", "Написать контакту", "Piši kontaktu"); }
+    static String banAppealContactInfo(int left) { return s(
+            "You can send " + left + " message to one contact. Their app will only show it if it has not blocked you.",
+            "Du kannst " + left + " Nachricht an einen Kontakt senden. Dessen App zeigt sie nur, wenn sie dich nicht sperrt.",
+            "Puedes enviar " + left + " mensaje a un contacto. Su app solo lo mostrará si no te bloquea.",
+            "Вы можете отправить " + left + " сообщение одному контакту. Его приложение покажет его, только если не блокирует вас.",
+            "Možeš poslati " + left + " poruku jednom kontaktu. Njegova aplikacija prikazat će je samo ako te ne blokira."); }
+    static String bannedNoContacts() { return s("No contacts to message.", "Keine Kontakte zum Schreiben.", "No hay contactos a quien escribir.", "Нет контактов для сообщения.", "Nema kontakata za poruku."); }
+    static String appealSent() { return s("Message sent", "Nachricht gesendet", "Mensaje enviado", "Сообщение отправлено", "Poruka poslana"); }
+    static String chooseContact() { return s("Choose contact", "Kontakt auswählen", "Elegir contacto", "Выбрать контакт", "Odaberi kontakt"); }
+
+    // Moderation (Admin-Werkzeuge)
+    static String moderate() { return s("Moderate", "Moderieren", "Moderar", "Модерация", "Moderiraj"); }
+    static String modBan() { return s("Block", "Sperren", "Bloquear", "Заблокировать", "Blokiraj"); }
+    static String modUnban() { return s("Unblock", "Entsperren", "Desbloquear", "Разблокировать", "Odblokiraj"); }
+    static String modSetName() { return s("Change name", "Name ändern", "Cambiar nombre", "Изменить имя", "Promijeni ime"); }
+    static String modSetBio() { return s("Change bio", "Biografie ändern", "Cambiar biografía", "Изменить биографию", "Promijeni biografiju"); }
+    static String modWarn() { return s("Warn", "Verwarnen", "Advertir", "Предупредить", "Upozori"); }
+    static String modDuration() { return s("Duration", "Zeitraum", "Duración", "Срок", "Trajanje"); }
+    static String durPermanent() { return s("Permanent", "Dauerhaft", "Permanente", "Постоянно", "Trajno"); }
+    static String durHour() { return s("1 hour", "1 Stunde", "1 hora", "1 час", "1 sat"); }
+    static String durDay() { return s("1 day", "1 Tag", "1 día", "1 день", "1 dan"); }
+    static String durWeek() { return s("1 week", "1 Woche", "1 semana", "1 неделя", "1 tjedan"); }
+    static String durMonth() { return s("30 days", "30 Tage", "30 días", "30 дней", "30 dana"); }
+    static String modWarnLabel() { return s("Warning", "Verwarnung", "Advertencia", "Предупреждение", "Upozorenje"); }
+    static String modActive() { return s("Blocked", "Gesperrt", "Bloqueado", "Заблокирован", "Blokiran"); }
 }

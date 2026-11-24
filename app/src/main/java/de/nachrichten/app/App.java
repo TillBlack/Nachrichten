@@ -189,7 +189,26 @@ public final class App extends Application {
     }
 
     /** Anzeigename eines Kontakts (oder Kurzform des Codes). */
+    /** Bin ich selbst gebannt? */
+    boolean amBanned() { return keys.has() && db.isBanned(keys.pubHex()); }
+    /** Bann-Ablauf für mich (-1 dauerhaft, 0 nicht gebannt). */
+    long myBanUntil() { return keys.has() ? db.banUntil(keys.pubHex()) : 0; }
+
+    // --- Einspruch im Bann: höchstens 2 Nachrichten an den Admin, 1 an einen Kontakt (pro Bann). ---
+    private void resetAppealIfNewBan() {
+        long banTs = keys.has() ? db.modTs(keys.pubHex(), "ban_ts") : 0;
+        if (prefs.getLong("appealBanTs", -1) != banTs) {
+            prefs.edit().putLong("appealBanTs", banTs).putInt("appealAdmin", 0).putInt("appealContact", 0).apply();
+        }
+    }
+    int appealAdminLeft() { resetAppealIfNewBan(); return Math.max(0, 2 - prefs.getInt("appealAdmin", 0)); }
+    int appealContactLeft() { resetAppealIfNewBan(); return Math.max(0, 1 - prefs.getInt("appealContact", 0)); }
+    void useAppealAdmin() { resetAppealIfNewBan(); prefs.edit().putInt("appealAdmin", prefs.getInt("appealAdmin", 0) + 1).apply(); }
+    void useAppealContact() { resetAppealIfNewBan(); prefs.edit().putInt("appealContact", prefs.getInt("appealContact", 0) + 1).apply(); }
+
     String nameOf(String pub) {
+        String ov = db.nameOverride(pub);
+        if (ov != null) return ov;
         Db.Contact c = db.contact(pub);
         if (c != null && c.name != null && !c.name.trim().isEmpty()) return c.name;
         String npub = de.nachrichten.crypto.Bech32.encode("npub", de.nachrichten.crypto.Event.unhex(pub));

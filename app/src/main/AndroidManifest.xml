@@ -61,6 +61,12 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
         <activity
+            android:name=".app.BanActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
+        <activity
             android:name=".app.GroupChatActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize|stateHidden"

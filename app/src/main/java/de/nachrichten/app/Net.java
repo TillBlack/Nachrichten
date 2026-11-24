@@ -257,6 +257,8 @@ final class Net {
                 polls += pb.toString();
             }
         }
+        String admin = App.SUGGEST_PUBKEY.isEmpty() ? ""
+                : ",{\"kinds\":[" + Proto.KIND_ADMIN + "],\"authors\":[\"" + App.SUGGEST_PUBKEY + "\"],\"limit\":3000}";
         String groups = "";
         java.util.List<String> gids = app.db.gids();
         if (!gids.isEmpty()) {
@@ -269,7 +271,7 @@ final class Net {
                 + "{\"kinds\":[4," + Proto.KIND_RECEIPT + "],\"#p\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
                 + "{\"kinds\":[4],\"authors\":[\"" + me + "\"]" + sinceJson + ",\"limit\":1000},"
                 + "{\"kinds\":[" + Proto.KIND_TYPING + "," + Proto.KIND_PRESENCE + "],\"#p\":[\"" + me + "\"],\"since\":" + (System.currentTimeMillis() / 1000 - 120) + "}"
-                + suggest + groups + polls + "]";
+                + suggest + groups + polls + admin + "]";
         w.send(req);
     }
 
@@ -309,7 +311,7 @@ final class Net {
         int kind = o.optInt("kind");
         if (kind != 4 && kind != Proto.KIND_RECEIPT && kind != Proto.KIND_TYPING
                 && kind != Proto.KIND_PRESENCE && kind != Proto.KIND_SUGGEST && kind != Proto.KIND_GROUP
-                && kind != Proto.KIND_POLL && kind != Proto.KIND_VOTE) return;
+                && kind != Proto.KIND_POLL && kind != Proto.KIND_VOTE && kind != Proto.KIND_ADMIN) return;
         String id = o.getString("id");
         if (seen.contains(id)) return;
         seen.add(id);
@@ -321,6 +323,7 @@ final class Net {
         if (kind == Proto.KIND_GROUP) { handleGroupMessage(o, id, author, me); return; }
         if (kind == Proto.KIND_POLL) { handlePoll(o, author); return; }
         if (kind == Proto.KIND_VOTE) { handleVote(o, author); return; }
+        if (kind == Proto.KIND_ADMIN) { handleAdmin(o, author); return; }
         String p = null;
         JSONArray tags = o.optJSONArray("tags");
         if (tags != null) for (int i = 0; i < tags.length(); i++) {
@@ -343,6 +346,7 @@ final class Net {
         }
 
         boolean outgoing = author.equals(me);
+        if (!outgoing && app.db.isBanned(author)) return; // gebannte Absender werden ignoriert
         if (!outgoing && !p.equals(me)) return;
         String peer = outgoing ? p : author;
         if (peer.equals(me) || !Secp.validPublicKey(Event.unhex(peer))) return;
@@ -865,6 +869,7 @@ final class Net {
                 if (t != null && t.length() >= 2 && "g".equals(t.optString(0))) { gid = t.optString(1); break; }
             }
             if (gid == null || !author.matches("[0-9a-f]{64}")) return;
+            if (app.db.isBanned(author)) return; // gebannte Absender in Gruppen ignorieren
             Db.Group g = app.db.group(gid);
             if (g == null || !app.db.isMember(gid, author)) return;
             byte[] gk = Event.unhex(g.gkey);
@@ -1062,6 +1067,7 @@ final class Net {
 
     private void handleVote(JSONObject o, String author) {
         try {
+            if (app.db.isBanned(author)) return; // gebannte Nutzer dürfen nicht abstimmen
             JSONObject j = new JSONObject(o.optString("content"));
             String pid = j.optString("poll", null);
             if (pid == null || app.db.poll(pid) == null) return;
@@ -1071,6 +1077,76 @@ final class Net {
             main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
         } catch (Exception ignored) { }
     }
+
+    // ------------------------------------------------------------------ Moderation (Admin)
+
+    /**
+     * Admin-Befehl angekommen (öffentlich, nur vom Admin-Schlüssel signiert).
+     * Inhalt: {"op":"ban|unban|name|bio|warn","target":"<hex>","until":<ms|-1|0>,"value":"…"}.
+     * until: -1 dauerhaft, 0 aufheben, sonst Zeitpunkt in ms. Pro Feld schützt ein Zeitstempel vor alten Ereignissen.
+     */
+    private void handleAdmin(JSONObject o, String author) {
+        try {
+            if (!App.SUGGEST_PUBKEY.equals(author)) return; // nur echte Admin-Befehle
+            JSONObject j = new JSONObject(o.optString("content"));
+            String op = j.optString("op", "");
+            String target = j.optString("target", "");
+            if (!target.matches("[0-9a-f]{64}")) return;
+            if (App.SUGGEST_PUBKEY.equals(target)) return; // der Admin kann nicht moderiert werden
+            long until = j.optLong("until", 0);
+            String value = j.optString("value", "");
+            long ts = o.optLong("created_at") * 1000L;
+            switch (op) {
+                case "ban":   app.db.setBan(target, until, ts); break;
+                case "unban": app.db.setBan(target, 0, ts); break;
+                case "name":  app.db.setNameOverride(target, value.isEmpty() ? null : value, until, ts); break;
+                case "bio":   app.db.setBioOverride(target, value.isEmpty() ? null : value, until, ts); break;
+                case "warn":  app.db.setWarn(target, value, ts); break;
+                default: return;
+            }
+            main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
+        } catch (Exception ignored) { }
+    }
+
+    /**
+     * Sendet einen Admin-Befehl (nur Admin). Wird öffentlich mit dem Admin-Schlüssel signiert,
+     * alle Geräte empfangen ihn und wenden ihn lokal an.
+     * until: -1 dauerhaft, 0 aufheben, sonst Ablaufzeitpunkt in ms.
+     */
+    void adminCommand(String op, String target, long until, String value) {
+        if (!app.isDev() || target == null || !target.matches("[0-9a-f]{64}")) return;
+        final String v = value == null ? "" : value;
+        worker.post(() -> {
+            try {
+                long ts = System.currentTimeMillis() / 1000;
+                StringBuilder c = new StringBuilder("{\"op\":");
+                Event.str(c, op);
+                c.append(",\"target\":\"").append(target).append("\",\"until\":").append(until).append(",\"value\":");
+                Event.str(c, v);
+                c.append('}');
+                Event e = new Event();
+                e.kind = Proto.KIND_ADMIN;
+                e.createdAt = ts;
+                e.tags = new String[][]{{"p", target}};
+                e.content = c.toString();
+                e.sign(app.sugPriv());
+                seen.add(e.id);
+                broadcast(e.toJson());
+                // lokal gleich anwenden
+                long tsMs = ts * 1000L;
+                switch (op) {
+                    case "ban":   app.db.setBan(target, until, tsMs); break;
+                    case "unban": app.db.setBan(target, 0, tsMs); break;
+                    case "name":  app.db.setNameOverride(target, v.isEmpty() ? null : v, until, tsMs); break;
+                    case "bio":   app.db.setBioOverride(target, v.isEmpty() ? null : v, until, tsMs); break;
+                    case "warn":  app.db.setWarn(target, v, tsMs); break;
+                }
+                main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
+            } catch (Exception ignored) { }
+        });
+    }
+
+    // ------------------------------------------------------------------ Umfragen
 
     /** Umfrage erstellen oder ändern (nur Admin). del=true löscht sie. */
     void savePoll(String id, String title, java.util.List<String> options, boolean del) {
@@ -1137,6 +1213,33 @@ final class Net {
                 e.tags = new String[][]{{"p", App.SUGGEST_PUBKEY}};
                 e.content = Nip44.encrypt(t, ck);
                 e.sign(eph);
+                broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /**
+     * Einspruch eines gesperrten Nutzers an den Admin. Läuft über das Vorschlags-Postfach
+     * (nicht vom Bann gefiltert), mit vorangestellter eigener ID, damit der Admin weiß, wer schreibt.
+     */
+    void sendBanAppeal(String text) {
+        final String t = text == null ? "" : text.trim();
+        if (t.isEmpty() || App.SUGGEST_PUBKEY.isEmpty()) return;
+        String npub = de.nachrichten.crypto.Bech32.encode("npub", Event.unhex(app.keys.pubHex()));
+        sendSuggestion("[" + T.banAppealTag() + " " + npub + "]\n" + t);
+    }
+
+    /**
+     * Gesperrter Nutzer schickt einem Kontakt eine einzelne Nachricht (normale 1:1-Nachricht).
+     * Ehrliche Empfänger-Apps ignorieren Nachrichten gesperrter Absender – das ist offen und umgehbar.
+     */
+    void sendBanContact(String peer, String text) {
+        final String t = text == null ? "" : text.trim();
+        if (t.isEmpty() || peer == null || !peer.matches("[0-9a-f]{64}")) return;
+        worker.post(() -> {
+            try {
+                Event e = event(peer, Proto.text(t, null), System.currentTimeMillis());
+                seen.add(e.id);
                 broadcast(e.toJson());
             } catch (Exception ignored) { }
         });

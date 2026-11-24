@@ -240,10 +240,15 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         mid.setPadding(dp(14), 0, 0, 0);
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        TextView n = text(e.name, 17, Pal.text, true);
+        String nameOv = app.db.nameOverride(e.pub);
+        TextView n = text(nameOv != null ? nameOv : e.name, 17, Pal.text, true);
         n.setSingleLine(true);
         n.setEllipsize(TextUtils.TruncateAt.END);
         top.addView(n, new LinearLayout.LayoutParams(0, -2, 1f));
+        if (app.isDev() && app.db.isBanned(e.pub)) {
+            TextView badge = text("  " + T.modActive(), 12, Pal.red, true);
+            top.addView(badge, new LinearLayout.LayoutParams(-2, -2));
+        }
         mid.addView(top);
         String sub = (e.pronouns.isEmpty() ? "" : e.pronouns + (e.bio.isEmpty() ? "" : "  ·  ")) + e.bio.replace('\n', ' ');
         if (!sub.isEmpty()) {
@@ -267,7 +272,8 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(112), dp(112));
         ap.setMargins(0, dp(4), 0, dp(12));
         box.addView(av, ap);
-        TextView n = text(e.name, 22, Pal.text, true);
+        String nameOv = app.db.nameOverride(e.pub);
+        TextView n = text(nameOv != null ? nameOv : e.name, 22, Pal.text, true);
         n.setGravity(Gravity.CENTER);
         box.addView(n, new LinearLayout.LayoutParams(-1, -2));
         if (!e.pronouns.isEmpty()) {
@@ -276,7 +282,10 @@ public class DirectoryActivity extends Base implements Net.DirListener {
             box.addView(pr, new LinearLayout.LayoutParams(-1, -2));
         }
         box.addView(label(T.bio()), new LinearLayout.LayoutParams(-1, -2));
-        TextView bio = text(e.bio.isEmpty() ? T.noBio() : e.bio, 15, e.bio.isEmpty() ? Pal.dim : Pal.text, false);
+        String bioOv = app.db.bioOverride(e.pub);
+        String bioStr = bioOv != null ? bioOv : e.bio;
+        boolean bioEmpty = bioStr == null || bioStr.isEmpty();
+        TextView bio = text(bioEmpty ? T.noBio() : bioStr, 15, bioEmpty ? Pal.dim : Pal.text, false);
         bio.setLineSpacing(0, 1.2f);
         bio.setBackground(round(Pal.field, Pal.line, 10));
         bio.setPadding(dp(12), dp(10), dp(12), dp(10));
@@ -285,6 +294,13 @@ public class DirectoryActivity extends Base implements Net.DirListener {
             box.addView(label(T.tagsLabel()), new LinearLayout.LayoutParams(-1, -2));
             TextView tg = text(e.tags, 15, Pal.accent, true);
             box.addView(tg, new LinearLayout.LayoutParams(-1, -2));
+        }
+        if (app.isDev() && !App.SUGGEST_PUBKEY.equals(e.pub)) {
+            TextView mod = outlineButton(T.moderate(), Pal.red);
+            mod.setOnClickListener(v -> { dlg.dismiss(); moderate(e.pub, e.name); });
+            LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-1, -2);
+            ml.setMargins(0, dp(16), 0, 0);
+            box.addView(mod, ml);
         }
         LinearLayout buttons = buttonRow();
         TextView close = button(T.close(), false);

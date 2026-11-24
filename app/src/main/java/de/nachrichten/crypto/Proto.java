@@ -59,6 +59,8 @@ public final class Proto {
     public static final int KIND_POLL = 4449;
     /** Stimme zu einer Umfrage (öffentlich, vom Wähler signiert, Tag "e" = Umfrage-ID). */
     public static final int KIND_VOTE = 4450;
+    /** Admin-Befehl (öffentlich, nur vom Admin-Schlüssel signiert): Bann, Namen/Bio überschreiben, Verwarnung. */
+    public static final int KIND_ADMIN = 4451;
 
     /** Steuernachricht (über 1:1 verschickt): voller Stand einer Gruppe – Name, Schlüssel, Mitglieder, Admins. */
     public static String groupSync(String gid, String name, String gkey, String owner, java.util.List<String> members, java.util.Set<String> admins) {

@@ -125,6 +125,7 @@ public class ChatActivity extends Base implements Net.Listener {
         super.onResume();
         app.net.addListener(this);
         app.net.acquire("ui");
+        if (app.amBanned() && !app.isDev()) { startActivity(new android.content.Intent(this, BanActivity.class)); finish(); return; }
         onResumeWork();
     }
 

@@ -45,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 11); }
+    Db(Context c) { super(c, "nachrichten.db", null, 12); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -64,6 +64,16 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo9(db);
         upgradeTo10(db);
         upgradeTo11(db);
+        upgradeTo12(db);
+    }
+
+    /** Moderation: Bann, Namens-/Bio-Überschreibung, Verwarnung je Nutzer (mit Zeitstempel-Schutz pro Feld). */
+    private static void upgradeTo12(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE mods (pub TEXT PRIMARY KEY, "
+                + "ban_until INTEGER NOT NULL DEFAULT 0, ban_ts INTEGER NOT NULL DEFAULT 0, "
+                + "oname TEXT, oname_until INTEGER NOT NULL DEFAULT 0, oname_ts INTEGER NOT NULL DEFAULT 0, "
+                + "obio TEXT, obio_until INTEGER NOT NULL DEFAULT 0, obio_ts INTEGER NOT NULL DEFAULT 0, "
+                + "warn TEXT, warn_ts INTEGER NOT NULL DEFAULT 0)");
     }
 
     /** Umfragen und Stimmen. */
@@ -130,6 +140,100 @@ final class Db extends SQLiteOpenHelper {
         if (o < 9) upgradeTo9(db);
         if (o < 10) upgradeTo10(db);
         if (o < 11) upgradeTo11(db);
+        if (o < 12) upgradeTo12(db);
+    }
+
+    // ------------------------------------------------------------------ Moderation
+
+    private void ensureMod(String pub) {
+        getWritableDatabase().execSQL("INSERT OR IGNORE INTO mods (pub) VALUES (?)", new Object[]{pub});
+    }
+
+    long modTs(String pub, String col) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT " + col + " FROM mods WHERE pub = ?", new String[]{pub})) {
+            return c.moveToFirst() ? c.getLong(0) : 0;
+        }
+    }
+
+    /** Bann setzen: until = -1 dauerhaft, 0 aufheben, sonst Zeitstempel (ms). evTs = Zeit des Admin-Befehls. */
+    synchronized void setBan(String pub, long until, long evTs) {
+        ensureMod(pub);
+        if (evTs < modTs(pub, "ban_ts")) return;
+        ContentValues v = new ContentValues();
+        v.put("ban_until", until);
+        v.put("ban_ts", evTs);
+        getWritableDatabase().update("mods", v, "pub = ?", new String[]{pub});
+    }
+
+    synchronized void setNameOverride(String pub, String name, long until, long evTs) {
+        ensureMod(pub);
+        if (evTs < modTs(pub, "oname_ts")) return;
+        ContentValues v = new ContentValues();
+        v.put("oname", name);
+        v.put("oname_until", until);
+        v.put("oname_ts", evTs);
+        getWritableDatabase().update("mods", v, "pub = ?", new String[]{pub});
+    }
+
+    synchronized void setBioOverride(String pub, String bio, long until, long evTs) {
+        ensureMod(pub);
+        if (evTs < modTs(pub, "obio_ts")) return;
+        ContentValues v = new ContentValues();
+        v.put("obio", bio);
+        v.put("obio_until", until);
+        v.put("obio_ts", evTs);
+        getWritableDatabase().update("mods", v, "pub = ?", new String[]{pub});
+    }
+
+    synchronized void setWarn(String pub, String text, long ts) {
+        ensureMod(pub);
+        if (ts < modTs(pub, "warn_ts")) return;
+        ContentValues v = new ContentValues();
+        v.put("warn", text);
+        v.put("warn_ts", ts);
+        getWritableDatabase().update("mods", v, "pub = ?", new String[]{pub});
+    }
+
+    private static boolean active(long until) { return until == -1 || until > System.currentTimeMillis(); }
+
+    synchronized boolean isBanned(String pub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT ban_until FROM mods WHERE pub = ?", new String[]{pub})) {
+            return c.moveToFirst() && active(c.getLong(0));
+        }
+    }
+
+    /** Bann-Ablauf in ms (-1 dauerhaft, 0 = nicht gebannt). */
+    synchronized long banUntil(String pub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT ban_until FROM mods WHERE pub = ?", new String[]{pub})) {
+            return c.moveToFirst() ? c.getLong(0) : 0;
+        }
+    }
+
+    /** Vom Admin gesetzter Name (oder null, wenn keiner aktiv). */
+    synchronized String nameOverride(String pub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT oname, oname_until FROM mods WHERE pub = ?", new String[]{pub})) {
+            if (c.moveToFirst() && c.getString(0) != null && active(c.getLong(1))) return c.getString(0);
+        }
+        return null;
+    }
+
+    synchronized String bioOverride(String pub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT obio, obio_until FROM mods WHERE pub = ?", new String[]{pub})) {
+            if (c.moveToFirst() && c.getString(0) != null && active(c.getLong(1))) return c.getString(0);
+        }
+        return null;
+    }
+
+    /** Aktuelle Verwarnung {text, ts} oder null. */
+    synchronized String[] warnFor(String pub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT warn, warn_ts FROM mods WHERE pub = ?", new String[]{pub})) {
+            if (c.moveToFirst() && c.getString(0) != null) return new String[]{c.getString(0), String.valueOf(c.getLong(1))};
+        }
+        return null;
+    }
+
+    synchronized void clearWarn(String pub) {
+        getWritableDatabase().execSQL("UPDATE mods SET warn = NULL WHERE pub = ?", new Object[]{pub});
     }
 
     // ------------------------------------------------------------------ Umfragen
