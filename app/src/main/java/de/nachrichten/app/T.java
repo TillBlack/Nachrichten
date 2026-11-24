@@ -179,6 +179,26 @@ final class T {
     }
     static String discoverSub() { return s("Everyone with a public profile", "Alle mit öffentlichem Profil", "Todos con perfil público", "Все с публичным профилем", "Svi s javnim profilom"); }
 
+    // ---- Nutzerliste / Sichtbarkeit / Kontakte verknüpfen ----
+    static String visibleToAll() { return s("Visible to everyone", "Für alle sichtbar", "Visible para todos", "Виден всем", "Vidljiv svima"); }
+    static String visibleToAllInfo() { return s("When on, you appear under \"All users\".", "Wenn an, erscheinst du unter „Alle Nutzer\".", "Si está activado, apareces en «Todos».", "Если включено, ты в списке «Все».", "Ako je uključeno, prikazan si pod „Svi\"."); }
+    static String contactsSection() { return s("Contacts", "Kontakte", "Contactos", "Контакты", "Kontakti"); }
+    static String allUsersSection() { return s("All users", "Alle Nutzer", "Todos los usuarios", "Все пользователи", "Svi korisnici"); }
+    static String linkContacts() { return s("Link contacts", "Kontakte verknüpfen", "Vincular contactos", "Связать контакты", "Poveži kontakte"); }
+    static String unlinkContacts() { return s("Turn off contact linking", "Kontakteverknüpfung deaktivieren", "Desactivar vinculación", "Отключить связь контактов", "Isključi povezivanje kontakata"); }
+    static String linkContactsOffInfo() { return s(
+            "See which of your contacts use the app, and let them see you. Mutual: you only see each other if both of you turn it on.",
+            "Sieh, welche deiner Kontakte die App nutzen, und lass sie dich sehen. Gegenseitig: Ihr seht euch nur, wenn beide es anschalten.",
+            "Mira qué contactos usan la app y deja que te vean. Mutuo: solo se ven si ambos lo activan.",
+            "Смотри, кто из контактов пользуется приложением, и позволь им видеть тебя. Взаимно: видно только если оба включили.",
+            "Vidi koji tvoji kontakti koriste aplikaciju i neka vide tebe. Uzajamno: vidite se samo ako oboje uključite."); }
+    static String linkContactsOnInfo() { return s(
+            "Active — you and your linked contacts can see each other in the list.",
+            "Aktiv — du und deine verknüpften Kontakte seht euch in der Liste.",
+            "Activo — tú y tus contactos vinculados os veis en la lista.",
+            "Активно — ты и твои связанные контакты видите друг друга в списке.",
+            "Aktivno — ti i tvoji povezani kontakti vidite se na popisu."); }
+
     // ---- Vorschläge ----
     static String suggestions() { return s("Suggestions", "Vorschläge", "Sugerencias", "Предложения", "Prijedlozi"); }
     static String suggestionsSub(int n) {
@@ -312,7 +332,12 @@ final class T {
     static String tBack() { return s("Back", "Zurück", "Atrás", "Назад", "Natrag"); }
     static String tDone() { return s("Got it", "Verstanden", "Entendido", "Понятно", "Jasno"); }
     static String tSkip() { return s("Skip", "Überspringen", "Saltar", "Пропустить", "Preskoči"); }
-    static String tuDiscover() { return s("See everyone using the app.", "Sieh alle, die die App nutzen.", "Mira a todos los que usan la app.", "Смотри всех, кто пользуется приложением.", "Vidi sve koji koriste aplikaciju."); }
+    static String tuDiscover() { return s(
+            "See everyone using the app. You're listed here too — turn it off with the switch at the top of the list.",
+            "Sieh alle, die die App nutzen. Du bist hier auch gelistet — mit dem Schalter ganz oben in der Liste kannst du das ausstellen.",
+            "Mira a todos los que usan la app. Tú también apareces aquí — desactívalo con el interruptor de arriba.",
+            "Смотри всех, кто пользуется приложением. Ты тоже в списке — отключи это переключателем вверху.",
+            "Vidi sve koji koriste aplikaciju. I ti si ovdje na popisu — isključi to prekidačem na vrhu."); }
     static String tuAdd() { return s("Add a contact by QR code or text code.", "Füge einen Kontakt per QR-Code oder Textcode hinzu.", "Añade un contacto por QR o código.", "Добавь контакт по QR или коду.", "Dodaj kontakt QR-om ili kodom."); }
     static String tuQr() { return s("Your own code and QR to share.", "Dein eigener Code und QR zum Teilen.", "Tu propio código y QR.", "Твой код и QR.", "Tvoj kod i QR."); }
     static String tuShare() { return s("Share the app with friends.", "Teile die App mit Freunden.", "Comparte la app con amigos.", "Поделись приложением с друзьями.", "Podijeli aplikaciju s prijateljima."); }

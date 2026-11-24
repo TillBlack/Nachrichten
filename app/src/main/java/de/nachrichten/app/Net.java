@@ -557,6 +557,8 @@ final class Net {
         byte[] thumb;
         long seen;
         boolean showStatus = true;
+        /** listed = öffentlich in "Alle Nutzer"; linked = für gegenseitig verknüpfte Kontakte sichtbar. */
+        boolean listed = true, linked = false;
         int accBehind = -1, accFront = -1, accFrame = -1;
     }
 
@@ -638,6 +640,8 @@ final class Net {
             d.bio = trim(c.optString("bio"), 500);
             d.pronouns = trim(c.optString("pron"), 40);
             d.showStatus = c.optInt("st", 1) == 1;
+            d.listed = c.optInt("pub", 1) == 1;
+            d.linked = c.optInt("con", 0) == 1;
             d.accBehind = clampAcc(c.optInt("ab", -1));
             d.accFront = clampAcc(c.optInt("af", -1));
             d.accFrame = clampAcc(c.optInt("ar", -1));
@@ -666,8 +670,9 @@ final class Net {
             // ohne Online-Status nur bei Änderungen veröffentlichen (sonst verrät die Zeit die Aktivität)
             if (!force && !showOnline && app.prefs.getBoolean("dirPublished", false)) return;
             if (connectedCount() == 0) return;
-            boolean visible = app.prefs.getBoolean("dirConsent", false) && !app.prefs.getBoolean("profilePrivate", false)
-                    && !app.myName().isEmpty();
+            boolean pubList = app.prefs.getBoolean("dirConsent", false) && !app.prefs.getBoolean("profilePrivate", false);
+            boolean linked = app.prefs.getBoolean("contactsLinked", false);
+            boolean visible = (pubList || linked) && !app.myName().isEmpty();
             boolean wasPublished = app.prefs.getBoolean("dirPublished", false);
             if (!visible && !wasPublished) return;
             lastDirPublish = now;
@@ -683,6 +688,7 @@ final class Net {
                     sb.append(",\"img\":");
                     Event.str(sb, thumbBase64());
                     sb.append(",\"st\":").append(showOnline ? 1 : 0);
+                    sb.append(",\"pub\":").append(pubList ? 1 : 0).append(",\"con\":").append(linked ? 1 : 0);
                     sb.append(",\"ab\":").append(app.accBehind()).append(",\"af\":").append(app.accFront()).append(",\"ar\":").append(app.accFrame());
                     content = sb.append('}').toString();
                 }

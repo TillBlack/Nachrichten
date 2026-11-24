@@ -25,6 +25,7 @@ public class DirectoryActivity extends Base implements Net.DirListener {
 
     private LinearLayout header, list;
     private TextView status;
+    private Ico visTg;
     private final Map<String, Net.DirEntry> entries = new HashMap<>();
     private boolean loaded;
 
@@ -54,6 +55,38 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         content.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(content);
         col.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+        // Schieberegler: in der Liste "Alle Nutzer" sichtbar (öffentlich)
+        LinearLayout vis = new LinearLayout(this);
+        vis.setGravity(Gravity.CENTER_VERTICAL);
+        vis.setBackground(round(Pal.card, Pal.line, 12));
+        vis.setPadding(dp(14), dp(10), dp(12), dp(10));
+        LinearLayout vt = new LinearLayout(this);
+        vt.setOrientation(LinearLayout.VERTICAL);
+        vt.addView(text(T.visibleToAll(), 16, Pal.text, true));
+        TextView vinfo = text(T.visibleToAllInfo(), 12, Pal.dim, false);
+        vinfo.setLineSpacing(0, 1.12f);
+        vt.addView(vinfo);
+        vis.addView(vt, new LinearLayout.LayoutParams(0, -2, 1f));
+        visTg = new Ico(this, Ico.TOGGLE);
+        visTg.on = app.selfListed();
+        LinearLayout.LayoutParams tgp = new LinearLayout.LayoutParams(dp(52), dp(40));
+        tgp.setMargins(dp(8), 0, 0, 0);
+        vis.addView(visTg, tgp);
+        Runnable toggleVis = () -> {
+            boolean val = !(app.prefs.getBoolean("dirConsent", false) && !app.prefs.getBoolean("profilePrivate", false));
+            app.prefs.edit().putBoolean("dirConsent", val).putBoolean("profilePrivate", !val)
+                    .putLong("profileTs", System.currentTimeMillis()).apply();
+            visTg.on = val;
+            visTg.invalidate();
+            app.net.publishDirectory(true);
+            render();
+        };
+        vis.setOnClickListener(v -> toggleVis.run());
+        visTg.setOnClickListener(v -> toggleVis.run());
+        LinearLayout.LayoutParams visp = new LinearLayout.LayoutParams(-1, -2);
+        visp.setMargins(dp(12), dp(6), dp(12), dp(4));
+        content.addView(vis, visp);
 
         // Hinweis: so wird man unsichtbar, mit Knopf direkt zur Einstellung
         LinearLayout hint = new LinearLayout(this);
@@ -124,15 +157,44 @@ public class DirectoryActivity extends Base implements Net.DirListener {
 
     private void render() {
         list.removeAllViews();
+        if (visTg != null) { visTg.on = app.selfListed(); visTg.invalidate(); }
         String myPub = app.keys.has() ? app.keys.pubHex() : null;
-        List<Net.DirEntry> all = new ArrayList<>();
-        for (Net.DirEntry e : entries.values()) if (myPub == null || !e.pub.equals(myPub)) all.add(e);
-        all.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
-        int total = all.size() + (app.selfListed() ? 1 : 0);
-        status.setText(all.isEmpty() ? (loaded ? T.dirEmpty() : T.dirLoading()) : T.discoverCount(total));
+        java.util.Set<String> myContacts = new java.util.HashSet<>();
+        for (Db.Contact c : app.db.contacts()) myContacts.add(c.pub);
+        boolean iLinked = app.contactsLinked();
+
+        List<Net.DirEntry> contacts = new ArrayList<>(), others = new ArrayList<>();
+        for (Net.DirEntry e : entries.values()) {
+            if (myPub != null && e.pub.equals(myPub)) continue;
+            boolean isContact = myContacts.contains(e.pub);
+            if (isContact && e.linked && iLinked) contacts.add(e);
+            else if (e.listed) others.add(e);
+        }
+        java.util.Comparator<Net.DirEntry> byName = (a, b) -> a.name.compareToIgnoreCase(b.name);
+        contacts.sort(byName);
+        others.sort(byName);
+
+        int total = contacts.size() + others.size() + (app.selfListed() ? 1 : 0);
+        status.setText(contacts.isEmpty() && others.isEmpty()
+                ? (loaded ? T.dirEmpty() : T.dirLoading()) : T.discoverCount(total));
+
         // Eigenes Profil immer ganz oben, als "Du" gekennzeichnet.
         if (myPub != null) list.addView(selfRow());
-        for (Net.DirEntry e : all) list.addView(row(e));
+        if (!contacts.isEmpty()) {
+            list.addView(sectionHeader(T.contactsSection()));
+            for (Net.DirEntry e : contacts) list.addView(row(e));
+        }
+        if (!others.isEmpty()) {
+            list.addView(sectionHeader(T.allUsersSection()));
+            for (Net.DirEntry e : others) list.addView(row(e));
+        }
+    }
+
+    private View sectionHeader(String s) {
+        TextView t = text(s, 13, Pal.dim, true);
+        t.setAllCaps(true);
+        t.setPadding(dp(6), dp(14), dp(6), dp(4));
+        return t;
     }
 
     private View selfRow() {

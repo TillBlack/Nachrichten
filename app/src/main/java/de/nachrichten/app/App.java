@@ -170,6 +170,9 @@ public final class App extends Application {
         return prefs.getBoolean("dirConsent", false) && !prefs.getBoolean("profilePrivate", false) && !myName().isEmpty();
     }
 
+    /** Kontakte-Verknüpfung aktiv: man sieht verknüpfte Kontakte und sie sehen einen (gegenseitig). */
+    boolean contactsLinked() { return prefs.getBoolean("contactsLinked", false) && !myName().isEmpty(); }
+
     String myName() { return prefs.getString("name", ""); }
 
     boolean background() { return prefs.getBoolean("bg", true); }
