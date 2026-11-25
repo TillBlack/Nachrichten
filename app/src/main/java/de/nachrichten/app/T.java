@@ -565,6 +565,10 @@ final class T {
     static String modSetName() { return s("Change name", "Name ändern", "Cambiar nombre", "Изменить имя", "Promijeni ime"); }
     static String modSetBio() { return s("Change bio", "Biografie ändern", "Cambiar biografía", "Изменить биографию", "Promijeni biografiju"); }
     static String modSetPron() { return s("Change pronouns", "Pronomen ändern", "Cambiar pronombres", "Изменить местоимения", "Promijeni zamjenice"); }
+    static String modHidePic() { return s("Hide profile picture", "Profilbild entfernen", "Ocultar foto de perfil", "Скрыть фото профиля", "Sakrij profilnu sliku"); }
+    static String modShowPic() { return s("Show profile picture", "Profilbild wieder zeigen", "Mostrar foto de perfil", "Показать фото профиля", "Prikaži profilnu sliku"); }
+    static String modMakePrivate() { return s("Hide from user list", "Auf privat stellen", "Poner en privado", "Сделать приватным", "Postavi na privatno"); }
+    static String modMakePublic() { return s("Show in user list", "Auf öffentlich stellen", "Poner en público", "Сделать публичным", "Postavi na javno"); }
     static String modWarn() { return s("Warn", "Verwarnen", "Advertir", "Предупредить", "Upozori"); }
     static String modDuration() { return s("Duration", "Zeitraum", "Duración", "Срок", "Trajanje"); }
     static String durPermanent() { return s("Permanent", "Dauerhaft", "Permanente", "Постоянно", "Trajno"); }

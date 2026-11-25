@@ -162,6 +162,7 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         List<Net.DirEntry> all = new ArrayList<>();
         for (Net.DirEntry e : entries.values()) {
             if (myPub != null && e.pub.equals(myPub)) continue;
+            if (app.db.hidden(e.pub) && !app.isDev()) continue; // auf privat gestellt (Admin sieht sie weiter)
             if (e.listed) all.add(e);
         }
         all.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
@@ -249,7 +250,7 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         LinearLayout r = new LinearLayout(this);
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
-        r.addView(new Avatar(e.pub, e.name, thumbPath(e)).accessories(e.accBehind, e.accFront, e.accFrame), new LinearLayout.LayoutParams(dp(48), dp(48)));
+        r.addView(new Avatar(e.pub, e.name, modPath(e.pub, thumbPath(e))).accessories(e.accBehind, e.accFront, e.accFrame), new LinearLayout.LayoutParams(dp(48), dp(48)));
 
         LinearLayout mid = new LinearLayout(this);
         mid.setOrientation(LinearLayout.VERTICAL);
@@ -296,7 +297,7 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         LinearLayout box = panel();
         box.setGravity(Gravity.CENTER_HORIZONTAL);
         String path = thumbPath(e);
-        Avatar av = new Avatar(e.pub, e.name, path).accessories(e.accBehind, e.accFront, e.accFrame);
+        Avatar av = new Avatar(e.pub, e.name, modPath(e.pub, path)).accessories(e.accBehind, e.accFront, e.accFrame);
         LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(112), dp(112));
         ap.setMargins(0, dp(4), 0, dp(12));
         box.addView(av, ap);

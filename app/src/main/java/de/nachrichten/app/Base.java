@@ -319,10 +319,16 @@ abstract class Base extends Activity {
     void moderate(String pub, String curName) {
         if (!app.isDev() || App.SUGGEST_PUBKEY.equals(pub)) return;
         boolean banned = app.db.isBanned(pub);
+        boolean noav = app.db.noAvatar(pub);
+        boolean hid = app.db.hidden(pub);
         String[] items = {
                 banned ? T.modUnban() : T.modBan(),
-                T.modSetName(), T.modSetBio(), T.modSetPron(), T.modWarn()};
-        int[] colors = {banned ? Pal.accent : Pal.red, Pal.text, Pal.text, Pal.text, Pal.red};
+                T.modSetName(), T.modSetBio(), T.modSetPron(),
+                noav ? T.modShowPic() : T.modHidePic(),
+                hid ? T.modMakePublic() : T.modMakePrivate(),
+                T.modWarn()};
+        int[] colors = {banned ? Pal.accent : Pal.red, Pal.text, Pal.text, Pal.text,
+                noav ? Pal.accent : Pal.text, hid ? Pal.accent : Pal.text, Pal.red};
         menu(T.moderate() + " · " + (curName == null ? "" : curName), items, colors, k -> {
             switch (k) {
                 case 0:
@@ -342,6 +348,14 @@ abstract class Base extends Activity {
                             pickDuration(until -> app.net.adminCommand("pron", pub, until, v)));
                     break;
                 case 4:
+                    if (noav) app.net.adminCommand("noavatar", pub, 0, "");
+                    else pickDuration(until -> app.net.adminCommand("noavatar", pub, until, ""));
+                    break;
+                case 5:
+                    if (hid) app.net.adminCommand("hide", pub, 0, "");
+                    else pickDuration(until -> app.net.adminCommand("hide", pub, until, ""));
+                    break;
+                case 6:
                     ask(T.modWarn(), null, true, v -> app.net.adminCommand("warn", pub, -1, v));
                     break;
             }
@@ -357,8 +371,9 @@ abstract class Base extends Activity {
         Dialog dlg = dialog();
         LinearLayout box = panel();
         box.setGravity(Gravity.CENTER_HORIZONTAL);
-        Avatar av = new Avatar(pub, c.name == null || c.name.isEmpty() ? "?" : c.name, c.avatar).accessories(c.accBehind, c.accFront, c.accFrame);
-        if (c.avatar != null) av.setOnClickListener(v -> bigImage(c.avatar));
+        String avPath = modPath(pub, c.avatar);
+        Avatar av = new Avatar(pub, c.name == null || c.name.isEmpty() ? "?" : c.name, avPath).accessories(c.accBehind, c.accFront, c.accFrame);
+        if (avPath != null) av.setOnClickListener(v -> bigImage(avPath));
         LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(112), dp(112));
         ap.setMargins(0, dp(4), 0, dp(12));
         box.addView(av, ap);
@@ -424,9 +439,12 @@ abstract class Base extends Activity {
         return avatarWithDot(pub, name, path, online, sizeDp, -1, -1, -1);
     }
 
+    /** Vom Admin entferntes Profilbild ausblenden. */
+    String modPath(String pub, String path) { return path != null && app.db.noAvatar(pub) ? null : path; }
+
     View avatarWithDot(String pub, String name, String path, boolean online, int sizeDp, int ab, int af, int ar) {
         FrameLayout f = new FrameLayout(this);
-        f.addView(new Avatar(pub, name, path).accessories(ab, af, ar), new FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp)));
+        f.addView(new Avatar(pub, name, modPath(pub, path)).accessories(ab, af, ar), new FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp)));
         if (online) {
             int ds = Math.max(10, Math.round(sizeDp * 0.30f));
             View dot = new View(this);

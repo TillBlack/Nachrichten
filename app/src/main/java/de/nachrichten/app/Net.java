@@ -413,6 +413,7 @@ final class Net {
             try { env = new JSONObject(plain); } catch (Exception e) { env = null; }
             if (env != null) {
                 String t = env.optString("t");
+                if (!outgoing) learnName(peer, env.optString("sn", null)); // echter Name reist mit
                 if (t.equals("file")) { handleChunk(peer, outgoing, createdAt, env); return; }
                 if (t.equals("profile")) { if (!outgoing) handleProfile(peer, env); return; }
                 if (t.equals("del")) {
@@ -454,6 +455,17 @@ final class Net {
 
     private boolean fresh(long createdAt) {
         return lastSeenAtStart > 0 || createdAt > startedAt - 120;
+    }
+
+    /** Den mit einer Nachricht mitgeschickten echten Namen übernehmen. */
+    private void learnName(String peer, String sn) {
+        if (sn == null) return;
+        sn = sn.trim();
+        if (sn.isEmpty() || peer.equals(App.SUGGEST_PUBKEY)) return;
+        if (sn.length() > 40) sn = sn.substring(0, 40);
+        app.db.setProfileName(peer, sn);
+        Db.Contact c = app.db.contact(peer);
+        if (c != null && (c.name == null || c.name.trim().isEmpty())) app.db.rename(peer, sn);
     }
 
     // ------------------------------------------------------------------ Quittungen und Tippen
@@ -815,6 +827,7 @@ final class Net {
         if (i == 0) {
             JSONObject meta = env.optJSONObject("m");
             if (meta == null) return;
+            if (!outgoing) learnName(peer, meta.optString("sn", null));
             long size = meta.optLong("size", -1);
             String sha = meta.optString("sha");
             if (size < 0 || size > Proto.MAX_FILE || !sha.matches("[0-9a-f]{64}")) return;
@@ -896,6 +909,7 @@ final class Net {
                 try {
                     JSONObject env = new JSONObject(plain);
                     String t = env.optString("t");
+                    if (!outgoing) learnName(author, env.optString("sn", null));
                     if (t.equals("text")) { body = env.optString("b"); replyTo = cleanId(env.optString("r", null)); }
                     else body = "[" + T.unsupported() + "]";
                 } catch (Exception ignored) { }
@@ -1042,7 +1056,7 @@ final class Net {
                 e.kind = Proto.KIND_GROUP;
                 e.createdAt = now / 1000;
                 e.tags = new String[][]{{"g", gid}};
-                e.content = Nip44.encrypt(Proto.text(text, replyTo), gk);
+                e.content = Nip44.encrypt(Proto.text(text, replyTo, app.myName()), gk);
                 e.sign(app.keys.priv());
                 Db.Msg m = new Db.Msg();
                 m.id = e.id; m.peer = gid; m.sender = app.keys.pubHex(); m.outgoing = true;
@@ -1145,6 +1159,8 @@ final class Net {
                 case "name":  app.db.setNameOverride(target, value, until, ts); break;
                 case "bio":   app.db.setBioOverride(target, value, until, ts); break;
                 case "pron":  app.db.setPronOverride(target, value, until, ts); break;
+                case "noavatar": app.db.setNoAvatar(target, until, ts); break;
+                case "hide":  app.db.setHidden(target, until, ts); break;
                 case "warn":  app.db.setWarn(target, value, ts); break;
                 default: return;
             }
@@ -1184,6 +1200,8 @@ final class Net {
                     case "name":  app.db.setNameOverride(target, v, until, tsMs); break;
                     case "bio":   app.db.setBioOverride(target, v, until, tsMs); break;
                     case "pron":  app.db.setPronOverride(target, v, until, tsMs); break;
+                    case "noavatar": app.db.setNoAvatar(target, until, tsMs); break;
+                    case "hide":  app.db.setHidden(target, until, tsMs); break;
                     case "warn":  app.db.setWarn(target, v, tsMs); break;
                 }
                 main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
@@ -1342,7 +1360,7 @@ final class Net {
             try {
                 sendProfileIfNeeded(peer);
                 long now = System.currentTimeMillis();
-                Event e = event(peer, Proto.text(text, replyTo), now);
+                Event e = event(peer, Proto.text(text, replyTo, app.myName()), now);
                 String raw = e.toJson();
                 Db.Msg m = new Db.Msg();
                 m.id = e.id;
@@ -1391,7 +1409,7 @@ final class Net {
                 m.total = n;
                 List<String> raws = new ArrayList<>();
                 for (int i = 0; i < n; i++) {
-                    Event e = event(peer, Proto.chunk(fid, i, data, name, mime, image, sha, replyTo), now);
+                    Event e = event(peer, Proto.chunk(fid, i, data, name, mime, image, sha, replyTo, app.myName()), now);
                     seen.add(e.id);
                     String raw = e.toJson();
                     app.db.addOutbox(e.id, fid, raw, i);

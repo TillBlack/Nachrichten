@@ -25,11 +25,16 @@ public final class Proto {
         return Event.hex(b);
     }
 
-    public static String text(String body, String replyTo) {
-        if (replyTo == null && !body.startsWith("{\"nx\"")) return body;
+    public static String text(String body, String replyTo) { return text(body, replyTo, null); }
+
+    /** senderName (sn) reist mit jeder Nachricht mit, damit der Empfänger den echten Namen kennt. */
+    public static String text(String body, String replyTo, String senderName) {
+        boolean hasName = senderName != null && !senderName.isEmpty();
+        if (replyTo == null && !hasName && !body.startsWith("{\"nx\"")) return body;
         StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"text\",\"b\":");
         Event.str(sb, body);
         if (replyTo != null) { sb.append(",\"r\":"); Event.str(sb, replyTo); }
+        if (hasName) { sb.append(",\"sn\":"); Event.str(sb, senderName); }
         return sb.append('}').toString();
     }
 
@@ -94,6 +99,10 @@ public final class Proto {
 
     /** Ein Stück eines Anhangs. meta nur bei i == 0. */
     public static String chunk(String fid, int i, byte[] data, String name, String mime, boolean image, String sha, String replyTo) {
+        return chunk(fid, i, data, name, mime, image, sha, replyTo, null);
+    }
+
+    public static String chunk(String fid, int i, byte[] data, String name, String mime, boolean image, String sha, String replyTo, String senderName) {
         int n = chunkCount(data.length);
         int from = i * CHUNK, len = Math.min(CHUNK, data.length - from);
         byte[] part = new byte[Math.max(0, len)];
@@ -111,6 +120,7 @@ public final class Proto {
             sb.append(",\"img\":").append(image);
             sb.append(",\"sha\":");
             Event.str(sb, sha);
+            if (senderName != null && !senderName.isEmpty()) { sb.append(",\"sn\":"); Event.str(sb, senderName); }
             sb.append('}');
             if (replyTo != null) { sb.append(",\"r\":"); Event.str(sb, replyTo); }
         }

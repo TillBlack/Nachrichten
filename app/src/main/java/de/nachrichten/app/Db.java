@@ -45,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 14); }
+    Db(Context c) { super(c, "nachrichten.db", null, 15); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -67,6 +67,15 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo12(db);
         upgradeTo13(db);
         upgradeTo14(db);
+        upgradeTo15(db);
+    }
+
+    /** Moderation von Profilbild (noav) und Sichtbarkeit in der Nutzerliste (hide). */
+    private static void upgradeTo15(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE mods ADD COLUMN noav_until INTEGER NOT NULL DEFAULT 0");
+        db.execSQL("ALTER TABLE mods ADD COLUMN noav_ts INTEGER NOT NULL DEFAULT 0");
+        db.execSQL("ALTER TABLE mods ADD COLUMN hide_until INTEGER NOT NULL DEFAULT 0");
+        db.execSQL("ALTER TABLE mods ADD COLUMN hide_ts INTEGER NOT NULL DEFAULT 0");
     }
 
     /** Posteingang für Moderation: Einsprüche (type=1) und Meldungen (type=2). */
@@ -159,6 +168,7 @@ final class Db extends SQLiteOpenHelper {
         if (o < 12) upgradeTo12(db);
         if (o < 13) upgradeTo13(db);
         if (o < 14) upgradeTo14(db);
+        if (o < 15) upgradeTo15(db);
     }
 
     // ------------------------------------------------------------------ Moderation
@@ -202,6 +212,26 @@ final class Db extends SQLiteOpenHelper {
         v.put("obio_ts", evTs);
         getWritableDatabase().update("mods", v, "pub = ?", new String[]{pub});
     }
+
+    /** Generische Moderations-Flagge mit Zeitstempel-Schutz (Spalten *_until / *_ts). */
+    private synchronized void setFlag(String pub, String uCol, String tsCol, long until, long evTs) {
+        ensureMod(pub);
+        if (evTs < modTs(pub, tsCol)) return;
+        ContentValues v = new ContentValues();
+        v.put(uCol, until);
+        v.put(tsCol, evTs);
+        getWritableDatabase().update("mods", v, "pub = ?", new String[]{pub});
+    }
+    private synchronized boolean flagActive(String pub, String uCol) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT " + uCol + " FROM mods WHERE pub = ?", new String[]{pub})) {
+            if (c.moveToFirst()) return active(c.getLong(0));
+        }
+        return false;
+    }
+    synchronized void setNoAvatar(String pub, long until, long evTs) { setFlag(pub, "noav_until", "noav_ts", until, evTs); }
+    synchronized boolean noAvatar(String pub) { return flagActive(pub, "noav_until"); }
+    synchronized void setHidden(String pub, long until, long evTs) { setFlag(pub, "hide_until", "hide_ts", until, evTs); }
+    synchronized boolean hidden(String pub) { return flagActive(pub, "hide_until"); }
 
     synchronized void setPronOverride(String pub, String pron, long until, long evTs) {
         ensureMod(pub);
