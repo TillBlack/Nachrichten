@@ -108,6 +108,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         list.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(list);
         col.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        attachFloatDate(root, scroll);
 
         bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
@@ -137,6 +138,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         if (header == null) return;
         header.setPadding(dp(4), insetTop + dp(8), dp(12), dp(8));
         list.setPadding(dp(12), dp(8), dp(12), dp(12));
+        setFloatDateTop(insetTop + dp(54));
         if (bar != null) bar.setPadding(dp(8), dp(6), dp(8), insetBottom + dp(6));
         if (recBar != null) recBar.setPadding(dp(12), dp(8), dp(12), insetBottom + dp(12));
     }
@@ -185,10 +187,20 @@ public class GroupChatActivity extends Base implements Net.Listener {
         hav.silhouette = false;
         headerAv.addView(hav, new FrameLayout.LayoutParams(dp(40), dp(40)));
         list.removeAllViews();
+        dayChipViews.clear();
         String me = app.keys.pubHex();
         List<Db.Msg> msgs = app.db.messages(gid);
         String lastSender = null;
+        long lastDay = -1;
         for (Db.Msg m : msgs) {
+            long day = dayKey(m.ts);
+            if (day != lastDay) {
+                View chip = dayChip(m.ts);
+                list.addView(chip);
+                dayChipViews.add(chip);
+                lastDay = day;
+                lastSender = null;
+            }
             boolean showName = !m.outgoing && !java.util.Objects.equals(m.sender, lastSender);
             list.addView(bubble(m, me, showName));
             lastSender = m.sender;

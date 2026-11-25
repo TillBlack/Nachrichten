@@ -173,6 +173,7 @@ public class ChatActivity extends Base implements Net.Listener {
         if (header == null) return;
         header.setPadding(dp(4), insetTop + dp(6), dp(8), dp(6));
         inputBar.setPadding(dp(8), dp(6), dp(10), insetBottom + dp(8));
+        setFloatDateTop(insetTop + dp(52));
         scrollToEnd();
     }
 
@@ -232,6 +233,7 @@ public class ChatActivity extends Base implements Net.Listener {
         list.setClipChildren(false);
         scroll.addView(list, new ScrollView.LayoutParams(-1, -2));
         col.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        attachFloatDate(root, scroll);
 
         // Eingabe mit Antwort-Leiste
         inputBar = new LinearLayout(this);
@@ -514,10 +516,13 @@ public class ChatActivity extends Base implements Net.Listener {
         }
         long lastDay = -1;
         Db.Msg prev = null;
+        dayChipViews.clear();
         for (Db.Msg m : msgs) {
             long day = dayKey(m.ts);
             if (day != lastDay) {
-                list.addView(dayChip(m.ts));
+                View chip = dayChip(m.ts);
+                list.addView(chip);
+                dayChipViews.add(chip);
                 lastDay = day;
                 prev = null;
             }
@@ -533,29 +538,6 @@ public class ChatActivity extends Base implements Net.Listener {
         lastShownId = newLast;
         shownCount = msgs.size();
         if (stick || mineNew) scrollToEnd();
-    }
-
-    private static long dayKey(long ts) {
-        Calendar c = Calendar.getInstance();
-        c.setTimeInMillis(ts);
-        return c.get(Calendar.YEAR) * 1000L + c.get(Calendar.DAY_OF_YEAR);
-    }
-
-    private View dayChip(long ts) {
-        long today = dayKey(System.currentTimeMillis());
-        long d = dayKey(ts);
-        String label;
-        if (d == today) label = T.today();
-        else if (d == dayKey(System.currentTimeMillis() - 86400000L)) label = T.yesterday();
-        else label = DateFormat.getDateInstance(DateFormat.MEDIUM, T.locale()).format(new Date(ts));
-        TextView t = text(label, 12, Pal.dim, true);
-        t.setPadding(dp(10), dp(4), dp(10), dp(4));
-        t.setBackground(round(Pal.card, 0, 10));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-        lp.gravity = Gravity.CENTER_HORIZONTAL;
-        lp.setMargins(0, dp(12), 0, dp(8));
-        t.setLayoutParams(lp);
-        return t;
     }
 
     /** Eine Zeile: Blase in einer wischbaren Hülle. */

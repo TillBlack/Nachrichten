@@ -157,6 +157,72 @@ abstract class Base extends Activity {
 
     static int withAlpha(int color, int alpha) { return (alpha << 24) | (color & 0xFFFFFF); }
 
+    // ------------------------------------------------------------------ Datumstrenner + schwebendes Datum
+
+    static long dayKey(long ts) {
+        Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(ts);
+        return c.get(Calendar.YEAR) * 1000L + c.get(Calendar.DAY_OF_YEAR);
+    }
+
+    String dayLabel(long ts) {
+        long today = dayKey(System.currentTimeMillis());
+        long d = dayKey(ts);
+        if (d == today) return T.today();
+        if (d == dayKey(System.currentTimeMillis() - 86400000L)) return T.yesterday();
+        return DateFormat.getDateInstance(DateFormat.MEDIUM, T.locale()).format(new Date(ts));
+    }
+
+    View dayChip(long ts) {
+        TextView t = text(dayLabel(ts), 12, Pal.dim, true);
+        t.setPadding(dp(10), dp(4), dp(10), dp(4));
+        t.setBackground(round(Pal.card, 0, 10));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+        lp.gravity = Gravity.CENTER_HORIZONTAL;
+        lp.setMargins(0, dp(12), 0, dp(8));
+        t.setLayoutParams(lp);
+        return t;
+    }
+
+    protected TextView floatDate;
+    protected final java.util.List<View> dayChipViews = new java.util.ArrayList<>();
+    private android.os.Handler floatHandler;
+
+    /** Schwebendes Datum oben einrichten (zeigt beim Hochscrollen den Tag der obersten sichtbaren Nachricht). */
+    void attachFloatDate(FrameLayout root, ScrollView sc) {
+        floatDate = text("", 12, Pal.dim, true);
+        floatDate.setPadding(dp(10), dp(4), dp(10), dp(4));
+        floatDate.setBackground(round(Pal.card, Pal.line, 10));
+        floatDate.setVisibility(View.GONE);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2);
+        lp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        lp.topMargin = dp(64);
+        root.addView(floatDate, lp);
+        floatHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        sc.setOnScrollChangeListener((v, x, y, ox, oy) -> onChatScroll(y));
+    }
+
+    void setFloatDateTop(int px) {
+        if (floatDate == null) return;
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) floatDate.getLayoutParams();
+        lp.topMargin = px;
+        floatDate.setLayoutParams(lp);
+    }
+
+    private void onChatScroll(int y) {
+        if (floatDate == null) return;
+        String label = null;
+        for (View ch : dayChipViews) {
+            if (ch.getTop() <= y + dp(10)) label = ((TextView) ch).getText().toString();
+            else break;
+        }
+        if (label == null || y <= dp(6)) { floatDate.setVisibility(View.GONE); return; }
+        floatDate.setText(label);
+        floatDate.setVisibility(View.VISIBLE);
+        floatHandler.removeCallbacksAndMessages(null);
+        floatHandler.postDelayed(() -> { if (floatDate != null) floatDate.setVisibility(View.GONE); }, 900);
+    }
+
     // --- Sprachnachricht-Dateiname: "v<DauerMs>~<Wellenform>~voice.aac" ---
     static String voiceName(long durMs, String wave) { return "v" + durMs + "~" + wave + "~voice.aac"; }
 
