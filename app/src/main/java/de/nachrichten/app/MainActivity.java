@@ -418,7 +418,7 @@ public class MainActivity extends Base implements Net.Listener {
         if (g.lastKind == Db.FILE && isVoiceName(g.lastFileName)) {
             Ico mi = new Ico(this, Ico.MIC);
             mi.color = Pal.dim;
-            LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(dp(15), dp(15));
+            LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(dp(14), dp(18));
             mp.setMargins(0, 0, dp(4), 0);
             bottom.addView(mi, mp);
         }
@@ -792,7 +792,7 @@ public class MainActivity extends Base implements Net.Listener {
         if (c.lastKind == Db.FILE && isVoiceName(c.lastText)) {
             Ico mi = new Ico(this, Ico.MIC);
             mi.color = Pal.dim;
-            LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(dp(15), dp(15));
+            LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(dp(14), dp(18));
             mp.setMargins(0, 0, dp(4), 0);
             bottom.addView(mi, mp);
         }

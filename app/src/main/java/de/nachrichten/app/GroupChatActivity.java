@@ -599,30 +599,32 @@ public class GroupChatActivity extends Base implements Net.Listener {
 
     private View voicePlayer(Db.Msg m, int textColor, int metaColor) {
         LinearLayout v = new LinearLayout(this);
-        v.setGravity(Gravity.CENTER_VERTICAL);
+        v.setOrientation(LinearLayout.VERTICAL);
         boolean playingThis = playingPath != null && playingPath.equals(m.filePath);
-        Ico btn = new Ico(this, playingThis ? Ico.PAUSE : Ico.PLAY);
-        btn.color = textColor;
-        v.addView(btn, new LinearLayout.LayoutParams(dp(36), dp(36)));
-        LinearLayout col2 = new LinearLayout(this);
-        col2.setOrientation(LinearLayout.VERTICAL);
-        col2.setGravity(Gravity.CENTER_VERTICAL);
-        col2.setPadding(dp(8), 0, dp(4), 0);
-        float[] amps = waveFromName(m.fileName);
         final String path = m.filePath;
         long dn = durFromName(m.fileName);
         final long totalMs = dn > 0 ? dn : durationOf(m.filePath);
+
+        LinearLayout topRow = new LinearLayout(this);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
+        Ico btn = new Ico(this, playingThis ? Ico.PAUSE : Ico.PLAY);
+        btn.color = textColor;
+        topRow.addView(btn, new LinearLayout.LayoutParams(dp(36), dp(36)));
         WaveView wv = new WaveView(this);
         wv.barColor = metaColor; wv.playedColor = textColor; wv.showHandle = true;
-        wv.setAmps(amps != null ? amps : flatWave());
+        wv.setAmps(waveFromName(m.fileName) != null ? waveFromName(m.fileName) : flatWave());
         wv.setProgress(0f);
-        col2.addView(wv, new LinearLayout.LayoutParams(dp(150), dp(22)));
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(dp(150), dp(30));
+        tp.setMargins(dp(8), 0, dp(4), 0);
+        topRow.addView(wv, tp);
+        v.addView(topRow);
+
         final TextView pos = text(formatDur(totalMs), 12, metaColor, false);
-        pos.setPadding(0, dp(3), 0, 0);
-        col2.addView(pos);
+        pos.setPadding(dp(44), dp(1), 0, 0);
+        v.addView(pos);
+
         wv.seekListener = f -> seekVoice(path, btn, wv, pos, totalMs, f);
         if (playingThis) { playingWave = wv; playingPos = pos; playingTotal = totalMs; }
-        v.addView(col2);
         btn.setOnClickListener(x -> togglePlay(path, btn, wv, pos, totalMs));
         return v;
     }
