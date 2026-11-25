@@ -1414,8 +1414,6 @@ public class MainActivity extends Base implements Net.Listener {
         return wrap;
     }
 
-    private static int withAlpha(int color, int alpha) { return (alpha << 24) | (color & 0xFFFFFF); }
-
     private void editProfile() {
         Dialog dlg = dialog();
         settingsDlg = dlg;

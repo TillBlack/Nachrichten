@@ -60,8 +60,16 @@ public class ChatActivity extends Base implements Net.Listener {
     private android.media.MediaRecorder recorder;
     private File recFile;
     private boolean recording;
-    private long recStart;
+    private boolean recPaused;
+    private long recStart;            // Beginn des aktuellen Aufnahme-Abschnitts
+    private long recordedMs;          // bisher aufgenommene Dauer (ohne aktuellen Abschnitt)
     private Runnable recTick;
+    private WaveView recWave;         // Live-Wellenform beim Aufnehmen
+    private Ico pauseBtn;
+    private TextView pauseLbl;
+    private final java.util.ArrayList<Integer> recAmps = new java.util.ArrayList<>();
+    private android.media.MediaPlayer previewPlayer; // Abhören im Pausezustand
+    private Runnable previewTick;
     private android.media.MediaPlayer player;
     private String playingPath;
     private Ico playingBtn;
@@ -301,31 +309,62 @@ public class ChatActivity extends Base implements Net.Listener {
         });
         inputBar.addView(row);
 
-        // Aufnahmeleiste (verborgen, bis aufgenommen wird)
+        // Aufnahmeleiste / Editor (verborgen, bis aufgenommen wird) – Layout wie im Vorbild
         recBar = new LinearLayout(this);
-        recBar.setGravity(Gravity.CENTER_VERTICAL);
+        recBar.setOrientation(LinearLayout.VERTICAL);
         recBar.setVisibility(View.GONE);
-        recBar.setPadding(dp(10), dp(8), dp(10), dp(8));
-        View dot = new View(this);
-        dot.setBackground(round(Pal.red, 0, 6));
-        recBar.addView(dot, new LinearLayout.LayoutParams(dp(11), dp(11)));
-        recTime = text("0:00", 15, Pal.text, true);
-        recTime.setPadding(dp(10), 0, 0, 0);
-        recBar.addView(recTime);
-        TextView recLbl = text(T.voiceRecording(), 13, Pal.dim, false);
-        recLbl.setPadding(dp(10), 0, 0, 0);
-        recBar.addView(recLbl);
-        recBar.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
-        Ico cancelRec = new Ico(this, Ico.CLOSE);
-        cancelRec.color = Pal.dim;
-        cancelRec.setOnClickListener(v -> cancelRecording());
-        recBar.addView(cancelRec, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        recBar.setPadding(dp(12), dp(8), dp(12), dp(10));
+
+        LinearLayout waveRow = new LinearLayout(this);
+        waveRow.setGravity(Gravity.CENTER_VERTICAL);
+        recTime = text("0:00", 17, Pal.text, true);
+        waveRow.addView(recTime, new LinearLayout.LayoutParams(dp(56), -2));
+        recWave = new WaveView(this);
+        recWave.growFromLeft = true;
+        recWave.setOnTouchListener((v, ev) -> {
+            // Zurückspulen/Abhören nur im Pausezustand
+            if (!recPaused) return false;
+            if (ev.getAction() == android.view.MotionEvent.ACTION_DOWN || ev.getAction() == android.view.MotionEvent.ACTION_MOVE) {
+                previewSeek(recWave.fractionAt(ev.getX()));
+            }
+            return true;
+        });
+        LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        wl.setMargins(dp(10), 0, 0, 0);
+        waveRow.addView(recWave, wl);
+        recBar.addView(waveRow);
+
+        LinearLayout ctrlRow = new LinearLayout(this);
+        ctrlRow.setGravity(Gravity.CENTER_VERTICAL);
+        ctrlRow.setPadding(0, dp(10), 0, 0);
+        Ico del = new Ico(this, Ico.TRASH);
+        del.color = Pal.red;
+        FrameLayout delWrap = new FrameLayout(this);
+        delWrap.setBackground(circle(withAlpha(Pal.red, 0x26), 0));
+        delWrap.addView(del, new FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER));
+        delWrap.setOnClickListener(v -> cancelRecording());
+        ctrlRow.addView(delWrap, new LinearLayout.LayoutParams(dp(52), dp(52)));
+
+        LinearLayout pausePill = new LinearLayout(this);
+        pausePill.setGravity(Gravity.CENTER);
+        pausePill.setBackground(round(Pal.field, 0, 26));
+        pausePill.setPadding(dp(16), dp(14), dp(16), dp(14));
+        pauseBtn = new Ico(this, Ico.PAUSE);
+        pauseBtn.color = Pal.text;
+        pausePill.addView(pauseBtn, new LinearLayout.LayoutParams(dp(22), dp(22)));
+        pauseLbl = text(T.pauseRec(), 16, Pal.text, true);
+        pauseLbl.setPadding(dp(10), 0, 0, 0);
+        pausePill.addView(pauseLbl);
+        pausePill.setOnClickListener(v -> togglePauseRec());
+        LinearLayout.LayoutParams ppl = new LinearLayout.LayoutParams(0, -2, 1f);
+        ppl.setMargins(dp(12), 0, dp(12), 0);
+        ctrlRow.addView(pausePill, ppl);
+
         Ico stopRec = new Ico(this, Ico.SEND);
         stopRec.on = true;
         stopRec.setOnClickListener(v -> stopAndSend());
-        LinearLayout.LayoutParams strp = new LinearLayout.LayoutParams(dp(46), dp(46));
-        strp.setMargins(dp(4), 0, 0, 0);
-        recBar.addView(stopRec, strp);
+        ctrlRow.addView(stopRec, new LinearLayout.LayoutParams(dp(52), dp(52)));
+        recBar.addView(ctrlRow);
         inputBar.addView(recBar);
 
         col.addView(inputBar);
@@ -811,10 +850,10 @@ public class ChatActivity extends Base implements Net.Listener {
             return;
         }
         try {
-            recFile = new File(getCacheDir(), "rec_" + System.currentTimeMillis() + ".m4a");
+            recFile = new File(getCacheDir(), "rec_" + System.currentTimeMillis() + ".aac");
             recorder = new android.media.MediaRecorder();
             recorder.setAudioSource(android.media.MediaRecorder.AudioSource.MIC);
-            recorder.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4);
+            recorder.setOutputFormat(android.media.MediaRecorder.OutputFormat.AAC_ADTS); // strömbar: Abhören im Pausezustand
             recorder.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC);
             recorder.setAudioEncodingBitRate(64000);
             recorder.setAudioSamplingRate(44100);
@@ -822,16 +861,27 @@ public class ChatActivity extends Base implements Net.Listener {
             recorder.prepare();
             recorder.start();
             recording = true;
+            recPaused = false;
+            recordedMs = 0;
             recStart = System.currentTimeMillis();
+            recAmps.clear();
+            if (recWave != null) { recWave.setProgress(-1); recWave.setAmps(new float[0]); }
+            if (pauseBtn != null) pauseBtn.setKind(Ico.PAUSE);
+            if (pauseLbl != null) pauseLbl.setText(T.pauseRec());
             stopPlayer();
             inputRow.setVisibility(View.GONE);
             recBar.setVisibility(View.VISIBLE);
             recTick = new Runnable() {
                 public void run() {
                     if (!recording) return;
-                    long s = (System.currentTimeMillis() - recStart) / 1000;
+                    if (!recPaused && recorder != null) {
+                        try { recAmps.add(recorder.getMaxAmplitude()); } catch (Exception ignored) { }
+                        updateWaveLive();
+                    }
+                    long ms = recordedMs + (recPaused ? 0 : System.currentTimeMillis() - recStart);
+                    long s = ms / 1000;
                     recTime.setText(s / 60 + ":" + String.format(Locale.US, "%02d", s % 60));
-                    ui.postDelayed(this, 300);
+                    ui.postDelayed(this, 70);
                 }
             };
             ui.post(recTick);
@@ -842,14 +892,83 @@ public class ChatActivity extends Base implements Net.Listener {
         }
     }
 
+    private void updateWaveLive() {
+        int n = recAmps.size();
+        if (n == 0) { recWave.setAmps(new float[0]); return; }
+        float[] a = new float[n];
+        for (int i = 0; i < n; i++) a[i] = Math.min(1f, recAmps.get(i) / 12000f);
+        recWave.setAmps(a);
+    }
+
+    private void togglePauseRec() {
+        if (!recording || recorder == null) return;
+        try {
+            if (!recPaused) {
+                recorder.pause();
+                recPaused = true;
+                recordedMs += System.currentTimeMillis() - recStart;
+                pauseBtn.setKind(Ico.PLAY);
+                pauseLbl.setText(T.resumeRec());
+            } else {
+                stopPreview();
+                recorder.resume();
+                recPaused = false;
+                recStart = System.currentTimeMillis();
+                recWave.setProgress(-1);
+                pauseBtn.setKind(Ico.PAUSE);
+                pauseLbl.setText(T.pauseRec());
+            }
+        } catch (Exception ignored) { }
+    }
+
+    // Abhören/Zurückspulen – nur im Pausezustand
+    private void previewSeek(float frac) {
+        if (!recPaused || recFile == null) return;
+        try {
+            if (previewPlayer == null) {
+                previewPlayer = new android.media.MediaPlayer();
+                previewPlayer.setDataSource(recFile.getAbsolutePath());
+                previewPlayer.prepare();
+            }
+            int pos = (int) (frac * Math.max(1, recordedMs));
+            previewPlayer.seekTo(pos);
+            previewPlayer.start();
+            recWave.setProgress(frac);
+            if (previewTick == null) {
+                previewTick = new Runnable() {
+                    public void run() {
+                        if (previewPlayer == null || !recPaused) return;
+                        try {
+                            if (previewPlayer.isPlaying()) {
+                                recWave.setProgress(Math.min(1f, previewPlayer.getCurrentPosition() / (float) Math.max(1, recordedMs)));
+                                ui.postDelayed(this, 60);
+                            }
+                        } catch (Exception ignored) { }
+                    }
+                };
+            }
+            ui.removeCallbacks(previewTick);
+            ui.post(previewTick);
+        } catch (Exception ignored) { }
+    }
+
+    private void stopPreview() {
+        if (previewTick != null) ui.removeCallbacks(previewTick);
+        try { if (previewPlayer != null) { previewPlayer.release(); } } catch (Exception ignored) { }
+        previewPlayer = null;
+        if (recWave != null) recWave.setProgress(-1);
+    }
+
     private File finishRecording() {
         recording = false;
+        recPaused = false;
+        stopPreview();
         if (recTick != null) ui.removeCallbacks(recTick);
         File f = recFile;
         try {
-            if (recorder != null) recorder.stop();
+            if (recorder != null) { recorder.resume(); recorder.stop(); } // resume falls pausiert, dann sauber beenden
         } catch (Exception e) {
-            f = null; // zu kurz oder fehlgeschlagen
+            try { if (recorder != null) recorder.stop(); } catch (Exception ignored) { }
         }
         cleanupRecorder();
         return f;
@@ -871,27 +990,60 @@ public class ChatActivity extends Base implements Net.Listener {
         if (f != null) f.delete();
     }
 
+    /** Wellenform in ~40 Werte (0..255) verdichten und als Dateiname-Zusatz kodieren. */
+    private String encodeWave() {
+        int buckets = 40;
+        int n = recAmps.size();
+        byte[] out = new byte[buckets];
+        if (n > 0) {
+            float peak = 1f;
+            for (int v : recAmps) peak = Math.max(peak, v);
+            for (int b = 0; b < buckets; b++) {
+                int from = (int) ((long) b * n / buckets), to = (int) ((long) (b + 1) * n / buckets);
+                int mx = 0;
+                for (int i = from; i < to && i < n; i++) mx = Math.max(mx, recAmps.get(i));
+                out[b] = (byte) Math.min(255, Math.round(mx / peak * 255f));
+            }
+        }
+        return android.util.Base64.encodeToString(out, android.util.Base64.URL_SAFE | android.util.Base64.NO_PADDING | android.util.Base64.NO_WRAP);
+    }
+
     private void stopAndSend() {
-        long dur = System.currentTimeMillis() - recStart;
+        long dur = recordedMs + (recPaused ? 0 : System.currentTimeMillis() - recStart);
+        String wave = encodeWave();
         File rec = finishRecording();
         resetRecUI();
         if (rec == null) return;
         if (dur < 800) { rec.delete(); toast(T.recordTooShort()); return; }
         String reply = replyTo;
         setReply(null);
+        final String name = "v~" + wave + "~voice.aac";
         new Thread(() -> {
             try {
                 byte[] data = java.nio.file.Files.readAllBytes(rec.toPath());
                 rec.delete();
                 if (data.length == 0 || data.length > Proto.MAX_FILE) { runOnUiThread(() -> toast(T.tooLarge())); return; }
                 String fid = Proto.newFileId();
-                File f = new File(app.mediaDir(), fid + "_voice.m4a");
+                File f = new File(app.mediaDir(), fid + "_voice.aac");
                 try (FileOutputStream out = new FileOutputStream(f)) { out.write(data); }
-                app.net.sendFile(peer, f.getAbsolutePath(), "Sprachnachricht.m4a", "audio/mp4", false, reply);
+                app.net.sendFile(peer, f.getAbsolutePath(), name, "audio/aac", false, reply);
             } catch (Throwable t) {
                 runOnUiThread(() -> toast(T.readError()));
             }
         }).start();
+    }
+
+    /** Wellenform aus dem Dateinamen lesen (oder null). */
+    static float[] waveFromName(String name) {
+        if (name == null || !name.startsWith("v~")) return null;
+        int end = name.indexOf("~voice");
+        if (end <= 2) return null;
+        try {
+            byte[] b = android.util.Base64.decode(name.substring(2, end), android.util.Base64.URL_SAFE | android.util.Base64.NO_PADDING | android.util.Base64.NO_WRAP);
+            float[] a = new float[b.length];
+            for (int i = 0; i < b.length; i++) a[i] = (b[i] & 0xFF) / 255f;
+            return a;
+        } catch (Exception e) { return null; }
     }
 
     private static boolean isVoice(Db.Msg m) {
@@ -908,11 +1060,21 @@ public class ChatActivity extends Base implements Net.Listener {
         LinearLayout col2 = new LinearLayout(this);
         col2.setOrientation(LinearLayout.VERTICAL);
         col2.setPadding(dp(8), 0, dp(4), 0);
-        View track = new View(this);
-        track.setBackground(round(Pal.line, 0, 2));
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(dp(130), dp(3));
-        tp.setMargins(0, 0, 0, dp(5));
-        col2.addView(track, tp);
+        float[] amps = waveFromName(m.fileName);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(dp(150), dp(26));
+        tp.setMargins(0, 0, 0, dp(2));
+        if (amps != null) {
+            WaveView wv = new WaveView(this);
+            wv.barColor = metaColor;
+            wv.setAmps(amps);
+            col2.addView(wv, tp);
+        } else {
+            View track = new View(this);
+            track.setBackground(round(Pal.line, 0, 2));
+            LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(dp(130), dp(3));
+            fp.setMargins(0, dp(11), 0, dp(12));
+            col2.addView(track, fp);
+        }
         col2.addView(text(T.voiceMessage() + " · " + formatDur(durationOf(m.filePath)), 12, metaColor, false));
         v.addView(col2);
         View.OnClickListener clk = x -> togglePlay(m.filePath, btn);

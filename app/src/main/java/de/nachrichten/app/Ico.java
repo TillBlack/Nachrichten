@@ -12,7 +12,7 @@ final class Ico extends View {
 
     static final int PLUS = 0, SETTINGS = 1, BACK = 2, SEND = 3, QR = 4, MORE = 5, CLOCK = 6, CHECK = 7,
             RADIO = 8, TOGGLE = 9, LOCK = 10, ATTACH = 11, CLOSE = 12, FILE = 13, CHECK2 = 14, SHARE = 15, BAG = 16,
-            MIC = 17, PLAY = 18, PAUSE = 19;
+            MIC = 17, PLAY = 18, PAUSE = 19, TRASH = 20;
 
     int kind;
     boolean on;
@@ -293,6 +293,20 @@ final class Ico extends View {
                 c.drawRect(r, p);
                 r.set(cx + 1.2f * d, cy - 5.5f * d, cx + 4.2f * d, cy + 5.5f * d);
                 c.drawRect(r, p);
+                break;
+            }
+            case TRASH: {
+                p.setStrokeWidth(1.8f * d);
+                c.drawLine(cx - 7f * d, cy - 5f * d, cx + 7f * d, cy - 5f * d, p); // Deckel
+                r.set(cx - 2.5f * d, cy - 8f * d, cx + 2.5f * d, cy - 5f * d);     // Griff
+                c.drawArc(r, 180, 180, false, p);
+                path.reset();                                                     // Korpus
+                path.moveTo(cx - 5.2f * d, cy - 5f * d);
+                path.lineTo(cx - 4.3f * d, cy + 7.5f * d);
+                path.lineTo(cx + 4.3f * d, cy + 7.5f * d);
+                path.lineTo(cx + 5.2f * d, cy - 5f * d);
+                c.drawPath(path, p);
+                for (int i = -1; i <= 1; i++) c.drawLine(cx + i * 3f * d, cy - 2.5f * d, cx + i * 3f * d, cy + 5f * d, p);
                 break;
             }
         }

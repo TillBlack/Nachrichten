@@ -123,6 +123,11 @@ abstract class Base extends Activity {
             e.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
             e.setSingleLine(true);
         }
+        // Keine Passwort-Manager/Autofill-Vorschläge in diesen Feldern.
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            e.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
+            try { e.setAutofillHints((String[]) null); } catch (Exception ignored) { }
+        }
         return e;
     }
 
@@ -149,6 +154,8 @@ abstract class Base extends Activity {
         if (stroke != 0) g.setStroke(Math.max(1, dp(1)), stroke);
         return g;
     }
+
+    static int withAlpha(int color, int alpha) { return (alpha << 24) | (color & 0xFFFFFF); }
 
     /** Echter Kreis (Oval), der immer die ganzen Ansichtsmaße ausfüllt – bleibt auch bei Umbrüchen mittig. */
     GradientDrawable circle(int fill, int stroke) {

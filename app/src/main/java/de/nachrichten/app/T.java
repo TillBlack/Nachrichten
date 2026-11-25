@@ -190,6 +190,8 @@ final class T {
     // ---- Sprachnachrichten ----
     static String voiceRecord() { return s("Record voice message", "Sprachnachricht aufnehmen", "Grabar mensaje de voz", "Записать голосовое", "Snimi glasovnu poruku"); }
     static String voiceRecording() { return s("Recording…", "Aufnahme läuft…", "Grabando…", "Запись…", "Snimanje…"); }
+    static String pauseRec() { return s("Pause", "Anhalten", "Pausar", "Пауза", "Pauza"); }
+    static String resumeRec() { return s("Resume", "Fortsetzen", "Reanudar", "Продолжить", "Nastavi"); }
     static String voiceMessage() { return s("Voice message", "Sprachnachricht", "Mensaje de voz", "Голосовое сообщение", "Glasovna poruka"); }
     static String recordError() { return s("Couldn't start recording", "Aufnahme nicht möglich", "No se pudo grabar", "Не удалось записать", "Snimanje nije uspjelo"); }
     static String recordTooShort() { return s("Too short", "Zu kurz", "Demasiado corto", "Слишком коротко", "Prekratko"); }
