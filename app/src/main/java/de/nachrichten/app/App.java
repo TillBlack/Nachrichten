@@ -208,7 +208,7 @@ public final class App extends Application {
 
     // --- Begrenzungen für Vorschläge und Meldungen ---
     static final int MAX_SUGGEST_CHARS = 400;
-    static final long SEND_COOLDOWN_MS = 30 * 60 * 1000L; // 30 Minuten
+    static final long SEND_COOLDOWN_MS = 5 * 60 * 1000L; // 5 Minuten
 
     private int cooldownLeftMin(String key) {
         long left = SEND_COOLDOWN_MS - (System.currentTimeMillis() - prefs.getLong(key, 0));
