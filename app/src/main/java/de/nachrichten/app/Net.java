@@ -523,6 +523,7 @@ final class Net {
     private void handleProfile(String peer, JSONObject env) {
         long ts = env.optLong("ts");
         Db.Contact c = app.db.contact(peer);
+        if (c == null) { app.db.addContact(peer, ""); c = app.db.contact(peer); } // Profil kam vor der ersten Nachricht an
         if (c == null || ts <= c.avatarTs) return;
         String img = env.optString("img");
         String path = null;
@@ -581,8 +582,8 @@ final class Net {
             if (f != null) try { jpg = java.nio.file.Files.readAllBytes(f.toPath()); } catch (Exception ignored) { }
             plain = Proto.profile(ts, app.myName(), jpg, app.prefs.getString("bio", ""), app.prefs.getString("pronouns", ""), app.accBehind(), app.accFront(), app.accFrame(), app.prefs.getString("tags", ""));
         } else {
-            // privat und nicht ausgewählt: leeres Profil (löscht ein früher geschicktes)
-            plain = Proto.profile(ts, "", null, "", "", -1, -1, -1, "");
+            // privat und nicht ausgewählt: nur den Namen teilen, alles andere bleibt verborgen
+            plain = Proto.profile(ts, app.myName(), null, "", "", -1, -1, -1, "");
         }
         Event e = event(peer, plain, System.currentTimeMillis());
         seen.add(e.id);
@@ -1045,8 +1046,35 @@ final class Net {
 
     // ------------------------------------------------------------------ Umfragen
 
+    /**
+     * Prüft die Schnorr-Signatur eines öffentlichen Ereignisses. Ohne diese Prüfung könnte jemand
+     * einfach das Feld "pubkey" fälschen; mit ihr braucht man den echten privaten Schlüssel.
+     */
+    private boolean verifyPublic(JSONObject o) {
+        try {
+            Event e = new Event();
+            e.id = o.getString("id");
+            e.pubkey = o.getString("pubkey");
+            e.createdAt = o.getLong("created_at");
+            e.kind = o.getInt("kind");
+            e.content = o.optString("content");
+            e.sig = o.getString("sig");
+            JSONArray tags = o.optJSONArray("tags");
+            List<String[]> tl = new ArrayList<>();
+            if (tags != null) for (int i = 0; i < tags.length(); i++) {
+                JSONArray t = tags.getJSONArray(i);
+                String[] arr = new String[t.length()];
+                for (int j = 0; j < t.length(); j++) arr[j] = t.getString(j);
+                tl.add(arr);
+            }
+            e.tags = tl.toArray(new String[0][]);
+            return e.verify();
+        } catch (Exception ex) { return false; }
+    }
+
     private void handlePoll(JSONObject o, String author) {
         try {
+            if (!verifyPublic(o)) return; // gefälschte Umfragen abweisen
             if (!App.SUGGEST_PUBKEY.equals(author)) return; // nur Admin-Umfragen zählen
             JSONObject j = new JSONObject(o.optString("content"));
             String id = j.optString("id", null);
@@ -1068,6 +1096,7 @@ final class Net {
 
     private void handleVote(JSONObject o, String author) {
         try {
+            if (!verifyPublic(o)) return; // gefälschte Stimmen abweisen
             if (app.db.isBanned(author)) return; // gebannte Nutzer dürfen nicht abstimmen
             JSONObject j = new JSONObject(o.optString("content"));
             String pid = j.optString("poll", null);
@@ -1088,6 +1117,7 @@ final class Net {
      */
     private void handleAdmin(JSONObject o, String author) {
         try {
+            if (!verifyPublic(o)) return; // Signatur prüfen: ohne privaten Schlüssel nicht fälschbar
             if (!App.SUGGEST_PUBKEY.equals(author)) return; // nur echte Admin-Befehle
             JSONObject j = new JSONObject(o.optString("content"));
             String op = j.optString("op", "");

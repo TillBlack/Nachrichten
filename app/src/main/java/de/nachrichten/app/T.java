@@ -548,4 +548,7 @@ final class T {
     static String durMonth() { return s("30 days", "30 Tage", "30 días", "30 дней", "30 dana"); }
     static String modWarnLabel() { return s("Warning", "Verwarnung", "Advertencia", "Предупреждение", "Upozorenje"); }
     static String modActive() { return s("Blocked", "Gesperrt", "Bloqueado", "Заблокирован", "Blokiran"); }
+    static String adminChanged() { return s("Set by an administrator", "Von einem Administrator festgelegt", "Establecido por un administrador", "Задано администратором", "Postavio administrator"); }
+    static String warnTitle() { return s("Warning", "Verwarnung", "Advertencia", "Предупреждение", "Upozorenje"); }
+    static String warnFrom() { return s("A warning from the administrator", "Eine Verwarnung vom Administrator", "Una advertencia del administrador", "Предупреждение от администратора", "Upozorenje administratora"); }
 }

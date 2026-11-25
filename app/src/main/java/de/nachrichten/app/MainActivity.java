@@ -63,6 +63,7 @@ public class MainActivity extends Base implements Net.Listener {
             if (app.amBanned() && !app.isDev()) { startActivity(new Intent(this, BanActivity.class)); return; }
             app.applyBackground();
             refresh();
+            root.post(this::checkWarning);
             app.net.warmDirectory(() -> {
                 if (app.net.directoryCount() != shownDirCount) { shownDirCount = app.net.directoryCount(); refresh(); }
             });
@@ -347,6 +348,8 @@ public class MainActivity extends Base implements Net.Listener {
         if (list == null || onboarding) return;
         updateStatus();
         list.removeAllViews();
+        View warn = warningRow();
+        if (warn != null) list.addView(warn);
         if (app.isDev()) list.addView(suggestionsRow());
         if (app.isDev() || app.db.pollCount() > 0) list.addView(pollsRow());
         list.addView(discoverRow());
@@ -1248,6 +1251,93 @@ public class MainActivity extends Base implements Net.Listener {
     }
 
     /** Profil bearbeiten: Bild, Name, Pronomen, Biografie, Sichtbarkeit. */
+    /** Feld sperren, weil ein Administrator den Wert festgelegt hat. */
+    private void lockField(EditText f) {
+        f.setEnabled(false);
+        f.setFocusable(false);
+        f.setAlpha(0.55f);
+    }
+
+    private TextView adminNote() {
+        TextView t = text(T.adminChanged(), 12, Pal.accent, false);
+        t.setPadding(0, dp(4), 0, 0);
+        return t;
+    }
+
+    /** Zeigt beim Öffnen ein Popup, wenn eine neue Verwarnung vorliegt (auch ohne Sperre). */
+    private void checkWarning() {
+        if (!app.keys.has() || app.isDev()) return;
+        String[] w = app.db.warnFor(app.keys.pubHex());
+        if (w == null || w[0] == null || w[0].trim().isEmpty()) return;
+        long ts = 0;
+        try { ts = Long.parseLong(w[1]); } catch (Exception ignored) { }
+        if (ts <= app.prefs.getLong("warnSeen", 0)) return;
+        app.prefs.edit().putLong("warnSeen", ts).apply();
+        showWarningPopup(w[0]);
+    }
+
+    private void showWarningPopup(String msg) {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        LinearLayout head = new LinearLayout(this);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        Ico ic = new Ico(this, Ico.LOCK);
+        ic.color = Pal.red;
+        head.addView(ic, new LinearLayout.LayoutParams(dp(22), dp(22)));
+        TextView title = text(T.warnTitle(), 20, Pal.red, true);
+        title.setPadding(dp(8), 0, 0, 0);
+        head.addView(title);
+        box.addView(head);
+        TextView from = text(T.warnFrom(), 13, Pal.dim, false);
+        from.setPadding(0, dp(8), 0, dp(10));
+        box.addView(from);
+        TextView body = text(msg, 16, Pal.text, false);
+        body.setLineSpacing(0, 1.3f);
+        body.setBackground(round(Pal.card, Pal.red, 12));
+        body.setPadding(dp(14), dp(12), dp(14), dp(12));
+        box.addView(body, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout buttons = buttonRow();
+        TextView ok = button(T.ok(), true);
+        ok.setOnClickListener(v -> dlg.dismiss());
+        addTo(buttons, ok, false);
+        addRow(box, buttons, 18);
+        showScrollDialog(dlg, box);
+    }
+
+    /** Verwarnungs-Zeile in der Chatliste – nur sichtbar, wenn man selbst verwarnt wurde. */
+    private View warningRow() {
+        String[] w = app.db.warnFor(app.keys.pubHex());
+        if (w == null || w[0] == null || w[0].trim().isEmpty()) return null;
+        final String msg = w[0];
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        r.setBackground(round(withAlpha(Pal.red, 0x1A), Pal.red, 12));
+        FrameLayout ic = new FrameLayout(this);
+        ic.setBackground(circle(Pal.red, 0));
+        Ico f = new Ico(this, Ico.LOCK);
+        f.color = 0xFFFFFFFF;
+        ic.addView(f, new FrameLayout.LayoutParams(-1, -1));
+        r.addView(ic, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setPadding(dp(14), 0, 0, 0);
+        t.addView(text(T.warnTitle(), 16, Pal.red, true));
+        TextView sub = text(msg, 14, Pal.text, false);
+        sub.setMaxLines(2);
+        sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.addView(sub);
+        r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        r.setOnClickListener(v -> showWarningPopup(msg));
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.setPadding(dp(4), dp(4), dp(4), dp(8));
+        wrap.addView(r);
+        return wrap;
+    }
+
+    private static int withAlpha(int color, int alpha) { return (alpha << 24) | (color & 0xFFFFFF); }
+
     private void editProfile() {
         Dialog dlg = dialog();
         settingsDlg = dlg;
@@ -1274,25 +1364,36 @@ public class MainActivity extends Base implements Net.Listener {
         }
         box.addView(pr);
 
+        String myPub = app.keys.pubHex();
+        final String nameOv = app.db.nameOverride(myPub);
+        final String pronOv = app.db.pronOverride(myPub);
+        final String bioOv = app.db.bioOverride(myPub);
+
         box.addView(label(T.yourName()));
         EditText name = field(T.yourName(), false);
-        name.setText(app.myName());
+        name.setText(nameOv != null ? nameOv : app.myName());
+        if (nameOv != null) lockField(name);
         box.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        if (nameOv != null) box.addView(adminNote());
 
         box.addView(label(T.pronouns()));
         EditText pron = field(T.pronounsHint(), false);
         pron.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
         pron.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(40)});
-        pron.setText(app.prefs.getString("pronouns", ""));
+        pron.setText(pronOv != null ? pronOv : app.prefs.getString("pronouns", ""));
+        if (pronOv != null) lockField(pron);
         box.addView(pron, new LinearLayout.LayoutParams(-1, -2));
+        if (pronOv != null) box.addView(adminNote());
 
         box.addView(label(T.bio()));
         EditText bio = field(T.bioHint(), true);
         bio.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         bio.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(500)});
         bio.setMinLines(3);
-        bio.setText(app.prefs.getString("bio", ""));
+        bio.setText(bioOv != null ? bioOv : app.prefs.getString("bio", ""));
+        if (bioOv != null) lockField(bio);
         box.addView(bio, new LinearLayout.LayoutParams(-1, -2));
+        if (bioOv != null) box.addView(adminNote());
 
         box.addView(label(T.tagsLabel()));
         EditText tags = field(T.tagsHint(), false);
@@ -1367,7 +1468,10 @@ public class MainActivity extends Base implements Net.Listener {
 
         // Speichern (auch vor dem Bildwechsel, damit nichts verloren geht)
         Runnable save = () -> {
-            String n = name.getText().toString().trim(), p = pron.getText().toString().trim(), b = bio.getText().toString().trim();
+            // Vom Admin überschriebene Felder bleiben unverändert (nicht die eigene Fassung überschreiben).
+            String n = nameOv != null ? app.myName() : name.getText().toString().trim();
+            String p = pronOv != null ? app.prefs.getString("pronouns", "") : pron.getText().toString().trim();
+            String b = bioOv != null ? app.prefs.getString("bio", "") : bio.getText().toString().trim();
             String tg = tags.getText().toString().trim();
             boolean changed = !n.equals(app.myName()) || !p.equals(app.prefs.getString("pronouns", ""))
                     || !b.equals(app.prefs.getString("bio", "")) || !tg.equals(app.prefs.getString("tags", ""))
