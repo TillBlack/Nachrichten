@@ -131,6 +131,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         header.setPadding(dp(4), insetTop + dp(8), dp(12), dp(8));
         list.setPadding(dp(12), dp(8), dp(12), dp(12));
         if (bar != null) bar.setPadding(dp(8), dp(6), dp(8), insetBottom + dp(6));
+        if (recBar != null) recBar.setPadding(dp(12), dp(8), dp(12), insetBottom + dp(12));
     }
 
     @Override
