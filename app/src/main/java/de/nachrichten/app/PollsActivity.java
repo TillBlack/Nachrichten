@@ -247,5 +247,4 @@ public class PollsActivity extends Base implements Net.Listener {
         return s.toString();
     }
 
-    private static int withAlpha(int color, int alpha) { return (alpha << 24) | (color & 0xFFFFFF); }
 }

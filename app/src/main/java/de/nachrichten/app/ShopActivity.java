@@ -134,5 +134,4 @@ public class ShopActivity extends Base {
         build();
     }
 
-    private static int withAlpha(int color, int alpha) { return (alpha << 24) | (color & 0xFFFFFF); }
 }
