@@ -1,21 +1,40 @@
 package de.nachrichten.app;
 
 import android.app.Dialog;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.text.TextUtils;
+import android.util.LruCache;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.List;
 
 /** Gruppen-Chat (nur Text). Nachrichten sind mit dem gemeinsamen Gruppenschlüssel verschlüsselt. */
 public class GroupChatActivity extends Base implements Net.Listener {
 
+    private static final int REQ_PHOTO = 21, REQ_FILE = 22;
+    private static final LruCache<String, Bitmap> GTHUMBS = new LruCache<String, Bitmap>(16 * 1024 * 1024) {
+        @Override protected int sizeOf(String k, Bitmap b) { return b.getByteCount(); }
+    };
     private String gid;
     private LinearLayout header, list;
     private TextView title, sub;
@@ -62,6 +81,10 @@ public class GroupChatActivity extends Base implements Net.Listener {
         bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(8), dp(6), dp(8), dp(6));
+        Ico attach = new Ico(this, Ico.ATTACH);
+        attach.color = Pal.dim;
+        attach.setOnClickListener(v -> attachMenu());
+        bar.addView(attach, new LinearLayout.LayoutParams(dp(42), dp(46)));
         input = field(T.messageHint(), true);
         bar.addView(input, new LinearLayout.LayoutParams(0, -2, 1f));
         Ico send = new Ico(this, Ico.SEND);
@@ -130,42 +153,217 @@ public class GroupChatActivity extends Base implements Net.Listener {
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
     }
 
+    private static boolean isVoice(Db.Msg m) {
+        return m.kind == Db.FILE && m.fileMime != null && m.fileMime.startsWith("audio/");
+    }
+
     private View bubble(Db.Msg m, String me, boolean showName) {
-        LinearLayout rowBox = new LinearLayout(this);
-        rowBox.setOrientation(LinearLayout.VERTICAL);
+        // Zeile: [Profilbild des Absenders] [Blase]  (eigene Nachrichten rechts, ohne Bild)
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
         rp.setMargins(0, dp(2), 0, dp(2));
-        rowBox.setLayoutParams(rp);
-        rowBox.setGravity(m.outgoing ? Gravity.END : Gravity.START);
+        row.setLayoutParams(rp);
+        row.setGravity(m.outgoing ? Gravity.END : (Gravity.START | Gravity.TOP));
+
+        if (!m.outgoing) {
+            // Profilbild des Absenders vor jeder (neuen) Nachricht
+            FrameLayout avSlot = new FrameLayout(this);
+            LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(36), dp(36));
+            ap.setMargins(0, dp(2), dp(8), 0);
+            if (showName) {
+                Db.Contact c = app.db.contact(m.sender);
+                avSlot.addView(avatarWithDot(m.sender, app.nameOf(m.sender), c != null ? c.avatar : null, false, 36,
+                        c != null ? c.accBehind : -1, c != null ? c.accFront : -1, c != null ? c.accFrame : -1),
+                        new FrameLayout.LayoutParams(dp(36), dp(36)));
+            }
+            row.addView(avSlot, ap);
+        }
 
         LinearLayout bub = new LinearLayout(this);
         bub.setOrientation(LinearLayout.VERTICAL);
         bub.setPadding(dp(12), dp(8), dp(12), dp(8));
         bub.setBackground(round(m.outgoing ? Pal.accent : Pal.card, m.outgoing ? 0 : Pal.line, 14));
-        int max = (int) (getResources().getDisplayMetrics().widthPixels * 0.78f);
         bub.setMinimumWidth(dp(48));
+        int textColor = m.outgoing ? Pal.onAccent : Pal.text;
+        int metaColor = m.outgoing ? Pal.onAccent : Pal.dim;
 
-        if (showName) {
-            TextView nm = text(app.nameOf(m.sender), 12, Pal.accent, true);
-            bub.addView(nm);
+        if (showName && !m.outgoing) bub.addView(text(app.nameOf(m.sender), 12, Pal.accent, true));
+
+        boolean receiving = m.kind != Db.TEXT && !m.complete();
+        if (receiving) {
+            bub.addView(text(T.receiving() + " " + (m.kind == Db.IMAGE ? T.photo() : T.fileLabel()) + "… " + m.have + "/" + m.total, 14, metaColor, false));
+        } else if (m.kind == Db.IMAGE) {
+            int maxW = (int) (getResources().getDisplayMetrics().widthPixels * 0.62f);
+            ImageView iv = new ImageView(this);
+            Bitmap bm = gthumb(m.filePath, maxW - dp(8));
+            if (bm != null) {
+                iv.setImageBitmap(bm);
+                iv.setAdjustViewBounds(true);
+                iv.setMaxWidth(maxW);
+                iv.setOnClickListener(x -> bigImage(m.filePath));
+                bub.addView(iv, new LinearLayout.LayoutParams(-2, -2));
+            } else bub.addView(text(T.photo(), 15, textColor, false));
+        } else if (isVoice(m)) {
+            TextView vt = text("▶ " + T.voiceMessage(), 15, textColor, false);
+            vt.setOnClickListener(x -> openFile(m));
+            bub.addView(vt);
+        } else if (m.kind == Db.FILE) {
+            TextView ft = text(m.fileName != null ? m.fileName : T.fileLabel(), 15, textColor, true);
+            ft.setOnClickListener(x -> openFile(m));
+            bub.addView(ft);
+        } else {
+            TextView body = text(m.body, 16, textColor, false);
+            body.setLineSpacing(0, 1.15f);
+            bub.addView(body);
         }
-        TextView body = text(m.body, 16, m.outgoing ? Pal.onAccent : Pal.text, false);
-        body.setLineSpacing(0, 1.15f);
-        bub.addView(body);
-        TextView tm = text(time(m.ts), 10, m.outgoing ? Pal.onAccent : Pal.dim, false);
+
+        TextView tm = text(time(m.ts), 10, metaColor, false);
         tm.setAlpha(m.outgoing ? 0.8f : 1f);
         tm.setGravity(Gravity.END);
         bub.addView(tm);
 
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-2, -2);
-        blp.width = Math.min(max, -2);
+        int max = (int) (getResources().getDisplayMetrics().widthPixels * 0.72f);
         FrameLayout wrap = new FrameLayout(this);
         FrameLayout.LayoutParams wl = new FrameLayout.LayoutParams(-2, -2);
-        wl.setMarginStart(m.outgoing ? dp(48) : 0);
-        wl.setMarginEnd(m.outgoing ? 0 : dp(48));
         wrap.addView(bub, wl);
-        rowBox.addView(wrap, new LinearLayout.LayoutParams(-1, -2));
-        return rowBox;
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(-2, -2);
+        wlp.weight = 0;
+        row.addView(wrap, wlp);
+        return row;
+    }
+
+    private void openFile(Db.Msg m) {
+        if (!m.complete()) return;
+        File f = new File(m.filePath);
+        Uri u = FilesProvider.uriFor(f);
+        Intent i = new Intent(Intent.ACTION_VIEW).setDataAndType(u, m.fileMime != null ? m.fileMime : "application/octet-stream")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try { startActivity(Intent.createChooser(i, T.openWith()).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)); }
+        catch (ActivityNotFoundException e) { toast(T.noApp()); }
+    }
+
+    // ------------------------------------------------------------------ Anhänge (Bilder/Dateien)
+
+    private void attachMenu() {
+        menu(null, new String[]{T.attachPhoto(), T.attachFile()}, null, i -> {
+            try {
+                if (i == 0) startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*")
+                        .addCategory(Intent.CATEGORY_OPENABLE), REQ_PHOTO);
+                else startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*")
+                        .addCategory(Intent.CATEGORY_OPENABLE), REQ_FILE);
+            } catch (ActivityNotFoundException e) { toast(T.noApp()); }
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (res != RESULT_OK || data == null || data.getData() == null) return;
+        Uri u = data.getData();
+        boolean photo = req == REQ_PHOTO;
+        new Thread(() -> prepareAndSend(u, photo)).start();
+    }
+
+    private void prepareAndSend(Uri u, boolean photo) {
+        try {
+            String name = "file", mime = getContentResolver().getType(u);
+            try (Cursor c = getContentResolver().query(u, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                if (c != null && c.moveToFirst() && !c.isNull(0)) name = c.getString(0);
+            } catch (Exception ignored) { }
+            byte[] data = readAll(u, Proto.MAX_FILE * 25);
+            if (data == null) { runOnUiThread(() -> toast(T.readError())); return; }
+            boolean image = false;
+            boolean looksImage = photo || (mime != null && mime.startsWith("image/") && !mime.equals("image/gif"));
+            if (looksImage) {
+                byte[] jpg = compressPhoto(data);
+                if (jpg != null) {
+                    data = jpg; image = true; mime = "image/jpeg";
+                    int dot = name.lastIndexOf('.');
+                    name = (dot > 0 ? name.substring(0, dot) : "photo") + ".jpg";
+                }
+            }
+            if (data.length > Proto.MAX_FILE) { runOnUiThread(() -> toast(T.tooLarge())); return; }
+            if (mime == null || !mime.contains("/")) mime = "application/octet-stream";
+            name = Proto.safeName(name);
+            String fid = Proto.newFileId();
+            File f = new File(app.mediaDir(), fid + "_" + name);
+            try (FileOutputStream out = new FileOutputStream(f)) { out.write(data); }
+            app.net.sendGroupFile(gid, f.getAbsolutePath(), name, mime, image, null);
+        } catch (Throwable t) {
+            runOnUiThread(() -> toast(T.readError()));
+        }
+    }
+
+    private byte[] readAll(Uri u, int limit) {
+        try (InputStream in = getContentResolver().openInputStream(u)) {
+            if (in == null) return null;
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); if (out.size() > limit) return new byte[limit + 1]; }
+            return out.toByteArray();
+        } catch (Exception e) { return null; }
+    }
+
+    private static byte[] compressPhoto(byte[] data) {
+        try {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            if (o.outWidth <= 0 || o.outHeight <= 0) return null;
+            int maxSide = 1600, sample = 1;
+            while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= maxSide) sample *= 2;
+            o = new BitmapFactory.Options();
+            o.inSampleSize = sample;
+            Bitmap b = BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            if (b == null) return null;
+            float scale = Math.min(1f, maxSide / (float) Math.max(b.getWidth(), b.getHeight()));
+            int rot = 0;
+            try {
+                int or = new ExifInterface(new java.io.ByteArrayInputStream(data))
+                        .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+                rot = or == ExifInterface.ORIENTATION_ROTATE_90 ? 90 : or == ExifInterface.ORIENTATION_ROTATE_180 ? 180
+                        : or == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+            } catch (Exception ignored) { }
+            if (scale < 1f || rot != 0) {
+                Matrix mx = new Matrix();
+                mx.postScale(scale, scale);
+                mx.postRotate(rot);
+                Bitmap r = Bitmap.createBitmap(b, 0, 0, b.getWidth(), b.getHeight(), mx, true);
+                if (r != b) b.recycle();
+                b = r;
+            }
+            int q = 82;
+            byte[] out;
+            do {
+                ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                b.compress(Bitmap.CompressFormat.JPEG, q, bo);
+                out = bo.toByteArray();
+                q -= 12;
+            } while (out.length > 900 * 1024 && q >= 34);
+            b.recycle();
+            return out;
+        } catch (Throwable t) { return null; }
+    }
+
+    private Bitmap gthumb(String path, int targetW) {
+        String key = path + "@" + targetW;
+        Bitmap b = GTHUMBS.get(key);
+        if (b != null) return b;
+        try {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(path, o);
+            if (o.outWidth <= 0) return null;
+            int sample = 1;
+            while (o.outWidth / (sample * 2) >= targetW) sample *= 2;
+            o = new BitmapFactory.Options();
+            o.inSampleSize = sample;
+            b = BitmapFactory.decodeFile(path, o);
+            if (b != null) GTHUMBS.put(key, b);
+            return b;
+        } catch (Throwable t) { return null; }
     }
 
     // ------------------------------------------------------------------ Gruppen-Info

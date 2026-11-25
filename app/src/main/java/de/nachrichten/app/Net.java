@@ -904,17 +904,18 @@ final class Net {
             String plain = Nip44.decrypt(o.optString("content"), gk);
             if (plain == null) return;
             boolean outgoing = author.equals(me);
+            long createdAt = o.optLong("created_at");
             String body = plain, replyTo = null;
             if (plain.startsWith("{\"nx\"")) {
                 try {
                     JSONObject env = new JSONObject(plain);
                     String t = env.optString("t");
                     if (!outgoing) learnName(author, env.optString("sn", null));
+                    if (t.equals("file")) { handleGroupChunk(gid, author, outgoing, createdAt, g.name, env); return; }
                     if (t.equals("text")) { body = env.optString("b"); replyTo = cleanId(env.optString("r", null)); }
                     else body = "[" + T.unsupported() + "]";
                 } catch (Exception ignored) { }
             }
-            long createdAt = o.optLong("created_at");
             Db.Msg m = new Db.Msg();
             m.id = id; m.peer = gid; m.sender = author; m.outgoing = outgoing;
             m.body = body; m.replyTo = replyTo; m.ts = createdAt * 1000L; m.status = Db.SENT;
@@ -922,6 +923,52 @@ final class Net {
             changed(gid);
             if (!outgoing) notifyGroup(gid, g.name, body);
         } catch (Exception ignored) { }
+    }
+
+    /** Anhang-Stück in einer Gruppe (wie handleChunk, aber mit Absender und Gruppen-Benachrichtigung). */
+    private void handleGroupChunk(String gid, String author, boolean outgoing, long createdAt, String gname, JSONObject env) {
+        String fid = env.optString("f");
+        if (!fid.matches("[0-9a-f]{32}")) return;
+        int i = env.optInt("i", -1), n = env.optInt("n", 0);
+        if (n < 1 || n > Proto.chunkCount(Proto.MAX_FILE) || i < 0 || i >= n) return;
+        if (app.db.isDeleted(fid)) return;
+        Db.Msg m = app.db.message(fid);
+        if (m != null && (!m.peer.equals(gid) || m.complete())) return;
+        byte[] data;
+        try { data = java.util.Base64.getDecoder().decode(env.optString("d")); } catch (Exception e) { return; }
+        if (data.length > Proto.CHUNK) return;
+        if (m == null) {
+            m = new Db.Msg();
+            m.id = fid; m.peer = gid; m.sender = author; m.outgoing = outgoing;
+            m.body = ""; m.kind = Db.FILE; m.ts = createdAt * 1000L; m.status = Db.SENT; m.total = n;
+            app.db.insert(m);
+        }
+        if (i == 0) {
+            JSONObject meta = env.optJSONObject("m");
+            if (meta == null) return;
+            long size = meta.optLong("size", -1);
+            String sha = meta.optString("sha");
+            if (size < 0 || size > Proto.MAX_FILE || !sha.matches("[0-9a-f]{64}")) return;
+            String mime = meta.optString("mime", "application/octet-stream");
+            if (!mime.matches("[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+")) mime = "application/octet-stream";
+            boolean img = meta.optBoolean("img") && mime.startsWith("image/");
+            app.db.setFileMeta(fid, img ? Db.IMAGE : Db.FILE, Proto.safeName(meta.optString("name")), mime, size, n,
+                    cleanId(env.optString("r", null)), sha);
+        }
+        int have = app.db.addChunk(fid, i, data);
+        m = app.db.message(fid);
+        if (m != null && have >= m.total && m.fileName != null && m.body != null && !m.body.isEmpty()) {
+            byte[] all = Proto.assemble(app.db.chunks(fid, m.total), m.fileSize, m.body);
+            if (all != null) {
+                java.io.File f = new java.io.File(app.mediaDir(), fid + "_" + m.fileName);
+                try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+                    out.write(all);
+                    app.db.fileDone(fid, f.getAbsolutePath());
+                    if (!outgoing) notifyGroup(gid, gname, m.kind == Db.IMAGE ? T.photo() : T.fileLabel() + ": " + m.fileName);
+                } catch (Exception ignored) { }
+            }
+        }
+        changed(gid);
     }
 
     /** Gruppen-Steuernachricht (Stand einer Gruppe) anwenden. */
@@ -1066,6 +1113,47 @@ final class Net {
                 app.countMessage();
                 changed(gid);
                 broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /** Verschickt einen Anhang in eine Gruppe (mit dem Gruppenschlüssel verschlüsselt, in Stücken). */
+    void sendGroupFile(String gid, String path, String name, String mime, boolean image, String replyTo) {
+        worker.post(() -> {
+            try {
+                Db.Group g = app.db.group(gid);
+                if (g == null) return;
+                byte[] gk = Event.unhex(g.gkey);
+                if (gk == null) return;
+                java.io.File f = new java.io.File(path);
+                byte[] data = java.nio.file.Files.readAllBytes(f.toPath());
+                if (data.length == 0 || data.length > Proto.MAX_FILE) return;
+                String fid = f.getName().substring(0, 32);
+                String sha = Proto.sha(data);
+                int n = Proto.chunkCount(data.length);
+                long now = System.currentTimeMillis();
+                Db.Msg m = new Db.Msg();
+                m.id = fid; m.peer = gid; m.sender = app.keys.pubHex(); m.outgoing = true;
+                m.body = sha; m.kind = image ? Db.IMAGE : Db.FILE; m.replyTo = replyTo;
+                m.ts = now; m.status = Db.PENDING; m.fileName = name; m.fileMime = mime;
+                m.fileSize = data.length; m.filePath = path; m.have = n; m.total = n;
+                List<String> raws = new ArrayList<>();
+                for (int i = 0; i < n; i++) {
+                    Event e = new Event();
+                    e.kind = Proto.KIND_GROUP;
+                    e.createdAt = now / 1000;
+                    e.tags = new String[][]{{"g", gid}};
+                    e.content = Nip44.encrypt(Proto.chunk(fid, i, data, name, mime, image, sha, replyTo, app.myName()), gk);
+                    e.sign(app.keys.priv());
+                    seen.add(e.id);
+                    String raw = e.toJson();
+                    app.db.addOutbox(e.id, fid, raw, i);
+                    raws.add(raw);
+                }
+                app.db.insert(m);
+                app.countMessage();
+                changed(gid);
+                for (String raw : raws) broadcast(raw);
             } catch (Exception ignored) { }
         });
     }
