@@ -157,6 +157,54 @@ abstract class Base extends Activity {
 
     static int withAlpha(int color, int alpha) { return (alpha << 24) | (color & 0xFFFFFF); }
 
+    // --- Sprachnachricht-Dateiname: "v<DauerMs>~<Wellenform>~voice.aac" ---
+    static String voiceName(long durMs, String wave) { return "v" + durMs + "~" + wave + "~voice.aac"; }
+
+    static boolean isVoiceName(String name) {
+        return name != null && (name.endsWith("voice.aac") || name.endsWith("voice.m4a")
+                || name.equals("Sprachnachricht.m4a") || (name.startsWith("v") && name.contains("~voice")));
+    }
+
+    static float[] waveFromName(String name) {
+        if (name == null || !name.startsWith("v")) return null;
+        int w1 = name.indexOf('~');
+        if (w1 < 0) return null;
+        int w2 = name.indexOf('~', w1 + 1);
+        if (w2 < 0) return null;
+        try {
+            byte[] b = android.util.Base64.decode(name.substring(w1 + 1, w2),
+                    android.util.Base64.URL_SAFE | android.util.Base64.NO_PADDING | android.util.Base64.NO_WRAP);
+            float[] a = new float[b.length];
+            for (int i = 0; i < b.length; i++) a[i] = (b[i] & 0xFF) / 255f;
+            return a;
+        } catch (Exception e) { return null; }
+    }
+
+    static long durFromName(String name) {
+        if (name == null || !name.startsWith("v")) return 0;
+        int w1 = name.indexOf('~');
+        if (w1 < 1) return 0;
+        try { return Long.parseLong(name.substring(1, w1)); } catch (Exception e) { return 0; }
+    }
+
+    /** Vorschau-Text für die Chatliste: "Sprachnachricht (m:ss)", "Foto", "Datei: …" oder der Text. */
+    String previewText(int kind, String body, String fileName) {
+        if (kind == Db.IMAGE) return T.photo();
+        if (kind == Db.FILE) {
+            if (isVoiceName(fileName)) {
+                long d = durFromName(fileName);
+                return T.voiceMessage() + (d > 0 ? " (" + fmtShort(d) + ")" : "");
+            }
+            return T.fileLabel() + ": " + (fileName == null ? "" : fileName);
+        }
+        return body == null ? "" : body.replace('\n', ' ');
+    }
+
+    static String fmtShort(long ms) {
+        long s = Math.max(0, ms) / 1000;
+        return s / 60 + ":" + String.format(java.util.Locale.US, "%02d", s % 60);
+    }
+
     /** Echter Kreis (Oval), der immer die ganzen Ansichtsmaße ausfüllt – bleibt auch bei Umbrüchen mittig. */
     GradientDrawable circle(int fill, int stroke) {
         GradientDrawable g = new GradientDrawable();

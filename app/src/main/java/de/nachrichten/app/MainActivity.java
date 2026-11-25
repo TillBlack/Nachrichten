@@ -410,10 +410,17 @@ public class MainActivity extends Base implements Net.Listener {
         LinearLayout bottom = new LinearLayout(this);
         bottom.setGravity(Gravity.CENTER_VERTICAL);
         String preview;
-        if (g.lastText == null) preview = T.groupMembers(g.memberCount);
+        if (g.lastText == null && g.lastKind == Db.TEXT) preview = T.groupMembers(g.memberCount);
         else {
             String who = g.lastOutgoing ? T.you() : (g.lastSender != null ? app.nameOf(g.lastSender) + ": " : "");
-            preview = who + g.lastText.replace('\n', ' ');
+            preview = who + previewText(g.lastKind, g.lastText, g.lastFileName);
+        }
+        if (g.lastKind == Db.FILE && isVoiceName(g.lastFileName)) {
+            Ico mi = new Ico(this, Ico.MIC);
+            mi.color = Pal.dim;
+            LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(dp(15), dp(15));
+            mp.setMargins(0, 0, dp(4), 0);
+            bottom.addView(mi, mp);
         }
         TextView pv = text(preview, 14, Pal.dim, false);
         pv.setSingleLine(true);
@@ -780,11 +787,15 @@ public class MainActivity extends Base implements Net.Listener {
 
         LinearLayout bottom = new LinearLayout(this);
         bottom.setGravity(Gravity.CENTER_VERTICAL);
-        String lt = c.lastText == null ? null
-                : c.lastKind == Db.IMAGE ? T.photo()
-                : c.lastKind == Db.FILE ? T.fileLabel() + ": " + c.lastText
-                : c.lastText.replace('\n', ' ');
+        String lt = c.lastText == null ? null : previewText(c.lastKind, c.lastText, c.lastText);
         String preview = lt == null ? T.noMessagesYet() : (c.lastOutgoing ? T.you() : "") + lt;
+        if (c.lastKind == Db.FILE && isVoiceName(c.lastText)) {
+            Ico mi = new Ico(this, Ico.MIC);
+            mi.color = Pal.dim;
+            LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(dp(15), dp(15));
+            mp.setMargins(0, 0, dp(4), 0);
+            bottom.addView(mi, mp);
+        }
         TextView pv = text(preview, 14, Pal.dim, false);
         pv.setSingleLine(true);
         pv.setEllipsize(TextUtils.TruncateAt.END);

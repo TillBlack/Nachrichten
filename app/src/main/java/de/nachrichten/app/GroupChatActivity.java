@@ -481,7 +481,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         resetRecUI();
         if (rec == null) return;
         if (dur < 800) { rec.delete(); toast(T.recordTooShort()); return; }
-        final String name = "v~" + wave + "~voice.aac";
+        final String name = voiceName(dur, wave);
         new Thread(() -> {
             try {
                 byte[] data = java.nio.file.Files.readAllBytes(rec.toPath());
@@ -495,18 +495,6 @@ public class GroupChatActivity extends Base implements Net.Listener {
                 runOnUiThread(() -> toast(T.readError()));
             }
         }).start();
-    }
-
-    static float[] waveFromName(String name) {
-        if (name == null || !name.startsWith("v~")) return null;
-        int end = name.indexOf("~voice");
-        if (end <= 2) return null;
-        try {
-            byte[] b = android.util.Base64.decode(name.substring(2, end), android.util.Base64.URL_SAFE | android.util.Base64.NO_PADDING | android.util.Base64.NO_WRAP);
-            float[] a = new float[b.length];
-            for (int i = 0; i < b.length; i++) a[i] = (b[i] & 0xFF) / 255f;
-            return a;
-        } catch (Exception e) { return null; }
     }
 
     private static float[] flatWave() {
@@ -538,7 +526,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
     }
 
     private void updatePos(long curMs) {
-        if (playingPos != null) playingPos.setText(T.voiceMessage() + " · " + formatDur(curMs) + " / " + formatDur(playingTotal));
+        if (playingPos != null) playingPos.setText(curMs > 0 ? formatDur(curMs) + " / " + formatDur(playingTotal) : formatDur(playingTotal));
     }
 
     private void startVoiceTick(final String path) {
@@ -622,13 +610,14 @@ public class GroupChatActivity extends Base implements Net.Listener {
         col2.setPadding(dp(8), 0, dp(4), 0);
         float[] amps = waveFromName(m.fileName);
         final String path = m.filePath;
-        final long totalMs = durationOf(m.filePath);
+        long dn = durFromName(m.fileName);
+        final long totalMs = dn > 0 ? dn : durationOf(m.filePath);
         WaveView wv = new WaveView(this);
         wv.barColor = metaColor; wv.playedColor = textColor; wv.showHandle = true;
         wv.setAmps(amps != null ? amps : flatWave());
         wv.setProgress(0f);
         col2.addView(wv, new LinearLayout.LayoutParams(dp(150), dp(22)));
-        final TextView pos = text(T.voiceMessage() + " · 0:00 / " + formatDur(totalMs), 12, metaColor, false);
+        final TextView pos = text(formatDur(totalMs), 12, metaColor, false);
         pos.setPadding(0, dp(3), 0, 0);
         col2.addView(pos);
         wv.seekListener = f -> seekVoice(path, btn, wv, pos, totalMs, f);

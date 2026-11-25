@@ -536,9 +536,9 @@ final class Db extends SQLiteOpenHelper {
     static final class Group {
         String gid, name, gkey, owner;
         long created, lastRead, lastTs;
-        String lastText, lastSender;
+        String lastText, lastSender, lastFileName;
         boolean lastOutgoing;
-        int memberCount, unread;
+        int memberCount, unread, lastKind;
     }
 
     static final class Member { String pub; boolean admin; }
@@ -616,8 +616,11 @@ final class Db extends SQLiteOpenHelper {
             try (Cursor c = db.rawQuery("SELECT COUNT(*) FROM group_members WHERE gid=?", new String[]{g.gid})) {
                 if (c.moveToFirst()) g.memberCount = c.getInt(0);
             }
-            try (Cursor c = db.rawQuery("SELECT body, ts, outgoing, sender FROM messages WHERE peer=? ORDER BY ts DESC LIMIT 1", new String[]{g.gid})) {
-                if (c.moveToFirst()) { g.lastText = c.getString(0); g.lastTs = c.getLong(1); g.lastOutgoing = c.getInt(2) == 1; g.lastSender = c.getString(3); }
+            try (Cursor c = db.rawQuery("SELECT body, ts, outgoing, sender, kind, file_name FROM messages WHERE peer=? ORDER BY ts DESC LIMIT 1", new String[]{g.gid})) {
+                if (c.moveToFirst()) {
+                    g.lastText = c.getString(0); g.lastTs = c.getLong(1); g.lastOutgoing = c.getInt(2) == 1;
+                    g.lastSender = c.getString(3); g.lastKind = c.getInt(4); g.lastFileName = c.getString(5);
+                }
             }
             try (Cursor c = db.rawQuery("SELECT COUNT(*) FROM messages WHERE peer=? AND outgoing=0 AND ts>?", new String[]{g.gid, String.valueOf(g.lastRead)})) {
                 if (c.moveToFirst()) g.unread = c.getInt(0);
