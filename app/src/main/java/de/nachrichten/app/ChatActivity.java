@@ -1067,8 +1067,7 @@ public class ChatActivity extends Base implements Net.Listener {
         wv.playedColor = textColor;
         wv.showHandle = true;
         wv.setAmps(amps != null ? amps : flatWave());
-        boolean playingThis = playingPath != null && playingPath.equals(path);
-        wv.setProgress(playingThis && playingWave != null ? 0f : 0f); // Punkt immer sichtbar (am Anfang)
+        wv.setProgress(0f); // Schieberegler-Punkt immer sichtbar (am Anfang)
         wv.seekListener = f -> seekVoice(path, btn, wv, f);
         col2.addView(wv, tp);
         if (playingThis) playingWave = wv;
