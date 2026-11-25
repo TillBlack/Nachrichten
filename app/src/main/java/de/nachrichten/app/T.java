@@ -399,6 +399,30 @@ final class T {
     static String tuShare() { return s("Share the app with friends.", "Teile die App mit Freunden.", "Comparte la app con amigos.", "Поделись приложением с друзьями.", "Podijeli aplikaciju s prijateljima."); }
     static String tuSettings() { return s("Language, theme, updates and relays.", "Sprache, Design, Updates und Relays.", "Idioma, tema, actualizaciones y relés.", "Язык, тема, обновления и релеи.", "Jezik, tema, ažuriranja i releji."); }
     static String tuProfile() { return s("Your profile: picture, name and bio.", "Dein Profil: Bild, Name und Biografie.", "Tu perfil: foto, nombre y biografía.", "Твой профиль: фото, имя и описание.", "Tvoj profil: slika, ime i biografija."); }
+    static String tuReport() { return s(
+            "Report a user to the administrator here if someone misbehaves.",
+            "Melde hier einen Nutzer beim Administrator, wenn sich jemand danebenbenimmt.",
+            "Reporta aquí a un usuario al administrador si alguien se comporta mal.",
+            "Пожалуйтесь администратору на пользователя, если кто-то плохо себя ведёт.",
+            "Ovdje prijavi korisnika administratoru ako se netko loše ponaša."); }
+    static String tuSuggest() { return s(
+            "Suggestions mailbox: anonymous ideas that users send you.",
+            "Vorschlags-Postfach: anonyme Ideen, die Nutzer dir schicken.",
+            "Buzón de sugerencias: ideas anónimas que te envían los usuarios.",
+            "Почтовый ящик предложений: анонимные идеи от пользователей.",
+            "Sandučić prijedloga: anonimne ideje koje ti šalju korisnici."); }
+    static String tuAppeals() { return s(
+            "Appeals: blocked users write to you here; you can reply and unblock them.",
+            "Einsprüche: gesperrte Nutzer schreiben dir hier; du kannst antworten und entsperren.",
+            "Apelaciones: los usuarios bloqueados te escriben aquí; puedes responder y desbloquear.",
+            "Апелляции: заблокированные пишут вам здесь; можно ответить и разблокировать.",
+            "Žalbe: blokirani ti pišu ovdje; možeš odgovoriti i odblokirati."); }
+    static String tuReports() { return s(
+            "Reports: here you see which users have been reported.",
+            "Meldungen: hier siehst du, welche Nutzer gemeldet wurden.",
+            "Reportes: aquí ves qué usuarios han sido reportados.",
+            "Жалобы: здесь видно, на каких пользователей пожаловались.",
+            "Prijave: ovdje vidiš koji su korisnici prijavljeni."); }
 
     static String accessories() { return s("Accessories", "Accessoires", "Accesorios", "Аксессуары", "Dodaci"); }
     static String shopSub(int sent, int need) {
@@ -551,4 +575,24 @@ final class T {
     static String adminChanged() { return s("Set by an administrator", "Von einem Administrator festgelegt", "Establecido por un administrador", "Задано администратором", "Postavio administrator"); }
     static String warnTitle() { return s("Warning", "Verwarnung", "Advertencia", "Предупреждение", "Upozorenje"); }
     static String warnFrom() { return s("A warning from the administrator", "Eine Verwarnung vom Administrator", "Una advertencia del administrador", "Предупреждение от администратора", "Upozorenje administratora"); }
+    static String adminReplyTitle() { return s("Reply from the administrator", "Antwort vom Administrator", "Respuesta del administrador", "Ответ администратора", "Odgovor administratora"); }
+
+    // Einsprüche (Admin)
+    static String appeals() { return s("Appeals", "Einsprüche", "Apelaciones", "Апелляции", "Žalbe"); }
+    static String appealsSub(int n) { return s(n + " appeal(s)", n + " Einspruch/Einsprüche", n + " apelación(es)", n + " апелляц.", n + " žalbi"); }
+    static String appealsNone() { return s("No appeals", "Keine Einsprüche", "Sin apelaciones", "Нет апелляций", "Nema žalbi"); }
+    static String reply() { return s("Reply", "Antworten", "Responder", "Ответить", "Odgovori"); }
+    static String replied() { return s("Replied", "Beantwortet", "Respondido", "Отвечено", "Odgovoreno"); }
+    static String bannedOverview() { return s("Blocked users", "Gesperrte Nutzer", "Usuarios bloqueados", "Заблокированные", "Blokirani"); }
+
+    // Meldungen (Report)
+    static String reports() { return s("Reports", "Meldungen", "Reportes", "Жалобы", "Prijave"); }
+    static String reportsSub(int n) { return s(n + " report(s)", n + " Meldung(en)", n + " reporte(s)", n + " жалоб", n + " prijava"); }
+    static String reportsNone() { return s("No reports", "Keine Meldungen", "Sin reportes", "Нет жалоб", "Nema prijava"); }
+    static String report() { return s("Report a user", "Nutzer melden", "Reportar usuario", "Пожаловаться", "Prijavi korisnika"); }
+    static String reportReason() { return s("Reason", "Grund", "Motivo", "Причина", "Razlog"); }
+    static String reportWho() { return s("Reported by", "Gemeldet von", "Reportado por", "Пожаловался", "Prijavio"); }
+    static String reportTarget() { return s("Reported user", "Gemeldeter Nutzer", "Usuario reportado", "На кого", "Prijavljeni"); }
+    static String reportSent() { return s("Report sent", "Meldung gesendet", "Reporte enviado", "Жалоба отправлена", "Prijava poslana"); }
+    static String reportNoContacts() { return s("No users to report.", "Keine Nutzer zum Melden.", "No hay usuarios para reportar.", "Нет пользователей.", "Nema korisnika."); }
 }

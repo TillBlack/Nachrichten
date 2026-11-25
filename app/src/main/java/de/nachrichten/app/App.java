@@ -216,6 +216,7 @@ public final class App extends Application {
 
     /** Großer Anzeigename: Admin-Überschreibung > lokal gespeicherter Name > selbst gewählter Name > User<Zahl>. */
     String nameOf(String pub) {
+        if (SUGGEST_PUBKEY.equals(pub)) return "Admin";
         String ov = db.nameOverride(pub);
         if (ov != null) return ov.trim().isEmpty() ? fallbackName(pub) : ov;
         Db.Contact c = db.contact(pub);
@@ -227,6 +228,7 @@ public final class App extends Application {
 
     /** Kleiner Zusatz unter dem Namen: der vom Nutzer selbst gewählte Name, falls er sich unterscheidet. */
     String subName(String pub) {
+        if (SUGGEST_PUBKEY.equals(pub)) return null;
         if (db.nameOverride(pub) != null) return null; // Admin-Name ersetzt alles
         String self = db.profileName(pub);
         if (self == null) return null;

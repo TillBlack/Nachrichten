@@ -45,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 13); }
+    Db(Context c) { super(c, "nachrichten.db", null, 14); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -66,6 +66,13 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo11(db);
         upgradeTo12(db);
         upgradeTo13(db);
+        upgradeTo14(db);
+    }
+
+    /** Posteingang für Moderation: Einsprüche (type=1) und Meldungen (type=2). */
+    private static void upgradeTo14(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE modbox (id TEXT PRIMARY KEY, type INTEGER NOT NULL, frompub TEXT, "
+                + "target TEXT, body TEXT NOT NULL, ts INTEGER NOT NULL, replied INTEGER NOT NULL DEFAULT 0, reply TEXT)");
     }
 
     /** Selbst gewählter Name eines Kontakts (pname) und Pronomen-Überschreibung durch den Admin. */
@@ -151,6 +158,7 @@ final class Db extends SQLiteOpenHelper {
         if (o < 11) upgradeTo11(db);
         if (o < 12) upgradeTo12(db);
         if (o < 13) upgradeTo13(db);
+        if (o < 14) upgradeTo14(db);
     }
 
     // ------------------------------------------------------------------ Moderation
@@ -415,6 +423,82 @@ final class Db extends SQLiteOpenHelper {
 
     synchronized void deleteSuggestion(String id) {
         getWritableDatabase().delete("suggestions", "id = ?", new String[]{id});
+    }
+
+    // ------------------------------------------------------------------ Moderations-Posteingang
+
+    static final int MOD_APPEAL = 1, MOD_REPORT = 2;
+
+    static final class ModItem {
+        String id, frompub, target, body, reply;
+        int type;
+        long ts;
+        boolean replied;
+    }
+
+    synchronized boolean addModItem(String id, int type, String frompub, String target, String body, long tsSec) {
+        ContentValues v = new ContentValues();
+        v.put("id", id);
+        v.put("type", type);
+        v.put("frompub", frompub);
+        v.put("target", target);
+        v.put("body", body == null ? "" : body);
+        v.put("ts", tsSec * 1000L);
+        return getWritableDatabase().insertWithOnConflict("modbox", null, v, SQLiteDatabase.CONFLICT_IGNORE) != -1;
+    }
+
+    synchronized int modCount(int type) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM modbox WHERE type = ?", new String[]{String.valueOf(type)})) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        }
+    }
+
+    synchronized java.util.List<ModItem> modItems(int type) {
+        java.util.List<ModItem> out = new java.util.ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT id, type, frompub, target, body, ts, replied, reply FROM modbox WHERE type = ? ORDER BY ts DESC",
+                new String[]{String.valueOf(type)})) {
+            while (c.moveToNext()) {
+                ModItem m = new ModItem();
+                m.id = c.getString(0); m.type = c.getInt(1); m.frompub = c.getString(2); m.target = c.getString(3);
+                m.body = c.getString(4); m.ts = c.getLong(5); m.replied = c.getInt(6) != 0; m.reply = c.getString(7);
+                out.add(m);
+            }
+        }
+        return out;
+    }
+
+    synchronized void setModReply(String id, String reply) {
+        ContentValues v = new ContentValues();
+        v.put("replied", 1);
+        v.put("reply", reply);
+        getWritableDatabase().update("modbox", v, "id = ?", new String[]{id});
+    }
+
+    synchronized void deleteModItem(String id) {
+        getWritableDatabase().delete("modbox", "id = ?", new String[]{id});
+    }
+
+    /** Neueste eingegangene Nachricht von einem bestimmten Absender (z. B. Admin-Antwort), oder null. */
+    synchronized String lastIncomingFrom(String peer) {
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT body FROM messages WHERE peer = ? AND outgoing = 0 ORDER BY ts DESC LIMIT 1", new String[]{peer})) {
+            if (c.moveToFirst()) return c.getString(0);
+        }
+        return null;
+    }
+
+    /** Alle aktuell gesperrten öffentlichen Schlüssel (für die Übersicht). */
+    synchronized java.util.List<String> bannedList() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        long now = System.currentTimeMillis();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, ban_until FROM mods", null)) {
+            while (c.moveToNext()) {
+                long until = c.getLong(1);
+                if (until == -1 || until > now) out.add(c.getString(0));
+            }
+        }
+        return out;
     }
 
     // ------------------------------------------------------------------ Gruppen

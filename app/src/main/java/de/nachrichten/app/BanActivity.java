@@ -112,6 +112,23 @@ public class BanActivity extends Base {
             col.addView(wb, wl);
         }
 
+        // Antwort des Administrators (falls er geantwortet hat)
+        String reply = app.db.lastIncomingFrom(App.SUGGEST_PUBKEY);
+        if (reply != null && !reply.isEmpty()) {
+            LinearLayout rb = new LinearLayout(this);
+            rb.setOrientation(LinearLayout.VERTICAL);
+            rb.setBackground(round(Pal.card, Pal.accent, 12));
+            rb.setPadding(dp(14), dp(12), dp(14), dp(12));
+            rb.addView(text(T.adminReplyTitle(), 13, Pal.accent, true));
+            TextView rt = text(reply, 16, Pal.text, false);
+            rt.setLineSpacing(0, 1.25f);
+            rt.setPadding(0, dp(4), 0, 0);
+            rb.addView(rt);
+            LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(-1, -2);
+            rl.setMargins(0, dp(20), 0, 0);
+            col.addView(rb, rl);
+        }
+
         // Einspruch an den Administrator
         int adminLeft = app.appealAdminLeft();
         TextView aInfo = text(T.banAppealAdminInfo(adminLeft), 13, Pal.dim, false);

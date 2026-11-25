@@ -339,9 +339,18 @@ final class Net {
             if (sp == null) return;
             String sPlain = Nip44.decrypt(o.optString("content"), Nip44.conversationKey(sp, Event.unhex(author)));
             if (sPlain == null) return;
-            if (app.db.addSuggestion(id, sPlain, o.optLong("created_at"))) {
-                main.post(() -> { for (Listener l : listeners) l.onSuggestion(); });
+            long tsSec = o.optLong("created_at");
+            boolean stored;
+            if (sPlain.startsWith("\u0001A")) {                 // Einspruch (mit echtem Schlüssel signiert)
+                stored = app.db.addModItem(id, Db.MOD_APPEAL, author, null, sPlain.substring(2), tsSec);
+            } else if (sPlain.startsWith("\u0001R") && sPlain.length() >= 66) { // Meldung
+                String target = sPlain.substring(2, 66);
+                stored = target.matches("[0-9a-f]{64}")
+                        && app.db.addModItem(id, Db.MOD_REPORT, author, target, sPlain.substring(66), tsSec);
+            } else {
+                stored = app.db.addSuggestion(id, sPlain, tsSec);
             }
+            if (stored) main.post(() -> { for (Listener l : listeners) l.onSuggestion(); });
             return;
         }
 
@@ -1260,9 +1269,51 @@ final class Net {
      */
     void sendBanAppeal(String text) {
         final String t = text == null ? "" : text.trim();
-        if (t.isEmpty() || App.SUGGEST_PUBKEY.isEmpty()) return;
-        String npub = de.nachrichten.crypto.Bech32.encode("npub", Event.unhex(app.keys.pubHex()));
-        sendSuggestion("[" + T.banAppealTag() + " " + npub + "]\n" + t);
+        if (t.isEmpty() || App.SUGGEST_PUBKEY.isEmpty() || !app.keys.has()) return;
+        sendToAdminBox("\u0001A" + t);
+    }
+
+    /** Einen Nutzer beim Admin melden (mit Grund). */
+    void sendReport(String targetPub, String reason) {
+        final String r = reason == null ? "" : reason.trim();
+        if (targetPub == null || !targetPub.matches("[0-9a-f]{64}") || App.SUGGEST_PUBKEY.isEmpty() || !app.keys.has()) return;
+        sendToAdminBox("\u0001R" + targetPub + r);
+    }
+
+    /** Verschlüsselt ans Admin-Postfach, signiert mit dem EIGENEN Schlüssel – der Admin erfährt dadurch, wer schreibt. */
+    private void sendToAdminBox(String payload) {
+        worker.post(() -> {
+            try {
+                byte[] ck = Nip44.conversationKey(app.keys.priv(), Event.unhex(App.SUGGEST_PUBKEY));
+                Event e = new Event();
+                e.kind = Proto.KIND_SUGGEST;
+                e.createdAt = System.currentTimeMillis() / 1000;
+                e.tags = new String[][]{{"p", App.SUGGEST_PUBKEY}};
+                e.content = Nip44.encrypt(payload, ck);
+                e.sign(app.keys.priv());
+                broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /** Admin antwortet einem Nutzer (erscheint bei ihm als Nachricht von „Admin"). */
+    void adminReply(String targetPub, String text) {
+        if (!app.isDev() || targetPub == null || !targetPub.matches("[0-9a-f]{64}")) return;
+        final String t = text == null ? "" : text.trim();
+        if (t.isEmpty()) return;
+        worker.post(() -> {
+            try {
+                byte[] ck = Nip44.conversationKey(app.sugPriv(), Event.unhex(targetPub));
+                Event e = new Event();
+                e.kind = 4;
+                e.createdAt = System.currentTimeMillis() / 1000;
+                e.tags = new String[][]{{"p", targetPub}};
+                e.content = Nip44.encrypt(Proto.text(t, null), ck);
+                e.sign(app.sugPriv());
+                seen.add(e.id);
+                broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
     }
 
     /**

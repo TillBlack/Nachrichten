@@ -271,6 +271,7 @@ public class MainActivity extends Base implements Net.Listener {
     }
 
     private View hint, obtChip, hQr, hShop, hShare, hSet, hProfile;
+    private View rowSuggest, rowAppeals, rowReports, rowDiscover, rowReport;
     private int shownDirCount = -2;
     private boolean tutorialShown;
 
@@ -350,9 +351,13 @@ public class MainActivity extends Base implements Net.Listener {
         list.removeAllViews();
         View warn = warningRow();
         if (warn != null) list.addView(warn);
-        if (app.isDev()) list.addView(suggestionsRow());
+        rowSuggest = rowAppeals = rowReports = rowReport = null;
+        if (app.isDev()) { rowSuggest = suggestionsRow(); list.addView(rowSuggest); }
+        if (app.isDev()) { rowAppeals = appealsRow(); list.addView(rowAppeals); }
+        if (app.isDev()) { rowReports = reportsInboxRow(); list.addView(rowReports); }
         if (app.isDev() || app.db.pollCount() > 0) list.addView(pollsRow());
-        list.addView(discoverRow());
+        rowDiscover = discoverRow(); list.addView(rowDiscover);
+        if (!app.isDev()) { rowReport = reportRow(); list.addView(rowReport); }
         List<Db.Contact> cs = app.db.contacts();
         List<Db.Group> gs = app.db.groupList();
         if (cs.isEmpty() && gs.isEmpty()) {
@@ -450,8 +455,12 @@ public class MainActivity extends Base implements Net.Listener {
         if (fab == null || hQr == null || list == null || list.getChildCount() == 0) return;
         tutorialShown = true;
         java.util.List<TutorialOverlay.Step> steps = new java.util.ArrayList<>();
-        steps.add(new TutorialOverlay.Step(list.getChildAt(0), T.tuDiscover()));
+        if (rowDiscover != null) steps.add(new TutorialOverlay.Step(rowDiscover, T.tuDiscover()));
         steps.add(new TutorialOverlay.Step(fab, T.tuAdd()));
+        if (rowReport != null) steps.add(new TutorialOverlay.Step(rowReport, T.tuReport()));
+        if (rowSuggest != null) steps.add(new TutorialOverlay.Step(rowSuggest, T.tuSuggest()));
+        if (rowAppeals != null) steps.add(new TutorialOverlay.Step(rowAppeals, T.tuAppeals()));
+        if (rowReports != null) steps.add(new TutorialOverlay.Step(rowReports, T.tuReports()));
         steps.add(new TutorialOverlay.Step(hQr, T.tuQr()));
         steps.add(new TutorialOverlay.Step(hShare, T.tuShare()));
         steps.add(new TutorialOverlay.Step(hSet, T.tuSettings()));
@@ -491,6 +500,66 @@ public class MainActivity extends Base implements Net.Listener {
         lp.setMargins(dp(12), dp(2), dp(12), dp(6));
         wrap.addView(line, lp);
         return wrap;
+    }
+
+    /** Einheitliche Menüzeile mit rundem Symbol, Titel, Unterzeile und Pfeil. */
+    private View menuRow(int icoKind, int bg, int fg, boolean outline, String title, String sub, Runnable onClick) {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        FrameLayout ic = new FrameLayout(this);
+        ic.setBackground(outline ? circle(bg, Pal.line) : circle(bg, 0));
+        Ico f = new Ico(this, icoKind);
+        f.color = fg;
+        ic.addView(f, new FrameLayout.LayoutParams(-1, -1));
+        r.addView(ic, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setPadding(dp(14), 0, 0, 0);
+        t.addView(text(title, 17, Pal.text, true));
+        t.addView(text(sub, 14, Pal.dim, false));
+        r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        Ico arrow = new Ico(this, Ico.BACK);
+        arrow.color = Pal.dim;
+        arrow.setRotation(180);
+        r.addView(arrow, new LinearLayout.LayoutParams(dp(24), dp(24)));
+        r.setOnClickListener(v -> onClick.run());
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.addView(r);
+        View line = new View(this);
+        line.setBackgroundColor(Pal.line);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Math.max(1, dp(1) / 2));
+        lp.setMargins(dp(12), dp(2), dp(12), dp(6));
+        wrap.addView(line, lp);
+        return wrap;
+    }
+
+    private View appealsRow() {
+        return menuRow(Ico.LOCK, Pal.accent, Pal.onAccent, false, T.appeals(),
+                T.appealsSub(app.db.modCount(Db.MOD_APPEAL)), () -> startActivity(new Intent(this, AppealsActivity.class)));
+    }
+
+    private View reportsInboxRow() {
+        return menuRow(Ico.FILE, Pal.red, 0xFFFFFFFF, false, T.reports(),
+                T.reportsSub(app.db.modCount(Db.MOD_REPORT)), () -> startActivity(new Intent(this, ReportsActivity.class)));
+    }
+
+    private View reportRow() {
+        return menuRow(Ico.MORE, Pal.field, Pal.text, true, T.report(), "", this::openReport);
+    }
+
+    /** Nutzer melden: Kontakt auswählen und Grund eingeben. */
+    private void openReport() {
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        for (String k : app.db.contactKeys()) if (!App.SUGGEST_PUBKEY.equals(k)) keys.add(k);
+        if (keys.isEmpty()) { toast(T.reportNoContacts()); return; }
+        String[] names = new String[keys.size()];
+        for (int i = 0; i < keys.size(); i++) names[i] = app.nameOf(keys.get(i));
+        menu(T.report(), names, null, k -> ask(T.reportReason(), null, true, reason -> {
+            app.net.sendReport(keys.get(k), reason);
+            toast(T.reportSent());
+        }));
     }
 
     /** Entwickler-Einrichtung: erzeugt/zeigt die öffentliche ID des Vorschlags-Postfachs zum Weitergeben. */

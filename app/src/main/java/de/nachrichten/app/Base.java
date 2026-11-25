@@ -291,6 +291,14 @@ abstract class Base extends Activity {
         showDialog(dlg, box);
     }
 
+    /** Kurzform des öffentlichen Schlüssels als npub (für die kleine Nutzer-ID). */
+    String shortId(String pub) {
+        try {
+            String n = de.nachrichten.crypto.Bech32.encode("npub", de.nachrichten.crypto.Event.unhex(pub));
+            return n.substring(0, 12) + "…" + n.substring(n.length() - 4);
+        } catch (Exception e) { return pub != null && pub.length() > 12 ? pub.substring(0, 12) + "…" : pub; }
+    }
+
     // ------------------------------------------------------------------ Moderation (nur Admin)
 
     /** Dauer auswählen und als Ablaufzeitpunkt (ms) zurückgeben (-1 = dauerhaft). */
