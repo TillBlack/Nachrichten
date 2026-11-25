@@ -855,10 +855,13 @@ final class Net {
     // ------------------------------------------------------------------ Gruppen
 
     void resubscribeAll() {
-        for (Conn c : new ArrayList<>(conns.values())) {
-            Ws w = c.ws;
-            if (c.open && w != null) subscribe(w);
-        }
+        // Immer auf dem Netz-Thread: subscribe() schreibt ins Socket (nie im Haupt-Thread).
+        worker.post(() -> {
+            for (Conn c : new ArrayList<>(conns.values())) {
+                Ws w = c.ws;
+                if (c.open && w != null) subscribe(w);
+            }
+        });
     }
 
     /** Eingehende Gruppennachricht (mit dem Gruppenschlüssel entschlüsseln). */
