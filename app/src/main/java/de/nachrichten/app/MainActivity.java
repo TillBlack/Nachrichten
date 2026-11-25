@@ -463,10 +463,10 @@ public class MainActivity extends Base implements Net.Listener {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         FrameLayout ic = new FrameLayout(this);
-        ic.setBackground(round(Pal.accent, 0, 24));
+        ic.setBackground(circle(Pal.accent, 0));
         Ico f = new Ico(this, Ico.FILE);
         f.color = Pal.onAccent;
-        ic.addView(f, new FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER));
+        ic.addView(f, new FrameLayout.LayoutParams(-1, -1));
         r.addView(ic, new LinearLayout.LayoutParams(dp(48), dp(48)));
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
@@ -524,10 +524,10 @@ public class MainActivity extends Base implements Net.Listener {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         FrameLayout ic = new FrameLayout(this);
-        ic.setBackground(round(Pal.accent, 0, 24));
+        ic.setBackground(circle(Pal.accent, 0));
         Ico f = new Ico(this, Ico.CHECK2);
         f.color = Pal.onAccent;
-        ic.addView(f, new FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER));
+        ic.addView(f, new FrameLayout.LayoutParams(-1, -1));
         r.addView(ic, new LinearLayout.LayoutParams(dp(48), dp(48)));
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
@@ -587,7 +587,7 @@ public class MainActivity extends Base implements Net.Listener {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         FrameLayout ic = new FrameLayout(this);
-        ic.setBackground(round(Pal.field, Pal.line, 24));
+        ic.setBackground(circle(Pal.field, Pal.line));
         Avatar a1 = new Avatar("discover-a", "?");
         Avatar a2 = new Avatar("discover-b", "?");
         ic.addView(a1, new FrameLayout.LayoutParams(dp(26), dp(26), Gravity.TOP | Gravity.LEFT));

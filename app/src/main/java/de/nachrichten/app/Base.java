@@ -150,6 +150,15 @@ abstract class Base extends Activity {
         return g;
     }
 
+    /** Echter Kreis (Oval), der immer die ganzen Ansichtsmaße ausfüllt – bleibt auch bei Umbrüchen mittig. */
+    GradientDrawable circle(int fill, int stroke) {
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.OVAL);
+        g.setColor(fill);
+        if (stroke != 0) g.setStroke(Math.max(1, dp(1)), stroke);
+        return g;
+    }
+
     void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }
 
     void copy(String s) {
