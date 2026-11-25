@@ -582,6 +582,7 @@ final class T {
     static String warnTitle() { return s("Warning", "Verwarnung", "Advertencia", "Предупреждение", "Upozorenje"); }
     static String warnFrom() { return s("A warning from the administrator", "Eine Verwarnung vom Administrator", "Una advertencia del administrador", "Предупреждение от администратора", "Upozorenje administratora"); }
     static String adminReplyTitle() { return s("Reply from the administrator", "Antwort vom Administrator", "Respuesta del administrador", "Ответ администратора", "Odgovor administratora"); }
+    static String groupChangePic() { return s("Change group picture", "Gruppenbild ändern", "Cambiar foto del grupo", "Изменить фото группы", "Promijeni sliku grupe"); }
 
     // Einsprüche (Admin)
     static String appeals() { return s("Appeals", "Einsprüche", "Apelaciones", "Апелляции", "Žalbe"); }

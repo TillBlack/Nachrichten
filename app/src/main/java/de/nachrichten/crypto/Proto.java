@@ -69,11 +69,16 @@ public final class Proto {
 
     /** Steuernachricht (über 1:1 verschickt): voller Stand einer Gruppe – Name, Schlüssel, Mitglieder, Admins. */
     public static String groupSync(String gid, String name, String gkey, String owner, java.util.List<String> members, java.util.Set<String> admins) {
+        return groupSync(gid, name, gkey, owner, members, admins, null);
+    }
+
+    public static String groupSync(String gid, String name, String gkey, String owner, java.util.List<String> members, java.util.Set<String> admins, String avatarB64) {
         StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"group\",\"op\":\"sync\",\"gid\":");
         Event.str(sb, gid);
         sb.append(",\"name\":"); Event.str(sb, name);
         sb.append(",\"gkey\":"); Event.str(sb, gkey);
         sb.append(",\"owner\":"); Event.str(sb, owner);
+        if (avatarB64 != null) { sb.append(",\"img\":"); Event.str(sb, avatarB64); }
         sb.append(",\"members\":[");
         int i = 0; for (String m : members) { if (i++ > 0) sb.append(','); Event.str(sb, m); }
         sb.append("],\"admins\":[");

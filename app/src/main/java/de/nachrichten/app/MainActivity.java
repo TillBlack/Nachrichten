@@ -390,7 +390,7 @@ public class MainActivity extends Base implements Net.Listener {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         r.setBackground(round(Pal.bg, 0, 12));
-        Avatar ga = new Avatar(g.gid, g.name == null || g.name.isEmpty() ? "#" : g.name);
+        Avatar ga = new Avatar(g.gid, g.name == null || g.name.isEmpty() ? "#" : g.name, g.avatar);
         ga.silhouette = false;
         r.addView(ga, new LinearLayout.LayoutParams(dp(48), dp(48)));
 

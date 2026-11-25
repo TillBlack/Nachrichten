@@ -45,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 15); }
+    Db(Context c) { super(c, "nachrichten.db", null, 16); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -68,6 +68,12 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo13(db);
         upgradeTo14(db);
         upgradeTo15(db);
+        upgradeTo16(db);
+    }
+
+    /** Gruppenbild. */
+    private static void upgradeTo16(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE groups ADD COLUMN avatar TEXT");
     }
 
     /** Moderation von Profilbild (noav) und Sichtbarkeit in der Nutzerliste (hide). */
@@ -169,6 +175,7 @@ final class Db extends SQLiteOpenHelper {
         if (o < 13) upgradeTo13(db);
         if (o < 14) upgradeTo14(db);
         if (o < 15) upgradeTo15(db);
+        if (o < 16) upgradeTo16(db);
     }
 
     // ------------------------------------------------------------------ Moderation
@@ -536,9 +543,15 @@ final class Db extends SQLiteOpenHelper {
     static final class Group {
         String gid, name, gkey, owner;
         long created, lastRead, lastTs;
-        String lastText, lastSender, lastFileName;
+        String lastText, lastSender, lastFileName, avatar;
         boolean lastOutgoing;
         int memberCount, unread, lastKind;
+    }
+
+    synchronized void setGroupAvatar(String gid, String path) {
+        ContentValues v = new ContentValues();
+        v.put("avatar", path);
+        getWritableDatabase().update("groups", v, "gid = ?", new String[]{gid});
     }
 
     static final class Member { String pub; boolean admin; }
@@ -564,11 +577,11 @@ final class Db extends SQLiteOpenHelper {
     }
 
     synchronized Group group(String gid) {
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT gid,name,gkey,owner,created,last_read FROM groups WHERE gid = ?", new String[]{gid})) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT gid,name,gkey,owner,created,last_read,avatar FROM groups WHERE gid = ?", new String[]{gid})) {
             if (!c.moveToFirst()) return null;
             Group g = new Group();
             g.gid = c.getString(0); g.name = c.getString(1); g.gkey = c.getString(2); g.owner = c.getString(3);
-            g.created = c.getLong(4); g.lastRead = c.getLong(5);
+            g.created = c.getLong(4); g.lastRead = c.getLong(5); g.avatar = c.getString(6);
             return g;
         }
     }
@@ -604,11 +617,11 @@ final class Db extends SQLiteOpenHelper {
     synchronized java.util.List<Group> groupList() {
         java.util.List<Group> out = new java.util.ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT gid,name,gkey,owner,created,last_read FROM groups", null)) {
+        try (Cursor c = db.rawQuery("SELECT gid,name,gkey,owner,created,last_read,avatar FROM groups", null)) {
             while (c.moveToNext()) {
                 Group g = new Group();
                 g.gid = c.getString(0); g.name = c.getString(1); g.gkey = c.getString(2); g.owner = c.getString(3);
-                g.created = c.getLong(4); g.lastRead = c.getLong(5); g.lastTs = g.created;
+                g.created = c.getLong(4); g.lastRead = c.getLong(5); g.avatar = c.getString(6); g.lastTs = g.created;
                 out.add(g);
             }
         }

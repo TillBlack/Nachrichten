@@ -39,7 +39,9 @@ public class GroupChatActivity extends Base implements Net.Listener {
     };
     private static final int REQ_AUDIO = 23;
     private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
+    private static final int REQ_GROUP_PIC = 24;
     private String gid;
+    private FrameLayout headerAv;
     private LinearLayout header, list;
     private TextView title, sub;
     private ScrollView scroll;
@@ -81,6 +83,11 @@ public class GroupChatActivity extends Base implements Net.Listener {
         Ico back = new Ico(this, Ico.BACK);
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(48)));
+        headerAv = new FrameLayout(this);
+        headerAv.setOnClickListener(v -> openInfo());
+        LinearLayout.LayoutParams hap = new LinearLayout.LayoutParams(dp(40), dp(40));
+        hap.setMargins(0, 0, dp(8), 0);
+        header.addView(headerAv, hap);
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
         title = text("", 19, Pal.text, true);
@@ -173,6 +180,10 @@ public class GroupChatActivity extends Base implements Net.Listener {
         if (g == null) { finish(); return; }
         title.setText(g.name);
         sub.setText(T.groupMembers(app.db.memberPubs(gid).size()));
+        headerAv.removeAllViews();
+        Avatar hav = new Avatar(gid, g.name == null || g.name.isEmpty() ? "#" : g.name, g.avatar);
+        hav.silhouette = false;
+        headerAv.addView(hav, new FrameLayout.LayoutParams(dp(40), dp(40)));
         list.removeAllViews();
         String me = app.keys.pubHex();
         List<Db.Msg> msgs = app.db.messages(gid);
@@ -653,8 +664,74 @@ public class GroupChatActivity extends Base implements Net.Listener {
         super.onActivityResult(req, res, data);
         if (res != RESULT_OK || data == null || data.getData() == null) return;
         Uri u = data.getData();
+        if (req == REQ_GROUP_PIC) { new Thread(() -> setGroupPicFrom(u)).start(); return; }
         boolean photo = req == REQ_PHOTO;
         new Thread(() -> prepareAndSend(u, photo)).start();
+    }
+
+    private void pickGroupPic() {
+        try {
+            startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*")
+                    .addCategory(Intent.CATEGORY_OPENABLE), REQ_GROUP_PIC);
+        } catch (ActivityNotFoundException e) { toast(T.noApp()); }
+    }
+
+    private void setGroupPicFrom(Uri u) {
+        try {
+            byte[] data = readAll(u, Proto.MAX_FILE * 25);
+            if (data == null) { runOnUiThread(() -> toast(T.readError())); return; }
+            byte[] jpg = compressGroupPic(data);
+            if (jpg == null) { runOnUiThread(() -> toast(T.readError())); return; }
+            File f = new File(app.mediaDir(), "groupav_" + gid + ".jpg");
+            try (FileOutputStream out = new FileOutputStream(f)) { out.write(jpg); }
+            app.db.setGroupAvatar(gid, f.getAbsolutePath());
+            app.net.pushGroup(gid);
+            runOnUiThread(this::reload);
+        } catch (Throwable t) {
+            runOnUiThread(() -> toast(T.readError()));
+        }
+    }
+
+    /** Kleines Gruppenbild (max ~320px), damit es klein genug zum Mitsenden ist. */
+    private static byte[] compressGroupPic(byte[] data) {
+        try {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            if (o.outWidth <= 0) return null;
+            int maxSide = 320, sample = 1;
+            while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= maxSide) sample *= 2;
+            o = new BitmapFactory.Options();
+            o.inSampleSize = sample;
+            Bitmap b = BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            if (b == null) return null;
+            float scale = Math.min(1f, maxSide / (float) Math.max(b.getWidth(), b.getHeight()));
+            int rot = 0;
+            try {
+                int or = new ExifInterface(new java.io.ByteArrayInputStream(data))
+                        .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+                rot = or == ExifInterface.ORIENTATION_ROTATE_90 ? 90 : or == ExifInterface.ORIENTATION_ROTATE_180 ? 180
+                        : or == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+            } catch (Exception ignored) { }
+            if (scale < 1f || rot != 0) {
+                Matrix mx = new Matrix();
+                mx.postScale(scale, scale);
+                mx.postRotate(rot);
+                Bitmap r = Bitmap.createBitmap(b, 0, 0, b.getWidth(), b.getHeight(), mx, true);
+                if (r != b) b.recycle();
+                b = r;
+            }
+            int q = 80;
+            byte[] out;
+            do {
+                ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                b.compress(Bitmap.CompressFormat.JPEG, q, bo);
+                out = bo.toByteArray();
+                q -= 12;
+            } while (out.length > 60 * 1024 && q >= 30);
+            b.recycle();
+            return out;
+        } catch (Throwable t) { return null; }
     }
 
     private void prepareAndSend(Uri u, boolean photo) {
@@ -769,6 +846,21 @@ public class GroupChatActivity extends Base implements Net.Listener {
 
         Dialog dlg = dialog();
         LinearLayout box = panel();
+        LinearLayout avRow = new LinearLayout(this);
+        avRow.setOrientation(LinearLayout.VERTICAL);
+        avRow.setGravity(Gravity.CENTER_HORIZONTAL);
+        avRow.setPadding(0, dp(2), 0, dp(10));
+        Avatar ga = new Avatar(gid, g.name == null || g.name.isEmpty() ? "#" : g.name, g.avatar);
+        ga.silhouette = false;
+        if (iAmOwner || iAmAdmin) ga.setOnClickListener(v -> { dlg.dismiss(); pickGroupPic(); });
+        avRow.addView(ga, new LinearLayout.LayoutParams(dp(88), dp(88)));
+        if (iAmOwner || iAmAdmin) {
+            TextView ch = text(T.groupChangePic(), 13, Pal.accent, false);
+            ch.setPadding(0, dp(6), 0, 0);
+            ch.setOnClickListener(v -> { dlg.dismiss(); pickGroupPic(); });
+            avRow.addView(ch);
+        }
+        box.addView(avRow);
         box.addView(text(g.name, 20, Pal.text, true));
         box.addView(label(T.groupMembers(app.db.memberPubs(gid).size())));
 

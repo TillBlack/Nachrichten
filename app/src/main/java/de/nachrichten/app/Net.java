@@ -1003,6 +1003,17 @@ final class Net {
             admins.add(owner);
             app.db.upsertGroup(gid, name, gkey, owner, existing == null ? System.currentTimeMillis() : existing.created);
             app.db.setMembers(gid, members, admins);
+            String img = env.optString("img", "");
+            if (!img.isEmpty()) {
+                try {
+                    byte[] jpg = android.util.Base64.decode(img, android.util.Base64.DEFAULT);
+                    if (jpg.length > 0 && jpg.length < 400 * 1024) {
+                        java.io.File f = new java.io.File(app.mediaDir(), "groupav_" + gid + ".jpg");
+                        try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) { out.write(jpg); }
+                        app.db.setGroupAvatar(gid, f.getAbsolutePath());
+                    }
+                } catch (Exception ignored) { }
+            }
             resubscribeAll();
             changed(gid);
             notifyListChanged();
@@ -1032,6 +1043,11 @@ final class Net {
         return gid;
     }
 
+    /** Verteilt den aktuellen Gruppenstand (inkl. Bild) an alle Mitglieder. */
+    void pushGroup(String gid) {
+        worker.post(() -> syncGroup(gid, app.db.memberPubs(gid)));
+    }
+
     /** Verteilt den aktuellen Stand einer Gruppe 1:1-verschlüsselt an die angegebenen Mitglieder. */
     private void syncGroup(String gid, java.util.List<String> recipients) {
         Db.Group g = app.db.group(gid);
@@ -1039,7 +1055,14 @@ final class Net {
         java.util.List<String> members = app.db.memberPubs(gid);
         java.util.Set<String> admins = new HashSet<>();
         for (Db.Member m : app.db.members(gid)) if (m.admin) admins.add(m.pub);
-        String envelope = Proto.groupSync(gid, g.name, g.gkey, g.owner, members, admins);
+        String avatarB64 = null;
+        if (g.avatar != null) {
+            try {
+                byte[] jpg = java.nio.file.Files.readAllBytes(new java.io.File(g.avatar).toPath());
+                if (jpg.length > 0 && jpg.length < 400 * 1024) avatarB64 = android.util.Base64.encodeToString(jpg, android.util.Base64.NO_WRAP);
+            } catch (Exception ignored) { }
+        }
+        String envelope = Proto.groupSync(gid, g.name, g.gkey, g.owner, members, admins, avatarB64);
         String me = app.keys.pubHex();
         for (String r : recipients) {
             if (r.equals(me)) continue;
