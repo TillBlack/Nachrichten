@@ -73,6 +73,8 @@ public class ChatActivity extends Base implements Net.Listener {
     private android.media.MediaPlayer player;
     private String playingPath;
     private Ico playingBtn;
+    private WaveView playingWave;
+    private Runnable voiceTick;
     private static final LruCache<String, Bitmap> THUMBS = new LruCache<String, Bitmap>(24 * 1024 * 1024) {
         @Override protected int sizeOf(String k, Bitmap b) { return b.getByteCount(); }
     };
@@ -321,14 +323,7 @@ public class ChatActivity extends Base implements Net.Listener {
         waveRow.addView(recTime, new LinearLayout.LayoutParams(dp(56), -2));
         recWave = new WaveView(this);
         recWave.growFromLeft = true;
-        recWave.setOnTouchListener((v, ev) -> {
-            // Zurückspulen/Abhören nur im Pausezustand
-            if (!recPaused) return false;
-            if (ev.getAction() == android.view.MotionEvent.ACTION_DOWN || ev.getAction() == android.view.MotionEvent.ACTION_MOVE) {
-                previewSeek(recWave.fractionAt(ev.getX()));
-            }
-            return true;
-        });
+        recWave.showHandle = true; // Zurückspulen/Abhören nur im Pausezustand (seekListener wird dann gesetzt)
         LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(0, dp(44), 1f);
         wl.setMargins(dp(10), 0, 0, 0);
         waveRow.addView(recWave, wl);
@@ -865,7 +860,7 @@ public class ChatActivity extends Base implements Net.Listener {
             recordedMs = 0;
             recStart = System.currentTimeMillis();
             recAmps.clear();
-            if (recWave != null) { recWave.setProgress(-1); recWave.setAmps(new float[0]); }
+            if (recWave != null) { recWave.setProgress(-1); recWave.setAmps(new float[0]); recWave.seekListener = null; }
             if (pauseBtn != null) pauseBtn.setKind(Ico.PAUSE);
             if (pauseLbl != null) pauseLbl.setText(T.pauseRec());
             stopPlayer();
@@ -909,12 +904,15 @@ public class ChatActivity extends Base implements Net.Listener {
                 recordedMs += System.currentTimeMillis() - recStart;
                 pauseBtn.setKind(Ico.PLAY);
                 pauseLbl.setText(T.resumeRec());
+                recWave.setProgress(0f);                 // Schieberegler sichtbar
+                recWave.seekListener = f -> previewSeek(f); // jetzt spulbar
             } else {
                 stopPreview();
                 recorder.resume();
                 recPaused = false;
                 recStart = System.currentTimeMillis();
                 recWave.setProgress(-1);
+                recWave.seekListener = null;              // beim Aufnehmen kein Spulen
                 pauseBtn.setKind(Ico.PAUSE);
                 pauseLbl.setText(T.pauseRec());
             }
@@ -1061,57 +1059,113 @@ public class ChatActivity extends Base implements Net.Listener {
         col2.setOrientation(LinearLayout.VERTICAL);
         col2.setPadding(dp(8), 0, dp(4), 0);
         float[] amps = waveFromName(m.fileName);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(dp(150), dp(26));
+        final String path = m.filePath;
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(dp(160), dp(30));
         tp.setMargins(0, 0, 0, dp(2));
-        if (amps != null) {
-            WaveView wv = new WaveView(this);
-            wv.barColor = metaColor;
-            wv.setAmps(amps);
-            col2.addView(wv, tp);
-        } else {
-            View track = new View(this);
-            track.setBackground(round(Pal.line, 0, 2));
-            LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(dp(130), dp(3));
-            fp.setMargins(0, dp(11), 0, dp(12));
-            col2.addView(track, fp);
-        }
+        WaveView wv = new WaveView(this);
+        wv.barColor = metaColor;
+        wv.playedColor = textColor;
+        wv.showHandle = true;
+        wv.setAmps(amps != null ? amps : flatWave());
+        boolean playingThis = playingPath != null && playingPath.equals(path);
+        wv.setProgress(playingThis && playingWave != null ? 0f : 0f); // Punkt immer sichtbar (am Anfang)
+        wv.seekListener = f -> seekVoice(path, btn, wv, f);
+        col2.addView(wv, tp);
+        if (playingThis) playingWave = wv;
         col2.addView(text(T.voiceMessage() + " · " + formatDur(durationOf(m.filePath)), 12, metaColor, false));
         v.addView(col2);
-        View.OnClickListener clk = x -> togglePlay(m.filePath, btn);
-        btn.setOnClickListener(clk);
-        v.setOnClickListener(clk);
+        btn.setOnClickListener(x -> togglePlay(path, btn, wv));
         v.setOnLongClickListener(x -> { messageMenu(m); return true; });
         return v;
     }
 
-    private void togglePlay(String path, Ico btn) {
-        try {
-            if (playingPath != null && playingPath.equals(path) && player != null) {
-                if (player.isPlaying()) { player.pause(); btn.setKind(Ico.PLAY); }
-                else { player.start(); btn.setKind(Ico.PAUSE); playingBtn = btn; }
-                return;
+    /** Platzhalter-Wellenform für alte Sprachnachrichten ohne gespeicherte Lautstärke. */
+    private static float[] flatWave() {
+        float[] a = new float[40];
+        for (int i = 0; i < a.length; i++) a[i] = 0.45f + 0.25f * (float) Math.abs(Math.sin(i * 0.9));
+        return a;
+    }
+
+    private long playerDuration(String path) {
+        long d = 0;
+        try { if (player != null) d = player.getDuration(); } catch (Exception ignored) { }
+        if (d <= 0) d = durationOf(path);
+        return Math.max(1, d);
+    }
+
+    private void startVoiceTick(final String path) {
+        if (voiceTick != null) ui.removeCallbacks(voiceTick);
+        voiceTick = new Runnable() {
+            public void run() {
+                if (player == null || playingWave == null) return;
+                try {
+                    if (player.isPlaying()) {
+                        playingWave.setProgress(Math.min(1f, player.getCurrentPosition() / (float) playerDuration(path)));
+                        ui.postDelayed(this, 60);
+                    }
+                } catch (Exception ignored) { }
             }
+        };
+        ui.post(voiceTick);
+    }
+
+    private boolean openPlayer(String path, Ico btn, WaveView wv) {
+        try {
             stopPlayer();
             player = new android.media.MediaPlayer();
             player.setDataSource(path);
             player.prepare();
-            player.start();
             playingPath = path;
             playingBtn = btn;
-            btn.setKind(Ico.PAUSE);
-            player.setOnCompletionListener(mp -> stopPlayer());
+            playingWave = wv;
+            player.setOnCompletionListener(mp -> {
+                if (playingWave != null) playingWave.setProgress(0f);
+                if (playingBtn != null) playingBtn.setKind(Ico.PLAY);
+                stopPlayer();
+            });
+            return true;
         } catch (Exception e) {
             toast(T.playError());
             stopPlayer();
+            return false;
         }
     }
 
+    private void togglePlay(String path, Ico btn, WaveView wv) {
+        if (playingPath != null && playingPath.equals(path) && player != null) {
+            try {
+                if (player.isPlaying()) { player.pause(); btn.setKind(Ico.PLAY); }
+                else { player.start(); btn.setKind(Ico.PAUSE); playingBtn = btn; startVoiceTick(path); }
+            } catch (Exception ignored) { }
+            return;
+        }
+        if (!openPlayer(path, btn, wv)) return;
+        try { player.start(); btn.setKind(Ico.PAUSE); startVoiceTick(path); } catch (Exception ignored) { }
+    }
+
+    /** Spulen auf der gesendeten Sprachnachricht – jederzeit möglich. */
+    private void seekVoice(String path, Ico btn, WaveView wv, float frac) {
+        if (!(playingPath != null && playingPath.equals(path) && player != null)) {
+            if (!openPlayer(path, btn, wv)) return;
+            try { player.start(); } catch (Exception ignored) { }
+        }
+        try {
+            player.seekTo((int) (frac * playerDuration(path)));
+            if (!player.isPlaying()) player.start();
+            btn.setKind(Ico.PAUSE);
+            playingWave = wv;
+            startVoiceTick(path);
+        } catch (Exception ignored) { }
+    }
+
     private void stopPlayer() {
+        if (voiceTick != null) ui.removeCallbacks(voiceTick);
         if (playingBtn != null) playingBtn.setKind(Ico.PLAY);
         try { if (player != null) { player.stop(); player.release(); } } catch (Exception ignored) { }
         player = null;
         playingPath = null;
         playingBtn = null;
+        playingWave = null;
     }
 
     private String formatDur(long ms) {
