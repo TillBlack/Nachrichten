@@ -39,7 +39,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
     };
     private static final int REQ_AUDIO = 23;
     private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
-    private static final int REQ_GROUP_PIC = 24;
+    private static final int REQ_GROUP_PIC = 24, REQ_CROP_GROUP = 25;
     private String gid;
     private FrameLayout headerAv;
     private LinearLayout header, list;
@@ -718,9 +718,24 @@ public class GroupChatActivity extends Base implements Net.Listener {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == REQ_CROP_GROUP && res == RESULT_OK && data != null && data.getStringExtra("out") != null) {
+            String out = data.getStringExtra("out");
+            new Thread(() -> setGroupPicFromFile(out)).start();
+            return;
+        }
         if (res != RESULT_OK || data == null || data.getData() == null) return;
         Uri u = data.getData();
-        if (req == REQ_GROUP_PIC) { new Thread(() -> setGroupPicFrom(u)).start(); return; }
+        if (req == REQ_GROUP_PIC) {
+            // Erst in den Zuschneide-Editor, dann speichern.
+            new Thread(() -> {
+                String src = copyToCache(u);
+                runOnUiThread(() -> {
+                    if (src == null) { toast(T.readError()); return; }
+                    startActivityForResult(new Intent(this, CropActivity.class).putExtra("src", src), REQ_CROP_GROUP);
+                });
+            }).start();
+            return;
+        }
         boolean photo = req == REQ_PHOTO;
         new Thread(() -> prepareAndSend(u, photo)).start();
     }
@@ -730,6 +745,39 @@ public class GroupChatActivity extends Base implements Net.Listener {
             startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*")
                     .addCategory(Intent.CATEGORY_OPENABLE), REQ_GROUP_PIC);
         } catch (ActivityNotFoundException e) { toast(T.noApp()); }
+    }
+
+    /** Bild aus einem Content-Uri in eine Cache-Datei kopieren (für den Zuschneide-Editor). */
+    private String copyToCache(Uri u) {
+        try {
+            byte[] data = readAll(u, Proto.MAX_FILE * 40);
+            if (data == null) return null;
+            File f = new File(getCacheDir(), "crop_src_" + System.currentTimeMillis() + ".jpg");
+            try (FileOutputStream fo = new FileOutputStream(f)) { fo.write(data); }
+            return f.getAbsolutePath();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private void setGroupPicFromFile(String path) {
+        try {
+            File src = new File(path);
+            byte[] data = new byte[(int) src.length()];
+            try (java.io.FileInputStream fi = new java.io.FileInputStream(src)) {
+                int off = 0, n;
+                while (off < data.length && (n = fi.read(data, off, data.length - off)) > 0) off += n;
+            }
+            byte[] jpg = compressGroupPic(data);
+            if (jpg == null) { runOnUiThread(() -> toast(T.readError())); return; }
+            File f = new File(app.mediaDir(), "groupav_" + gid + ".jpg");
+            try (FileOutputStream out = new FileOutputStream(f)) { out.write(jpg); }
+            app.db.setGroupAvatar(gid, f.getAbsolutePath());
+            app.net.pushGroup(gid);
+            runOnUiThread(this::reload);
+        } catch (Throwable t) {
+            runOnUiThread(() -> toast(T.readError()));
+        }
     }
 
     private void setGroupPicFrom(Uri u) {

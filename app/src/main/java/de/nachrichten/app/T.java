@@ -87,6 +87,12 @@ final class T {
     static String save() { return s("Save", "Speichern", "Guardar", "Сохранить", "Spremi"); }
     static String cancel() { return s("Cancel", "Abbrechen", "Cancelar", "Отмена", "Odustani"); }
     static String ok() { return s("OK", "OK", "OK", "ОК", "U redu"); }
+    static String done() { return s("Done", "Fertig", "Listo", "Готово", "Gotovo"); }
+    static String cropHint() { return s("Move the circle, pinch to resize",
+            "Kreis verschieben, mit zwei Fingern Größe ändern",
+            "Mueve el círculo, pellizca para cambiar el tamaño",
+            "Перемещайте круг, щипком меняйте размер",
+            "Pomakni krug, prstima mijenjaj veličinu"); }
     static String versionLabel() { return s("Version", "Version", "Versión", "Версия", "Verzija"); }
     static String delete() { return s("Delete", "Löschen", "Eliminar", "Удалить", "Obriši"); }
     static String close() { return s("Close", "Schließen", "Cerrar", "Закрыть", "Zatvori"); }

@@ -31,7 +31,7 @@ import java.util.Map;
 /** Start: Einrichtung beim ersten Mal, danach die Chatliste. */
 public class MainActivity extends Base implements Net.Listener {
 
-    private static final int REQ_SCAN = 1, REQ_NOTIF = 2, REQ_AVATAR = 3;
+    private static final int REQ_SCAN = 1, REQ_NOTIF = 2, REQ_AVATAR = 3, REQ_CROP_AVATAR = 4;
     private Dialog settingsDlg;
 
     private LinearLayout header, list;
@@ -925,8 +925,21 @@ public class MainActivity extends Base implements Net.Listener {
         super.onActivityResult(req, res, data);
         if (req == REQ_AVATAR && res == RESULT_OK && data != null && data.getData() != null) {
             android.net.Uri u = data.getData();
+            // Erst in den Zuschneide-Editor, dann speichern.
             new Thread(() -> {
-                boolean ok = setAvatar(u);
+                String src = copyToCache(u);
+                runOnUiThread(() -> {
+                    if (src == null) { toast(T.readError()); return; }
+                    android.content.Intent ci = new android.content.Intent(this, CropActivity.class).putExtra("src", src);
+                    startActivityForResult(ci, REQ_CROP_AVATAR);
+                });
+            }).start();
+            return;
+        }
+        if (req == REQ_CROP_AVATAR && res == RESULT_OK && data != null && data.getStringExtra("out") != null) {
+            String out = data.getStringExtra("out");
+            new Thread(() -> {
+                boolean ok = setAvatarFromFile(out);
                 runOnUiThread(() -> {
                     if (!ok) toast(T.readError());
                     if (settingsDlg != null) settingsDlg.dismiss();
@@ -1282,6 +1295,41 @@ public class MainActivity extends Base implements Net.Listener {
     }
 
     /** Profilbild: quadratisch zuschneiden, 256 px, Drehung beachten, als JPEG speichern und verschicken. */
+    /** Bild aus einem Content-Uri in eine Cache-Datei kopieren (für den Zuschneide-Editor). */
+    private String copyToCache(android.net.Uri u) {
+        try (java.io.InputStream in = getContentResolver().openInputStream(u)) {
+            if (in == null) return null;
+            java.io.File f = new java.io.File(getCacheDir(), "crop_src_" + System.currentTimeMillis() + ".jpg");
+            try (java.io.FileOutputStream fo = new java.io.FileOutputStream(f)) {
+                byte[] buf = new byte[16384];
+                int n;
+                long total = 0;
+                while ((n = in.read(buf)) > 0) {
+                    fo.write(buf, 0, n);
+                    total += n;
+                    if (total > 40L * 1024 * 1024) return null;
+                }
+            }
+            return f.getAbsolutePath();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private boolean setAvatarFromFile(String path) {
+        try {
+            java.io.File f = new java.io.File(path);
+            byte[] data = new byte[(int) f.length()];
+            try (java.io.FileInputStream fi = new java.io.FileInputStream(f)) {
+                int off = 0, n;
+                while (off < data.length && (n = fi.read(data, off, data.length - off)) > 0) off += n;
+            }
+            return setAvatarBytes(data);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     private boolean setAvatar(android.net.Uri u) {
         try {
             byte[] data;
@@ -1296,6 +1344,14 @@ public class MainActivity extends Base implements Net.Listener {
                 }
                 data = bo.toByteArray();
             }
+            return setAvatarBytes(data);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private boolean setAvatarBytes(byte[] data) {
+        try {
             android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
             o.inJustDecodeBounds = true;
             android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length, o);

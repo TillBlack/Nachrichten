@@ -75,6 +75,10 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
         <activity
+            android:name=".app.CropActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
+        <activity
             android:name=".app.GroupChatActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize|stateHidden"
