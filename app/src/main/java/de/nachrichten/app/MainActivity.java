@@ -351,13 +351,8 @@ public class MainActivity extends Base implements Net.Listener {
         list.removeAllViews();
         View warn = warningRow();
         if (warn != null) list.addView(warn);
-        rowSuggest = rowAppeals = rowReports = rowReport = null;
-        if (app.isDev()) { rowSuggest = suggestionsRow(); list.addView(rowSuggest); }
-        if (app.isDev()) { rowAppeals = appealsRow(); list.addView(rowAppeals); }
-        if (app.isDev()) { rowReports = reportsInboxRow(); list.addView(rowReports); }
-        if (app.isDev() || app.db.pollCount() > 0) list.addView(pollsRow());
-        rowDiscover = discoverRow(); list.addView(rowDiscover);
-        if (!app.isDev()) { rowReport = reportRow(); list.addView(rowReport); }
+        rowSuggest = rowAppeals = rowReports = rowReport = rowDiscover = null;
+        if (!app.prefs.getBoolean("homeTidy", false)) addFeatureRows(list, true);
         List<Db.Contact> cs = app.db.contacts();
         List<Db.Group> gs = app.db.groupList();
         if (cs.isEmpty() && gs.isEmpty()) {
@@ -375,6 +370,35 @@ public class MainActivity extends Base implements Net.Listener {
         items.sort((a, b) -> Long.compare(itemTs(b), itemTs(a)));
         for (Object it : items)
             list.addView(it instanceof Db.Group ? groupRow((Db.Group) it) : row((Db.Contact) it));
+    }
+
+    /** Die Options-Zeilen (Vorschläge, Einsprüche, Reports, Umfragen, Entdecken, Melden).
+     *  home=true: auf dem Hauptbildschirm (merkt die Views fürs Tutorial);
+     *  home=false: im Fenster „Zusätzliche Funktionen" in den Einstellungen. */
+    private void addFeatureRows(LinearLayout target, boolean home) {
+        if (app.isDev()) {
+            View v = suggestionsRow(); target.addView(v); if (home) rowSuggest = v;
+            v = appealsRow(); target.addView(v); if (home) rowAppeals = v;
+            v = reportsInboxRow(); target.addView(v); if (home) rowReports = v;
+        }
+        if (app.isDev() || app.db.pollCount() > 0) target.addView(pollsRow());
+        View d = discoverRow(); target.addView(d); if (home) rowDiscover = d;
+        if (!app.isDev()) { View r = reportRow(); target.addView(r); if (home) rowReport = r; }
+    }
+
+    /** „Zusätzliche Funktionen": zeigt die Options-Zeilen, wenn der Hauptbildschirm aufgeräumt ist. */
+    private void openExtraFunctions() {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(text(T.extraFunctions(), 20, Pal.text, true));
+        TextView info = text(T.extraFunctionsInfo(), 13, Pal.dim, false);
+        info.setPadding(0, dp(4), 0, dp(8));
+        box.addView(info);
+        LinearLayout holder = new LinearLayout(this);
+        holder.setOrientation(LinearLayout.VERTICAL);
+        addFeatureRows(holder, false);
+        box.addView(holder, new LinearLayout.LayoutParams(-1, -2));
+        showScrollDialog(dlg, box);
     }
 
     private static long itemTs(Object o) {
@@ -1198,6 +1222,31 @@ public class MainActivity extends Base implements Net.Listener {
         TextView uti = text(T.autoUpdatesInfo(Updater.installedVersion(this)), 13, Pal.dim, false);
         uti.setPadding(0, dp(4), 0, 0);
         box.addView(uti);
+
+        // Hauptbildschirm aufräumen
+        box.addView(label(T.homeScreen()));
+        LinearLayout tidy = new LinearLayout(this);
+        tidy.setGravity(Gravity.CENTER_VERTICAL);
+        tidy.setPadding(0, dp(6), 0, 0);
+        tidy.addView(text(T.tidyHome(), 16, Pal.text, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        Ico tidyToggle = new Ico(this, Ico.TOGGLE);
+        tidyToggle.on = app.prefs.getBoolean("homeTidy", false);
+        tidy.addView(tidyToggle, new LinearLayout.LayoutParams(dp(52), dp(40)));
+        tidy.setOnClickListener(v -> {
+            boolean on = !app.prefs.getBoolean("homeTidy", false);
+            app.prefs.edit().putBoolean("homeTidy", on).apply();
+            dlg.dismiss();
+            refresh();
+            openSettings();
+        });
+        tidyToggle.setOnClickListener(v -> tidy.performClick());
+        box.addView(tidy);
+        TextView tidyi = text(T.tidyHomeInfo(), 13, Pal.dim, false);
+        tidyi.setPadding(0, dp(4), 0, 0);
+        box.addView(tidyi);
+        TextView extra = outlineButton(T.extraFunctions(), Pal.text);
+        extra.setOnClickListener(v -> { dlg.dismiss(); openExtraFunctions(); });
+        addRow(box, extra, 10);
 
         // Vorschläge – nur sichtbar, wenn ein Postfach im Code hinterlegt ist.
         if (app.suggestReady()) {

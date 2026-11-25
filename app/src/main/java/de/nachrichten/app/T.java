@@ -94,6 +94,17 @@ final class T {
             "Перемещайте круг, щипком меняйте размер",
             "Pomakni krug, prstima mijenjaj veličinu"); }
     static String versionLabel() { return s("Version", "Version", "Versión", "Версия", "Verzija"); }
+    static String homeScreen() { return s("Home screen", "Hauptbildschirm", "Pantalla de inicio", "Главный экран", "Početni zaslon"); }
+    static String tidyHome() { return s("Tidy up home screen", "Hauptbildschirm aufräumen", "Ordenar la pantalla de inicio", "Прибрать главный экран", "Pospremi početni zaslon"); }
+    static String tidyHomeInfo() { return s("Moves the option rows off the home screen into \"Extra functions\" below.",
+            "Verschiebt die Options-Zeilen vom Hauptbildschirm nach „Zusätzliche Funktionen" (siehe unten).",
+            "Mueve las opciones de la pantalla de inicio a «Funciones adicionales» (abajo).",
+            "Переносит строки опций с главного экрана в «Дополнительные функции» (ниже).",
+            "Premješta retke opcija s početnog zaslona u „Dodatne funkcije" (dolje)."); }
+    static String extraFunctions() { return s("Extra functions", "Zusätzliche Funktionen", "Funciones adicionales", "Дополнительные функции", "Dodatne funkcije"); }
+    static String extraFunctionsInfo() { return s("The options from the home screen.",
+            "Die Optionen vom Hauptbildschirm.", "Las opciones de la pantalla de inicio.",
+            "Опции с главного экрана.", "Opcije s početnog zaslona."); }
     static String delete() { return s("Delete", "Löschen", "Eliminar", "Удалить", "Obriši"); }
     static String close() { return s("Close", "Schließen", "Cerrar", "Закрыть", "Zatvori"); }
 
