@@ -416,23 +416,106 @@ abstract class Base extends Activity {
 
     static final String[] REACTIONS = {"👍", "❤️", "😂", "😮", "😢", "🙏", "😅"};
 
-    /** Horizontale Emoji-Leiste (für das Lang-Druck-Menü). onPick bekommt das Emoji, oder "" zum Entfernen. */
-    LinearLayout reactionRow(String current, java.util.function.Consumer<String> onPick) {
+    /** Wischbare Emoji-Leiste (für das Lang-Druck-Menü): zuletzt verwendete zuerst,
+     *  nach 7 Emojis ein Plus-Zeichen, das die große Auswahl öffnet.
+     *  onPick bekommt das Emoji, oder "" zum Entfernen. */
+    View reactionRow(String current, java.util.function.Consumer<String> onPick) {
+        android.widget.HorizontalScrollView sv = new android.widget.HorizontalScrollView(this);
+        sv.setHorizontalScrollBarEnabled(false);
+        sv.setBackground(round(Pal.field, Pal.line, 26));
+        sv.setPadding(dp(4), dp(4), dp(4), dp(4));
         LinearLayout row = new LinearLayout(this);
-        row.setGravity(Gravity.CENTER);
-        row.setBackground(round(Pal.field, Pal.line, 26));
-        row.setPadding(dp(4), dp(4), dp(4), dp(4));
-        for (String em : REACTIONS) {
-            TextView t = new TextView(this);
-            t.setText(em);
-            t.setTextSize(24);
-            t.setPadding(dp(8), dp(5), dp(8), dp(5));
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        for (String em : Emoji.bar(app)) {
             boolean sel = em.equals(current);
+            TextView t = emojiCell(em, 24);
             if (sel) t.setBackground(round(withAlpha(Pal.accent, 0x44), 0, 18));
-            t.setOnClickListener(v -> onPick.accept(sel ? "" : em));
+            t.setOnClickListener(v -> { if (!sel) Emoji.use(app, em); onPick.accept(sel ? "" : em); });
             row.addView(t);
         }
-        return row;
+        TextView plus = new TextView(this);
+        plus.setText("＋");
+        plus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        plus.setTextColor(Pal.dim);
+        plus.setGravity(Gravity.CENTER);
+        plus.setPadding(dp(9), dp(5), dp(9), dp(5));
+        plus.setBackground(round(Pal.card, Pal.line, 18));
+        plus.setOnClickListener(v -> openEmojiPicker(current, e -> { Emoji.use(app, e); onPick.accept(e); }));
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, -2);
+        pp.setMargins(dp(4), 0, 0, 0);
+        row.addView(plus, pp);
+        sv.addView(row);
+        return sv;
+    }
+
+    private TextView emojiCell(String em, int sizeSp) {
+        TextView t = new TextView(this);
+        t.setText(em);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(dp(8), dp(5), dp(8), dp(5));
+        return t;
+    }
+
+    /** Große Emoji-Auswahl wie auf der Tastatur: nach Kategorien, scrollbar. */
+    void openEmojiPicker(String current, java.util.function.Consumer<String> onPick) {
+        Dialog dlg = new Dialog(this);
+        dlg.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setBackground(round(Pal.card, Pal.line, 16));
+        box.setPadding(dp(10), dp(12), dp(10), dp(10));
+        TextView title = text(T.emChoose(), 18, Pal.text, true);
+        title.setPadding(dp(6), 0, 0, dp(6));
+        box.addView(title);
+
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int dlgW = Math.min(screenW - dp(24), dp(480));
+        int cols = 8;
+        int cell = (dlgW - dp(20)) / cols;
+        java.util.function.Consumer<String> pick = e -> { dlg.dismiss(); onPick.accept(e); };
+
+        ScrollView sc = new ScrollView(this);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        addEmojiSection(content, T.emRecent(), Emoji.recent(app), cols, cell, current, pick);
+        String[] labels = { T.emSmileys(), T.emAnimals(), T.emFood(), T.emActivity(), T.emTravel(), T.emObjects(), T.emSymbols(), T.emFlags() };
+        for (int c = 0; c < Emoji.CATEGORIES.length; c++)
+            addEmojiSection(content, labels[c], Emoji.CATEGORIES[c], cols, cell, current, pick);
+        sc.addView(content);
+        int maxH = (int) (getResources().getDisplayMetrics().heightPixels * 0.68f);
+        box.addView(sc, new LinearLayout.LayoutParams(-1, maxH));
+
+        dlg.setContentView(box);
+        Window w = dlg.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            w.setLayout(dlgW, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+        dlg.show();
+    }
+
+    private void addEmojiSection(LinearLayout content, String label, String[] ems, int cols, int cell, String current, java.util.function.Consumer<String> pick) {
+        if (ems == null || ems.length == 0) return;
+        TextView lb = text(label, 12, Pal.dim, true);
+        lb.setPadding(dp(6), dp(12), 0, dp(4));
+        content.addView(lb);
+        LinearLayout rowL = null;
+        for (int i = 0; i < ems.length; i++) {
+            if (i % cols == 0) {
+                rowL = new LinearLayout(this);
+                rowL.setOrientation(LinearLayout.HORIZONTAL);
+                content.addView(rowL);
+            }
+            final String em = ems[i];
+            TextView t = new TextView(this);
+            t.setText(em);
+            t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+            t.setGravity(Gravity.CENTER);
+            if (em.equals(current)) t.setBackground(round(withAlpha(Pal.accent, 0x44), 0, 16));
+            t.setOnClickListener(v -> pick.accept(em));
+            rowL.addView(t, new LinearLayout.LayoutParams(cell, cell));
+        }
     }
 
     /** Reaktions-Anzeige unter einer Nachricht (oder null, wenn keine). */

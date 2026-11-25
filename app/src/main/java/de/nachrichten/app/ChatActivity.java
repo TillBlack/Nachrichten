@@ -87,7 +87,9 @@ public class ChatActivity extends Base implements Net.Listener {
     private View typingRow;
     private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable stopTyping = this::hideTyping;
-    private LinearLayout header, list, inputBar, replyBar;
+    private LinearLayout header, selBar, list, inputBar, replyBar;
+    private Ico selTrash;
+    private String selId;              // markierte Nachricht (Auswahlmodus)
     private ScrollView scroll;
     private EditText input;
     private Ico send;
@@ -169,9 +171,16 @@ public class ChatActivity extends Base implements Net.Listener {
     }
 
     @Override
+    public void onBackPressed() {
+        if (selId != null) { clearSelection(); return; }
+        super.onBackPressed();
+    }
+
+    @Override
     protected void onInsets() {
         if (header == null) return;
         header.setPadding(dp(4), insetTop + dp(6), dp(8), dp(6));
+        if (selBar != null) selBar.setPadding(dp(4), insetTop + dp(6), dp(8), dp(6));
         inputBar.setPadding(dp(8), dp(6), dp(10), insetBottom + dp(8));
         setFloatDateTop(insetTop + dp(52));
         scrollToEnd();
@@ -219,6 +228,23 @@ public class ChatActivity extends Base implements Net.Listener {
         more.setOnClickListener(v -> contactMenu());
         header.addView(more, new LinearLayout.LayoutParams(dp(40), dp(48)));
         col.addView(header);
+
+        // Auswahl-Kopfzeile (erscheint, wenn eine Nachricht markiert ist): Schließen + Löschen
+        selBar = new LinearLayout(this);
+        selBar.setGravity(Gravity.CENTER_VERTICAL);
+        selBar.setBackgroundColor(Pal.card);
+        selBar.setVisibility(View.GONE);
+        Ico selClose = new Ico(this, Ico.CLOSE);
+        selClose.setOnClickListener(v -> clearSelection());
+        selBar.addView(selClose, new LinearLayout.LayoutParams(dp(44), dp(48)));
+        TextView selTitle = text(T.selected(), 17, Pal.text, true);
+        selTitle.setPadding(dp(8), 0, dp(8), 0);
+        selBar.addView(selTitle, new LinearLayout.LayoutParams(0, -2, 1f));
+        selTrash = new Ico(this, Ico.TRASH);
+        selTrash.color = Pal.red;
+        selBar.addView(selTrash, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        col.addView(selBar);
+
         View line = new View(this);
         line.setBackgroundColor(Pal.line);
         col.addView(line, new LinearLayout.LayoutParams(-1, Math.max(1, dp(1) / 2)));
@@ -537,6 +563,11 @@ public class ChatActivity extends Base implements Net.Listener {
         boolean mineNew = newMessage && msgs.get(msgs.size() - 1).outgoing;
         lastShownId = newLast;
         shownCount = msgs.size();
+        if (selId != null) {
+            View r = viewById.get(selId);
+            if (r != null) r.setBackgroundColor(withAlpha(Pal.accent, 0x22));
+            else clearSelection();
+        }
         if (stick || mineNew) scrollToEnd();
     }
 
@@ -731,9 +762,11 @@ public class ChatActivity extends Base implements Net.Listener {
 
     // ------------------------------------------------------------------ Menü je Nachricht
 
+    /** Reaktions-Auswahl (nur Emojis) – vom Antippen eines bestehenden Badges. */
     private void openReactionPicker(Db.Msg m) {
         Dialog dlg = dialog();
         LinearLayout box = panel();
+        box.setPadding(dp(8), dp(8), dp(8), dp(8));
         box.addView(reactionRow(app.db.myReaction(m.id, app.keys.pubHex()), emoji -> {
             dlg.dismiss();
             app.net.sendReaction(peer, m.id, emoji);
@@ -748,37 +781,63 @@ public class ChatActivity extends Base implements Net.Listener {
         box.addView(t, new LinearLayout.LayoutParams(-1, -2));
     }
 
+    /** Lang gedrückt: nur die Emoji-Leiste zeigen und die Nachricht markieren.
+     *  Zum Löschen dient der Mülleimer oben in der Auswahl-Kopfzeile. */
     private void messageMenu(Db.Msg m) {
-        boolean file = m.kind != Db.TEXT && m.complete();
+        mark(m);
         Dialog dlg = dialog();
         LinearLayout box = panel();
-        // Reaktionsleiste oben
+        box.setPadding(dp(8), dp(8), dp(8), dp(8));
         box.addView(reactionRow(app.db.myReaction(m.id, app.keys.pubHex()), emoji -> {
             dlg.dismiss();
+            clearSelection();
             app.net.sendReaction(peer, m.id, emoji);
         }), new LinearLayout.LayoutParams(-1, -2));
-        if (m.outgoing) {
-            String st = m.status == Db.PENDING ? T.pendingInfo() : m.status == Db.SENT ? T.statusSent()
-                    : m.status == Db.DELIVERED ? T.statusDelivered() : T.statusRead();
-            TextView info = text(st, 12, Pal.dim, false);
-            info.setPadding(dp(4), dp(8), dp(4), 0);
-            box.addView(info);
-        }
-        act(box, dlg, T.reply(), 0, () -> setReply(m.id));
-        if (file && !isVoice(m)) { act(box, dlg, T.saveFile(), 0, () -> saveFile(m)); act(box, dlg, T.openWith(), 0, () -> openFile(m)); }
-        else if (m.kind == Db.TEXT) act(box, dlg, T.copy(), 0, () -> copy(m.body));
+        showDialog(dlg, box);
+    }
+
+    // ------------------------------------------------------------------ Auswahl / Löschen
+
+    private void mark(Db.Msg m) {
+        clearHighlight();
+        selId = m.id;
+        View row = viewById.get(m.id);
+        if (row != null) row.setBackgroundColor(withAlpha(Pal.accent, 0x22));
+        if (header != null) header.setVisibility(View.GONE);
+        if (selBar != null) selBar.setVisibility(View.VISIBLE);
+        if (selTrash != null) selTrash.setOnClickListener(v -> deleteOptions(m));
+    }
+
+    private void clearHighlight() {
+        if (selId != null) { View r = viewById.get(selId); if (r != null) r.setBackground(null); }
+    }
+
+    private void clearSelection() {
+        clearHighlight();
+        selId = null;
+        if (selBar != null) selBar.setVisibility(View.GONE);
+        if (header != null) header.setVisibility(View.VISIBLE);
+    }
+
+    private void deleteOptions(Db.Msg m) {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(text(T.deleteMessageQ(), 18, Pal.text, true));
         act(box, dlg, T.deleteForMe(), Pal.red, () -> {
             String path = app.db.deleteMessage(m.id);
             if (path != null) new File(path).delete();
             if (m.id.equals(replyTo)) setReply(null);
+            clearSelection();
             reload();
         });
         if (m.outgoing) act(box, dlg, T.deleteForAll(), Pal.red, () ->
                 confirm(T.deleteForAllQ(), T.deleteForAll(), () -> {
                     app.net.deleteForEveryone(peer, m.id);
                     if (m.id.equals(replyTo)) setReply(null);
+                    clearSelection();
                     reload();
                 }));
+        act(box, dlg, T.cancel(), 0, () -> { });
         showDialog(dlg, box);
     }
 

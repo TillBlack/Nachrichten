@@ -88,6 +88,16 @@ final class T {
     static String cancel() { return s("Cancel", "Abbrechen", "Cancelar", "Отмена", "Odustani"); }
     static String ok() { return s("OK", "OK", "OK", "ОК", "U redu"); }
     static String done() { return s("Done", "Fertig", "Listo", "Готово", "Gotovo"); }
+    static String emChoose() { return s("Choose emoji", "Emoji auswählen", "Elegir emoji", "Выбрать эмодзи", "Odaberi emoji"); }
+    static String emRecent() { return s("Recently used", "Zuletzt verwendet", "Usados recientemente", "Недавние", "Nedavno korišteni"); }
+    static String emSmileys() { return s("Smileys & people", "Smileys & Personen", "Emoticonos y personas", "Смайлы и люди", "Smajlići i ljudi"); }
+    static String emAnimals() { return s("Animals & nature", "Tiere & Natur", "Animales y naturaleza", "Животные и природа", "Životinje i priroda"); }
+    static String emFood() { return s("Food & drink", "Essen & Trinken", "Comida y bebida", "Еда и напитки", "Hrana i piće"); }
+    static String emActivity() { return s("Activities", "Aktivitäten", "Actividades", "Активность", "Aktivnosti"); }
+    static String emTravel() { return s("Travel & places", "Reisen & Orte", "Viajes y lugares", "Путешествия", "Putovanja i mjesta"); }
+    static String emObjects() { return s("Objects", "Objekte", "Objetos", "Объекты", "Objekti"); }
+    static String emSymbols() { return s("Symbols", "Symbole", "Símbolos", "Символы", "Simboli"); }
+    static String emFlags() { return s("Flags", "Flaggen", "Banderas", "Флаги", "Zastave"); }
     static String cropHint() { return s("Move the circle, pinch to resize",
             "Kreis verschieben, mit zwei Fingern Größe ändern",
             "Mueve el círculo, pellizca para cambiar el tamaño",
@@ -218,6 +228,8 @@ final class T {
     static String deleteForMe() { return s("Delete for me", "Für mich löschen", "Eliminar para mí", "Удалить у себя", "Obriši kod mene"); }
     static String deleteForAll() { return s("Delete for everyone", "Für alle löschen", "Eliminar para todos", "Удалить у всех", "Obriši za sve"); }
     static String deleteForAllQ() { return s("Delete this message for everyone?", "Diese Nachricht für alle löschen?", "¿Eliminar este mensaje para todos?", "Удалить это сообщение у всех?", "Obrisati ovu poruku za sve?"); }
+    static String selected() { return s("Selected", "Ausgewählt", "Seleccionado", "Выбрано", "Odabrano"); }
+    static String deleteMessageQ() { return s("Delete message", "Nachricht löschen", "Eliminar mensaje", "Удалить сообщение", "Obriši poruku"); }
     static String removeFromChat() { return s("Remove", "Entfernen", "Quitar", "Убрать", "Ukloni"); }
     static String msgDeleted() { return s("This message was deleted", "Diese Nachricht wurde gelöscht", "Este mensaje fue eliminado", "Это сообщение удалено", "Ova poruka je obrisana"); }
 

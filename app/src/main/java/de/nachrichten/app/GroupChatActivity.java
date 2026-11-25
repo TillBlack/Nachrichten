@@ -42,7 +42,10 @@ public class GroupChatActivity extends Base implements Net.Listener {
     private static final int REQ_GROUP_PIC = 24, REQ_CROP_GROUP = 25;
     private String gid;
     private FrameLayout headerAv;
-    private LinearLayout header, list;
+    private LinearLayout header, selBar, list;
+    private Ico selTrash;
+    private String selId;              // markierte Nachricht (Auswahlmodus)
+    private final java.util.Map<String, View> gViewById = new java.util.HashMap<>();
     private TextView title, sub;
     private ScrollView scroll;
     private EditText input;
@@ -102,6 +105,22 @@ public class GroupChatActivity extends Base implements Net.Listener {
         header.addView(tWrap, new LinearLayout.LayoutParams(0, -2, 1f));
         col.addView(header);
 
+        // Auswahl-Kopfzeile (erscheint, wenn eine Nachricht markiert ist)
+        selBar = new LinearLayout(this);
+        selBar.setGravity(Gravity.CENTER_VERTICAL);
+        selBar.setBackgroundColor(Pal.card);
+        selBar.setVisibility(View.GONE);
+        Ico selClose = new Ico(this, Ico.CLOSE);
+        selClose.setOnClickListener(v -> clearSelection());
+        selBar.addView(selClose, new LinearLayout.LayoutParams(dp(44), dp(48)));
+        TextView selTitle = text(T.selected(), 17, Pal.text, true);
+        selTitle.setPadding(dp(8), 0, dp(8), 0);
+        selBar.addView(selTitle, new LinearLayout.LayoutParams(0, -2, 1f));
+        selTrash = new Ico(this, Ico.TRASH);
+        selTrash.color = Pal.red;
+        selBar.addView(selTrash, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        col.addView(selBar);
+
         scroll = new ScrollView(this);
         scroll.setClipToPadding(false);
         list = new LinearLayout(this);
@@ -137,6 +156,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
     protected void onInsets() {
         if (header == null) return;
         header.setPadding(dp(4), insetTop + dp(8), dp(12), dp(8));
+        if (selBar != null) selBar.setPadding(dp(4), insetTop + dp(8), dp(12), dp(8));
         list.setPadding(dp(12), dp(8), dp(12), dp(12));
         setFloatDateTop(insetTop + dp(54));
         if (bar != null) bar.setPadding(dp(8), dp(6), dp(8), insetBottom + dp(6));
@@ -188,6 +208,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         headerAv.addView(hav, new FrameLayout.LayoutParams(dp(40), dp(40)));
         list.removeAllViews();
         dayChipViews.clear();
+        gViewById.clear();
         String me = app.keys.pubHex();
         List<Db.Msg> msgs = app.db.messages(gid);
         String lastSender = null;
@@ -202,8 +223,15 @@ public class GroupChatActivity extends Base implements Net.Listener {
                 lastSender = null;
             }
             boolean showName = !m.outgoing && !java.util.Objects.equals(m.sender, lastSender);
-            list.addView(bubble(m, me, showName));
+            View rv = bubble(m, me, showName);
+            gViewById.put(m.id, rv);
+            list.addView(rv);
             lastSender = m.sender;
+        }
+        if (selId != null) {
+            View r = gViewById.get(selId);
+            if (r != null) r.setBackgroundColor(withAlpha(Pal.accent, 0x22));
+            else clearSelection();
         }
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
     }
@@ -298,9 +326,11 @@ public class GroupChatActivity extends Base implements Net.Listener {
         return row;
     }
 
+    /** Reaktions-Auswahl (nur Emojis) – vom Antippen eines bestehenden Badges. */
     private void openGroupReactionPicker(Db.Msg m) {
         Dialog dlg = dialog();
         LinearLayout box = panel();
+        box.setPadding(dp(8), dp(8), dp(8), dp(8));
         box.addView(reactionRow(app.db.myReaction(m.id, app.keys.pubHex()), emoji -> {
             dlg.dismiss(); app.net.sendGroupReaction(gid, m.id, emoji);
         }), new LinearLayout.LayoutParams(-1, -2));
@@ -314,20 +344,58 @@ public class GroupChatActivity extends Base implements Net.Listener {
         box.addView(t, new LinearLayout.LayoutParams(-1, -2));
     }
 
+    /** Lang gedrückt: nur die Emoji-Leiste zeigen und die Nachricht markieren. */
     private void groupMsgMenu(Db.Msg m) {
-        boolean file = m.kind != Db.TEXT && m.complete();
+        mark(m);
         Dialog dlg = dialog();
         LinearLayout box = panel();
+        box.setPadding(dp(8), dp(8), dp(8), dp(8));
         box.addView(reactionRow(app.db.myReaction(m.id, app.keys.pubHex()), emoji -> {
-            dlg.dismiss(); app.net.sendGroupReaction(gid, m.id, emoji);
+            dlg.dismiss(); clearSelection(); app.net.sendGroupReaction(gid, m.id, emoji);
         }), new LinearLayout.LayoutParams(-1, -2));
-        if (file && !isVoice(m) && m.kind != Db.IMAGE) {
-            gact(box, dlg, T.openWith(), 0, () -> openFile(m));
-        } else if (m.kind == Db.TEXT) {
-            gact(box, dlg, T.copy(), 0, () -> copy(m.body));
-        }
-        gact(box, dlg, T.deleteForMe(), Pal.red, () -> { app.db.deleteMessage(m.id); reload(); });
         showDialog(dlg, box);
+    }
+
+    // ------------------------------------------------------------------ Auswahl / Löschen
+
+    private void mark(Db.Msg m) {
+        clearHighlight();
+        selId = m.id;
+        View row = gViewById.get(m.id);
+        if (row != null) row.setBackgroundColor(withAlpha(Pal.accent, 0x22));
+        if (header != null) header.setVisibility(View.GONE);
+        if (selBar != null) selBar.setVisibility(View.VISIBLE);
+        if (selTrash != null) selTrash.setOnClickListener(v -> groupDeleteOptions(m));
+    }
+
+    private void clearHighlight() {
+        if (selId != null) { View r = gViewById.get(selId); if (r != null) r.setBackground(null); }
+    }
+
+    private void clearSelection() {
+        clearHighlight();
+        selId = null;
+        if (selBar != null) selBar.setVisibility(View.GONE);
+        if (header != null) header.setVisibility(View.VISIBLE);
+    }
+
+    private void groupDeleteOptions(Db.Msg m) {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(text(T.deleteMessageQ(), 18, Pal.text, true));
+        gact(box, dlg, T.deleteForMe(), Pal.red, () -> {
+            app.db.deleteMessage(m.id);
+            clearSelection();
+            reload();
+        });
+        gact(box, dlg, T.cancel(), 0, () -> { });
+        showDialog(dlg, box);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (selId != null) { clearSelection(); return; }
+        super.onBackPressed();
     }
 
     private void openFile(Db.Msg m) {
