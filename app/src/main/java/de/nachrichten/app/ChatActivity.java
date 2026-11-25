@@ -544,9 +544,20 @@ public class ChatActivity extends Base implements Net.Listener {
     private View row(Db.Msg m, boolean grouped) {
         SwipeRow row = new SwipeRow(this);
         View b = bubble(m, grouped);
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(m.outgoing ? Gravity.END : Gravity.START);
+        col.addView(b);
+        View badge = reactionBadge(m.id);
+        if (badge != null) {
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, -2);
+            bp.setMargins(m.outgoing ? 0 : dp(10), dp(-7), m.outgoing ? dp(10) : 0, dp(2));
+            badge.setOnClickListener(x -> openReactionPicker(m));
+            col.addView(badge, bp);
+        }
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, m.outgoing ? Gravity.END : Gravity.START);
         lp.setMargins(m.outgoing ? dp(48) : 0, 0, m.outgoing ? 0 : dp(48), 0);
-        row.addView(b, lp);
+        row.addView(col, lp);
         row.onSwipe = () -> setReply(m.id);
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
         rp.setMargins(0, dp(grouped ? 2 : 6), 0, 0);
@@ -720,39 +731,55 @@ public class ChatActivity extends Base implements Net.Listener {
 
     // ------------------------------------------------------------------ Menü je Nachricht
 
+    private void openReactionPicker(Db.Msg m) {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(reactionRow(app.db.myReaction(m.id, app.keys.pubHex()), emoji -> {
+            dlg.dismiss();
+            app.net.sendReaction(peer, m.id, emoji);
+        }), new LinearLayout.LayoutParams(-1, -2));
+        showDialog(dlg, box);
+    }
+
+    private void act(LinearLayout box, Dialog dlg, String label, int color, Runnable run) {
+        TextView t = text(label, 16, color == 0 ? Pal.text : color, false);
+        t.setPadding(dp(4), dp(13), dp(4), dp(13));
+        t.setOnClickListener(v -> { dlg.dismiss(); run.run(); });
+        box.addView(t, new LinearLayout.LayoutParams(-1, -2));
+    }
+
     private void messageMenu(Db.Msg m) {
         boolean file = m.kind != Db.TEXT && m.complete();
-        java.util.List<String> items = new java.util.ArrayList<>();
-        java.util.List<Integer> colors = new java.util.ArrayList<>();
-        items.add(T.reply()); colors.add(0);
-        if (file && !isVoice(m)) { items.add(T.saveFile()); colors.add(0); items.add(T.openWith()); colors.add(0); }
-        else if (m.kind == Db.TEXT) { items.add(T.copy()); colors.add(0); }
-        items.add(T.deleteForMe()); colors.add(Pal.red);
-        if (m.outgoing) { items.add(T.deleteForAll()); colors.add(Pal.red); }
-        String[] itemArr = items.toArray(new String[0]);
-        int[] colArr = new int[colors.size()];
-        for (int k = 0; k < colArr.length; k++) colArr[k] = colors.get(k);
-        String title = !m.outgoing ? null : m.status == Db.PENDING ? T.pendingInfo() : m.status == Db.SENT ? T.statusSent()
-                : m.status == Db.DELIVERED ? T.statusDelivered() : T.statusRead();
-        menu(title, itemArr, colArr, i -> {
-            String it = itemArr[i];
-            if (it.equals(T.reply())) setReply(m.id);
-            else if (it.equals(T.copy())) copy(m.body);
-            else if (it.equals(T.saveFile())) saveFile(m);
-            else if (it.equals(T.openWith())) openFile(m);
-            else if (it.equals(T.deleteForMe())) {
-                String path = app.db.deleteMessage(m.id);
-                if (path != null) new File(path).delete();
-                if (m.id.equals(replyTo)) setReply(null);
-                reload();
-            } else if (it.equals(T.deleteForAll())) {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        // Reaktionsleiste oben
+        box.addView(reactionRow(app.db.myReaction(m.id, app.keys.pubHex()), emoji -> {
+            dlg.dismiss();
+            app.net.sendReaction(peer, m.id, emoji);
+        }), new LinearLayout.LayoutParams(-1, -2));
+        if (m.outgoing) {
+            String st = m.status == Db.PENDING ? T.pendingInfo() : m.status == Db.SENT ? T.statusSent()
+                    : m.status == Db.DELIVERED ? T.statusDelivered() : T.statusRead();
+            TextView info = text(st, 12, Pal.dim, false);
+            info.setPadding(dp(4), dp(8), dp(4), 0);
+            box.addView(info);
+        }
+        act(box, dlg, T.reply(), 0, () -> setReply(m.id));
+        if (file && !isVoice(m)) { act(box, dlg, T.saveFile(), 0, () -> saveFile(m)); act(box, dlg, T.openWith(), 0, () -> openFile(m)); }
+        else if (m.kind == Db.TEXT) act(box, dlg, T.copy(), 0, () -> copy(m.body));
+        act(box, dlg, T.deleteForMe(), Pal.red, () -> {
+            String path = app.db.deleteMessage(m.id);
+            if (path != null) new File(path).delete();
+            if (m.id.equals(replyTo)) setReply(null);
+            reload();
+        });
+        if (m.outgoing) act(box, dlg, T.deleteForAll(), Pal.red, () ->
                 confirm(T.deleteForAllQ(), T.deleteForAll(), () -> {
                     app.net.deleteForEveryone(peer, m.id);
                     if (m.id.equals(replyTo)) setReply(null);
                     reload();
-                });
-            }
-        });
+                }));
+        showDialog(dlg, box);
     }
 
     private void viewImage(Db.Msg m) {

@@ -96,6 +96,15 @@ public final class Proto {
         return sb.append("]}").toString();
     }
 
+    /** Reaktion auf eine Nachricht (leeres emoji = entfernen). */
+    public static String react(String msgId, String emoji) {
+        StringBuilder sb = new StringBuilder("{\"nx\":1,\"t\":\"react\",\"m\":");
+        Event.str(sb, msgId);
+        sb.append(",\"e\":");
+        Event.str(sb, emoji == null ? "" : emoji);
+        return sb.append('}').toString();
+    }
+
     public static String typing() { return "{\"nx\":1,\"t\":\"typing\"}"; }
 
     public static String presence() { return "{\"nx\":1,\"t\":\"presence\"}"; }

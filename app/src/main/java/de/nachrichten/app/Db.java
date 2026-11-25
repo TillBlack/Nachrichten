@@ -45,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 16); }
+    Db(Context c) { super(c, "nachrichten.db", null, 17); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -69,6 +69,12 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo14(db);
         upgradeTo15(db);
         upgradeTo16(db);
+        upgradeTo17(db);
+    }
+
+    /** Reaktionen (Emoji) auf Nachrichten: je Nutzer eine pro Nachricht. */
+    private static void upgradeTo17(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE reactions (msg_id TEXT NOT NULL, pub TEXT NOT NULL, emoji TEXT NOT NULL, ts INTEGER NOT NULL, PRIMARY KEY(msg_id, pub))");
     }
 
     /** Gruppenbild. */
@@ -176,6 +182,38 @@ final class Db extends SQLiteOpenHelper {
         if (o < 14) upgradeTo14(db);
         if (o < 15) upgradeTo15(db);
         if (o < 16) upgradeTo16(db);
+        if (o < 17) upgradeTo17(db);
+    }
+
+    /** Reaktion setzen (leeres Emoji = entfernen). Zeitstempel verhindert, dass alte Ereignisse neuere überschreiben. */
+    synchronized void setReaction(String msgId, String pub, String emoji, long ts) {
+        SQLiteDatabase db = getWritableDatabase();
+        try (Cursor c = db.rawQuery("SELECT ts FROM reactions WHERE msg_id=? AND pub=?", new String[]{msgId, pub})) {
+            if (c.moveToFirst() && ts < c.getLong(0)) return;
+        }
+        if (emoji == null || emoji.isEmpty()) {
+            db.delete("reactions", "msg_id=? AND pub=?", new String[]{msgId, pub});
+            return;
+        }
+        ContentValues v = new ContentValues();
+        v.put("msg_id", msgId); v.put("pub", pub); v.put("emoji", emoji); v.put("ts", ts);
+        db.insertWithOnConflict("reactions", null, v, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    /** Emoji -> Anzahl, in Reihenfolge des ersten Auftretens. */
+    synchronized java.util.LinkedHashMap<String, Integer> reactions(String msgId) {
+        java.util.LinkedHashMap<String, Integer> out = new java.util.LinkedHashMap<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT emoji FROM reactions WHERE msg_id=? ORDER BY ts", new String[]{msgId})) {
+            while (c.moveToNext()) { String e = c.getString(0); out.merge(e, 1, Integer::sum); }
+        }
+        return out;
+    }
+
+    synchronized String myReaction(String msgId, String myPub) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT emoji FROM reactions WHERE msg_id=? AND pub=?", new String[]{msgId, myPub})) {
+            if (c.moveToFirst()) return c.getString(0);
+        }
+        return null;
     }
 
     // ------------------------------------------------------------------ Moderation

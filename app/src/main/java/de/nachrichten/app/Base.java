@@ -412,6 +412,48 @@ abstract class Base extends Activity {
         showDialog(dlg, box);
     }
 
+    // ------------------------------------------------------------------ Reaktionen (Emoji)
+
+    static final String[] REACTIONS = {"👍", "❤️", "😂", "😮", "😢", "🙏", "😅"};
+
+    /** Horizontale Emoji-Leiste (für das Lang-Druck-Menü). onPick bekommt das Emoji, oder "" zum Entfernen. */
+    LinearLayout reactionRow(String current, java.util.function.Consumer<String> onPick) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER);
+        row.setBackground(round(Pal.field, Pal.line, 26));
+        row.setPadding(dp(4), dp(4), dp(4), dp(4));
+        for (String em : REACTIONS) {
+            TextView t = new TextView(this);
+            t.setText(em);
+            t.setTextSize(24);
+            t.setPadding(dp(8), dp(5), dp(8), dp(5));
+            boolean sel = em.equals(current);
+            if (sel) t.setBackground(round(withAlpha(Pal.accent, 0x44), 0, 18));
+            t.setOnClickListener(v -> onPick.accept(sel ? "" : em));
+            row.addView(t);
+        }
+        return row;
+    }
+
+    /** Reaktions-Anzeige unter einer Nachricht (oder null, wenn keine). */
+    View reactionBadge(String msgId) {
+        java.util.LinkedHashMap<String, Integer> r = app.db.reactions(msgId);
+        if (r.isEmpty()) return null;
+        LinearLayout box = new LinearLayout(this);
+        box.setGravity(Gravity.CENTER_VERTICAL);
+        box.setBackground(round(Pal.card, Pal.line, 12));
+        box.setPadding(dp(7), dp(2), dp(7), dp(2));
+        StringBuilder sb = new StringBuilder();
+        int total = 0;
+        for (java.util.Map.Entry<String, Integer> e : r.entrySet()) { sb.append(e.getKey()); total += e.getValue(); }
+        TextView t = new TextView(this);
+        t.setText(sb.toString() + (total > 1 ? " " + total : ""));
+        t.setTextSize(13);
+        t.setTextColor(Pal.text);
+        box.addView(t);
+        return box;
+    }
+
     /** Kurzform des öffentlichen Schlüssels als npub (für die kleine Nutzer-ID). */
     String shortId(String pub) {
         try {

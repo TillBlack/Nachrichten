@@ -414,6 +414,10 @@ final class Net {
             if (env != null) {
                 String t = env.optString("t");
                 if (!outgoing) learnName(peer, env.optString("sn", null)); // echter Name reist mit
+                if (t.equals("react")) {
+                    if (!outgoing) { app.db.setReaction(cleanId(env.optString("m", "")), author, env.optString("e", ""), createdAt * 1000L); changed(peer); }
+                    return;
+                }
                 if (t.equals("file")) { handleChunk(peer, outgoing, createdAt, env); return; }
                 if (t.equals("profile")) { if (!outgoing) handleProfile(peer, env); return; }
                 if (t.equals("del")) {
@@ -911,6 +915,10 @@ final class Net {
                     JSONObject env = new JSONObject(plain);
                     String t = env.optString("t");
                     if (!outgoing) learnName(author, env.optString("sn", null));
+                    if (t.equals("react")) {
+                        if (!outgoing) { app.db.setReaction(cleanId(env.optString("m", "")), author, env.optString("e", ""), createdAt * 1000L); changed(gid); }
+                        return;
+                    }
                     if (t.equals("file")) { handleGroupChunk(gid, author, outgoing, createdAt, g.name, env); return; }
                     if (t.equals("text")) { body = env.optString("b"); replyTo = cleanId(env.optString("r", null)); }
                     else body = "[" + T.unsupported() + "]";
@@ -1461,6 +1469,43 @@ final class Net {
                 Event e = event(peer, Proto.text(t, null), System.currentTimeMillis());
                 seen.add(e.id);
                 broadcast(e.toJson());
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /** Reaktion (Emoji) auf eine 1:1-Nachricht senden. */
+    void sendReaction(String peer, String msgId, String emoji) {
+        worker.post(() -> {
+            try {
+                long now = System.currentTimeMillis();
+                app.db.setReaction(msgId, app.keys.pubHex(), emoji, now);
+                Event e = event(peer, Proto.react(msgId, emoji), now);
+                seen.add(e.id);
+                broadcast(e.toJson());
+                changed(peer);
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /** Reaktion (Emoji) auf eine Gruppennachricht senden. */
+    void sendGroupReaction(String gid, String msgId, String emoji) {
+        worker.post(() -> {
+            try {
+                Db.Group g = app.db.group(gid);
+                if (g == null) return;
+                byte[] gk = Event.unhex(g.gkey);
+                if (gk == null) return;
+                long now = System.currentTimeMillis();
+                app.db.setReaction(msgId, app.keys.pubHex(), emoji, now);
+                Event e = new Event();
+                e.kind = Proto.KIND_GROUP;
+                e.createdAt = now / 1000;
+                e.tags = new String[][]{{"g", gid}};
+                e.content = Nip44.encrypt(Proto.react(msgId, emoji), gk);
+                e.sign(app.keys.priv());
+                seen.add(e.id);
+                broadcast(e.toJson());
+                changed(gid);
             } catch (Exception ignored) { }
         });
     }

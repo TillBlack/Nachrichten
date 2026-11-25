@@ -276,14 +276,58 @@ public class GroupChatActivity extends Base implements Net.Listener {
         tm.setGravity(Gravity.END);
         bub.addView(tm);
 
-        int max = (int) (getResources().getDisplayMetrics().widthPixels * 0.72f);
+        bub.setOnLongClickListener(v -> { groupMsgMenu(m); return true; });
+
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(m.outgoing ? Gravity.END : Gravity.START);
+        col.addView(bub, new LinearLayout.LayoutParams(-2, -2));
+        View badge = reactionBadge(m.id);
+        if (badge != null) {
+            badge.setOnClickListener(v -> openGroupReactionPicker(m));
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, -2);
+            bp.setMargins(0, dp(2), 0, 0);
+            col.addView(badge, bp);
+        }
+
         FrameLayout wrap = new FrameLayout(this);
-        FrameLayout.LayoutParams wl = new FrameLayout.LayoutParams(-2, -2);
-        wrap.addView(bub, wl);
+        wrap.addView(col, new FrameLayout.LayoutParams(-2, -2));
         LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(-2, -2);
         wlp.weight = 0;
         row.addView(wrap, wlp);
         return row;
+    }
+
+    private void openGroupReactionPicker(Db.Msg m) {
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(reactionRow(app.db.myReaction(m.id, app.keys.pubHex()), emoji -> {
+            dlg.dismiss(); app.net.sendGroupReaction(gid, m.id, emoji);
+        }), new LinearLayout.LayoutParams(-1, -2));
+        showDialog(dlg, box);
+    }
+
+    private void gact(LinearLayout box, Dialog dlg, String label, int color, Runnable run) {
+        TextView t = text(label, 16, color == 0 ? Pal.text : color, false);
+        t.setPadding(dp(4), dp(13), dp(4), dp(13));
+        t.setOnClickListener(v -> { dlg.dismiss(); run.run(); });
+        box.addView(t, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void groupMsgMenu(Db.Msg m) {
+        boolean file = m.kind != Db.TEXT && m.complete();
+        Dialog dlg = dialog();
+        LinearLayout box = panel();
+        box.addView(reactionRow(app.db.myReaction(m.id, app.keys.pubHex()), emoji -> {
+            dlg.dismiss(); app.net.sendGroupReaction(gid, m.id, emoji);
+        }), new LinearLayout.LayoutParams(-1, -2));
+        if (file && !isVoice(m) && m.kind != Db.IMAGE) {
+            gact(box, dlg, T.openWith(), 0, () -> openFile(m));
+        } else if (m.kind == Db.TEXT) {
+            gact(box, dlg, T.copy(), 0, () -> copy(m.body));
+        }
+        gact(box, dlg, T.deleteForMe(), Pal.red, () -> { app.db.deleteMessage(m.id); reload(); });
+        showDialog(dlg, box);
     }
 
     private void openFile(Db.Msg m) {
