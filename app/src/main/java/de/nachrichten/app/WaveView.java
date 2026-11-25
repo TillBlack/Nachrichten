@@ -27,10 +27,13 @@ final class WaveView extends View {
     void setAmps(float[] a) { amps = a == null ? new float[0] : a; invalidate(); }
     void setProgress(float f) { progress = f; invalidate(); }
 
-    /** Tippposition in einen Anteil 0..1 umrechnen. */
+    /** Tippposition in einen Anteil 0..1 umrechnen (Rand für den Reglerpunkt berücksichtigt). */
     float fractionAt(float x) {
         int w = getWidth();
-        return w <= 0 ? 0 : Math.max(0f, Math.min(1f, x / w));
+        if (w <= 0) return 0;
+        float inset = showHandle ? 5.5f * getResources().getDisplayMetrics().density : 0f;
+        float usable = Math.max(1f, w - 2 * inset);
+        return Math.max(0f, Math.min(1f, (x - inset) / usable));
     }
 
     @Override
@@ -53,10 +56,13 @@ final class WaveView extends View {
         int w = getWidth(), h = getHeight();
         if (w == 0 || h == 0 || amps.length == 0) return;
         float d = getResources().getDisplayMetrics().density;
-        float bw = 2.6f * d, gap = 2.0f * d, step = bw + gap;
-        int slots = Math.max(1, (int) (w / step));
-        float cy = h / 2f, maxH = h - 2f * d;
-        float startX = (w - slots * step + gap) / 2f;
+        float hr = 5.5f * d;                 // Radius des Schiebereglers
+        float bw = 2.2f * d, gap = 2.2f * d, step = bw + gap;
+        float inset = showHandle ? hr : 0f;  // Platz lassen, damit der Punkt an den Rändern nicht abgeschnitten wird
+        float usable = w - 2 * inset;
+        int slots = Math.max(1, (int) (usable / step));
+        float cy = h / 2f, maxH = h - 2f * d; // Balken symmetrisch um die Mitte
+        float startX = inset + (usable - slots * step + gap) / 2f;
         for (int i = 0; i < slots; i++) {
             float frac = slots <= 1 ? 0f : (float) i / (slots - 1);
             int idx;
@@ -76,11 +82,11 @@ final class WaveView extends View {
             int col = (progress >= 0 && frac <= progress) ? playedColor : barColor;
             drawBar(c, startX + i * step, cy, bh, bw, col);
         }
-        // Schieberegler-Punkt an der Wiedergabeposition
+        // Schieberegler-Punkt an der Wiedergabeposition (innerhalb der Ränder)
         if (showHandle && progress >= 0) {
-            float hx = progress * w;
+            float hx = inset + Math.max(0f, Math.min(1f, progress)) * usable;
             p.setColor(playedColor);
-            c.drawCircle(hx, cy, 5.5f * d, p);
+            c.drawCircle(hx, cy, hr, p);
             p.setColor(0xFFFFFFFF);
             c.drawCircle(hx, cy, 2.2f * d, p);
         }
