@@ -206,6 +206,19 @@ public final class App extends Application {
     void useAppealAdmin() { resetAppealIfNewBan(); prefs.edit().putInt("appealAdmin", prefs.getInt("appealAdmin", 0) + 1).apply(); }
     void useAppealContact() { resetAppealIfNewBan(); prefs.edit().putInt("appealContact", prefs.getInt("appealContact", 0) + 1).apply(); }
 
+    // --- Begrenzungen für Vorschläge und Meldungen ---
+    static final int MAX_SUGGEST_CHARS = 400;
+    static final long SEND_COOLDOWN_MS = 30 * 60 * 1000L; // 30 Minuten
+
+    private int cooldownLeftMin(String key) {
+        long left = SEND_COOLDOWN_MS - (System.currentTimeMillis() - prefs.getLong(key, 0));
+        return left > 0 ? (int) Math.ceil(left / 60000.0) : 0;
+    }
+    int suggestCooldownMin() { return cooldownLeftMin("lastSuggestTs"); }
+    int reportCooldownMin() { return cooldownLeftMin("lastReportTs"); }
+    void markSuggestSent() { prefs.edit().putLong("lastSuggestTs", System.currentTimeMillis()).apply(); }
+    void markReportSent() { prefs.edit().putLong("lastReportTs", System.currentTimeMillis()).apply(); }
+
     /** Ersatzname, wenn jemand gar keinen Namen hat: "User<Zahl>" (stabil aus dem Schlüssel). */
     String fallbackName(String pub) {
         long n;

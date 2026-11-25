@@ -594,4 +594,10 @@ final class T {
     static String reportTarget() { return s("Reported user", "Gemeldeter Nutzer", "Usuario reportado", "На кого", "Prijavljeni"); }
     static String reportSent() { return s("Report sent", "Meldung gesendet", "Reporte enviado", "Жалоба отправлена", "Prijava poslana"); }
     static String reportNoContacts() { return s("No users to report.", "Keine Nutzer zum Melden.", "No hay usuarios para reportar.", "Нет пользователей.", "Nema korisnika."); }
+    static String cooldownWait(int min) { return s(
+            "Please wait " + min + " more minute(s).",
+            "Bitte warte noch " + min + " Minute(n).",
+            "Espera " + min + " minuto(s) más.",
+            "Подождите ещё " + min + " мин.",
+            "Pričekaj još " + min + " min."); }
 }

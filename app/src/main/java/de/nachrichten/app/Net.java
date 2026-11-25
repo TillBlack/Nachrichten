@@ -1245,7 +1245,9 @@ final class Net {
      * und kein Kontakt entsteht. Verschlüsselt (NIP-44) an den Entwickler-Schlüssel.
      */
     void sendSuggestion(String text) {
-        final String t = text == null ? "" : text.trim();
+        String tt = text == null ? "" : text.trim();
+        if (tt.length() > App.MAX_SUGGEST_CHARS) tt = tt.substring(0, App.MAX_SUGGEST_CHARS);
+        final String t = tt;
         if (t.isEmpty() || App.SUGGEST_PUBKEY.isEmpty()) return;
         worker.post(() -> {
             try {
@@ -1275,7 +1277,9 @@ final class Net {
 
     /** Einen Nutzer beim Admin melden (mit Grund). */
     void sendReport(String targetPub, String reason) {
-        final String r = reason == null ? "" : reason.trim();
+        String rr = reason == null ? "" : reason.trim();
+        if (rr.length() > App.MAX_SUGGEST_CHARS) rr = rr.substring(0, App.MAX_SUGGEST_CHARS);
+        final String r = rr;
         if (targetPub == null || !targetPub.matches("[0-9a-f]{64}") || App.SUGGEST_PUBKEY.isEmpty() || !app.keys.has()) return;
         sendToAdminBox("\u0001R" + targetPub + r);
     }

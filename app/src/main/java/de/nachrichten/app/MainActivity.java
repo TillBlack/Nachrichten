@@ -551,13 +551,18 @@ public class MainActivity extends Base implements Net.Listener {
 
     /** Nutzer melden: Kontakt auswählen und Grund eingeben. */
     private void openReport() {
+        int wait = app.reportCooldownMin();
+        if (wait > 0) { toast(T.cooldownWait(wait)); return; }
         java.util.List<String> keys = new java.util.ArrayList<>();
         for (String k : app.db.contactKeys()) if (!App.SUGGEST_PUBKEY.equals(k)) keys.add(k);
         if (keys.isEmpty()) { toast(T.reportNoContacts()); return; }
         String[] names = new String[keys.size()];
         for (int i = 0; i < keys.size(); i++) names[i] = app.nameOf(keys.get(i));
         menu(T.report(), names, null, k -> ask(T.reportReason(), null, true, reason -> {
-            app.net.sendReport(keys.get(k), reason);
+            if (app.reportCooldownMin() > 0) { toast(T.cooldownWait(app.reportCooldownMin())); return; }
+            String r = reason.length() > App.MAX_SUGGEST_CHARS ? reason.substring(0, App.MAX_SUGGEST_CHARS) : reason;
+            app.net.sendReport(keys.get(k), r);
+            app.markReportSent();
             toast(T.reportSent());
         }));
     }
@@ -635,6 +640,7 @@ public class MainActivity extends Base implements Net.Listener {
         box.addView(info, ip);
         EditText fld = field(T.suggestHint(), true);
         fld.setMaxLines(8);
+        fld.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(App.MAX_SUGGEST_CHARS)});
         box.addView(fld, new LinearLayout.LayoutParams(-1, -2));
         LinearLayout buttons = buttonRow();
         TextView cancel = button(T.cancel(), false);
@@ -645,7 +651,10 @@ public class MainActivity extends Base implements Net.Listener {
             String s = fld.getText().toString().trim();
             if (s.isEmpty()) { toast(T.suggestEmpty()); return; }
             if (!app.suggestReady()) { toast(T.suggestOff()); return; }
+            int wait = app.suggestCooldownMin();
+            if (wait > 0) { toast(T.cooldownWait(wait)); return; }
             app.net.sendSuggestion(s);
+            app.markSuggestSent();
             dlg.dismiss();
             toast(T.suggestThanks());
         });

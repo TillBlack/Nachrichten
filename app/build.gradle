@@ -8,8 +8,8 @@ android {
         applicationId 'de.tillblack.nachrichten'
         minSdk 26
         targetSdk 35
-        versionCode 43
-        versionName '43'
+        versionCode 44
+        versionName '44'
     }
 
     // Der Signierschlüssel liegt passwortgeschützt im Repo.
