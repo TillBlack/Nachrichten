@@ -581,7 +581,6 @@ final class T {
     static String appeals() { return s("Appeals", "Einsprüche", "Apelaciones", "Апелляции", "Žalbe"); }
     static String appealsSub(int n) { return s(n + " appeal(s)", n + " Einspruch/Einsprüche", n + " apelación(es)", n + " апелляц.", n + " žalbi"); }
     static String appealsNone() { return s("No appeals", "Keine Einsprüche", "Sin apelaciones", "Нет апелляций", "Nema žalbi"); }
-    static String reply() { return s("Reply", "Antworten", "Responder", "Ответить", "Odgovori"); }
     static String replied() { return s("Replied", "Beantwortet", "Respondido", "Отвечено", "Odgovoreno"); }
     static String bannedOverview() { return s("Blocked users", "Gesperrte Nutzer", "Usuarios bloqueados", "Заблокированные", "Blokirani"); }
 
