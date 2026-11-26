@@ -1,0 +1,99 @@
+name: Windows bauen
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'app/src/main/java/de/nachrichten/crypto/**'
+      - 'app/src/main/java/de/nachrichten/net/**'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Version lesen
+        id: v
+        shell: bash
+        run: |
+          CODE=$(grep -oE 'CODE = [0-9]+' desktop/src/de/nachrichten/desktop/Version.java | grep -oE '[0-9]+')
+          NAME=$(grep -oE 'NAME = "[0-9.]+"' desktop/src/de/nachrichten/desktop/Version.java | grep -oE '[0-9.]+')
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "Windows-Version $NAME ($CODE)"
+
+      - name: Kompilieren
+        shell: bash
+        run: |
+          mkdir -p out lib
+          find desktop/src app/src/main/java/de/nachrichten/crypto app/src/main/java/de/nachrichten/net -name '*.java' > sources.txt
+          javac -encoding UTF-8 --release 21 -d out @sources.txt
+          cp desktop/res/icon.png out/
+          jar --create --file lib/Nachrichten.jar --main-class de.nachrichten.desktop.Main -C out .
+
+      - name: Programm mit eigener Java-Laufzeit bauen
+        shell: bash
+        run: |
+          jpackage --type app-image --name Nachrichten --input lib --main-jar Nachrichten.jar \
+            --app-version "${{ steps.v.outputs.name }}" --vendor "Nachrichten" --icon desktop/res/icon.ico \
+            --add-modules java.base,java.desktop,java.net.http,jdk.crypto.ec \
+            --java-options "-Dfile.encoding=UTF-8" --dest dist
+          cd dist && 7z a -tzip ../Nachrichten-Windows-portabel.zip Nachrichten > /dev/null
+          cd .. && ls -la Nachrichten-Windows-portabel.zip
+
+      # Das Installationsprogramm (.exe) braucht das WiX Toolset 3.
+      - name: WiX installieren
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          choco install wixtoolset -y --no-progress
+          $bin = Get-ChildItem "C:\Program Files (x86)" -Directory -Filter "WiX Toolset*" | Select-Object -First 1
+          if ($bin) { Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $bin.FullName "bin") }
+
+      - name: Installationsprogramm bauen
+        shell: bash
+        continue-on-error: true
+        run: |
+          jpackage --type exe --name Nachrichten --app-image dist/Nachrichten \
+            --app-version "${{ steps.v.outputs.name }}" --vendor "Nachrichten" \
+            --win-menu --win-menu-group "Nachrichten" --win-shortcut --win-per-user-install --win-dir-chooser \
+            --win-upgrade-uuid 7c1d2f9a-4b8e-4c55-9a3e-2f6d8b1e0c47 --dest installer
+          ls -la installer
+
+      - name: Als Download bereitstellen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VC="${{ steps.v.outputs.code }}"
+          VN="${{ steps.v.outputs.name }}"
+          echo "{\"versionCode\":$VC,\"versionName\":\"$VN\"}" > win-version.json
+          FILES="Nachrichten-Windows-portabel.zip win-version.json"
+          EXE=$(ls installer/*.exe 2>/dev/null | head -1 || true)
+          if [ -n "$EXE" ]; then cp "$EXE" Nachrichten-Setup.exe; FILES="Nachrichten-Setup.exe $FILES"; fi
+          # Tag beginnt mit "win" -> wird vom Android-Build nicht aufgeräumt.
+          # Vorabversion (prerelease) -> "latest" und Obtainium bleiben bei der Android-APK.
+          gh release delete windows -y --cleanup-tag || true
+          gh release create windows $FILES --title "Nachrichten für Windows $VN" \
+            --notes "Windows-Version $VN. Nachrichten-Setup.exe installieren (oder die portable ZIP entpacken und Nachrichten.exe starten). Windows zeigt beim ersten Start evtl. eine SmartScreen-Warnung, weil das Programm nicht signiert ist: 'Weitere Informationen' -> 'Trotzdem ausführen'." \
+            --prerelease
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nachrichten-Windows
+          path: |
+            Nachrichten-Setup.exe
+            Nachrichten-Windows-portabel.zip
+          if-no-files-found: warn
