@@ -72,8 +72,22 @@ public final class Ws {
         if (tls) {
             SSLSocket ssl = (SSLSocket) ((SSLSocketFactory) SSLSocketFactory.getDefault()).createSocket(s, host, port, true);
             ssl.setSoTimeout(15000);
+            // Zertifikat muss zum Servernamen passen. Die eingebaute Prüfung (HTTPS-Regeln) läuft
+            // direkt im Handshake – auf Android und am PC.
+            boolean endpointCheck = false;
+            try {
+                javax.net.ssl.SSLParameters sp = ssl.getSSLParameters();
+                sp.setEndpointIdentificationAlgorithm("HTTPS");
+                ssl.setSSLParameters(sp);
+                endpointCheck = "HTTPS".equals(ssl.getSSLParameters().getEndpointIdentificationAlgorithm());
+            } catch (Exception ignored) { }
             ssl.startHandshake();
-            if (!HttpsURLConnection.getDefaultHostnameVerifier().verify(host, ssl.getSession())) {
+            // Zusätzlich der Prüfer des Systems. Am PC (normales Java) ist das nur ein Platzhalter,
+            // der immer "nein" sagt – dort zählt die Prüfung im Handshake oben.
+            javax.net.ssl.HostnameVerifier hv = HttpsURLConnection.getDefaultHostnameVerifier();
+            boolean jdkPlaceholder = hv.getClass().getName().equals("javax.net.ssl.HttpsURLConnection$DefaultHostnameVerifier");
+            boolean ok = jdkPlaceholder ? endpointCheck : hv.verify(host, ssl.getSession());
+            if (!ok) {
                 ssl.close();
                 throw new IOException("certificate does not match " + host);
             }

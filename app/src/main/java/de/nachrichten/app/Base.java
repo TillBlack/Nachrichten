@@ -266,7 +266,9 @@ abstract class Base extends Activity {
     }
 
     /** Vorschau-Text für die Chatliste: "Sprachnachricht (m:ss)", "Foto", "Datei: …" oder der Text. */
-    String previewText(int kind, String body, String fileName) {
+    String previewText(int kind, String body, String fileName) { return preview(kind, body, fileName); }
+
+    static String preview(int kind, String body, String fileName) {
         if (kind == Db.IMAGE) return T.photo();
         if (kind == Db.FILE) {
             if (isVoiceName(fileName)) {

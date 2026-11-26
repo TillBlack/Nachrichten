@@ -1117,7 +1117,7 @@ public class ChatActivity extends Base implements Net.Listener {
     }
 
     private static boolean isVoice(Db.Msg m) {
-        return m.kind == Db.FILE && m.fileMime != null && m.fileMime.startsWith("audio/");
+        return m.kind == Db.FILE && ((m.fileMime != null && m.fileMime.startsWith("audio/")) || isVoiceName(m.fileName));
     }
 
     private View voicePlayer(Db.Msg m, int textColor, int metaColor) {

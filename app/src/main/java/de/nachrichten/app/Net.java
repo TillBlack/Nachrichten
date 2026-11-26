@@ -860,7 +860,7 @@ final class Net {
                     app.db.fileDone(fid, f.getAbsolutePath());
                     if (!outgoing && fresh(createdAt)) receiptSoon(peer);
                     else if (!outgoing) app.db.markReceipt(java.util.Collections.singletonList(fid), Db.READ);
-                    notifyIfNew(peer, outgoing, createdAt, m.kind == Db.IMAGE ? T.photo() : T.fileLabel() + ": " + m.fileName);
+                    notifyIfNew(peer, outgoing, createdAt, Base.preview(m.kind, null, m.fileName));
                 } catch (Exception ignored) { }
             }
         }
@@ -980,7 +980,7 @@ final class Net {
                 try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
                     out.write(all);
                     app.db.fileDone(fid, f.getAbsolutePath());
-                    if (!outgoing) notifyGroup(gid, gname, m.kind == Db.IMAGE ? T.photo() : T.fileLabel() + ": " + m.fileName);
+                    if (!outgoing) notifyGroup(gid, gname, Base.preview(m.kind, null, m.fileName));
                 } catch (Exception ignored) { }
             }
         }
