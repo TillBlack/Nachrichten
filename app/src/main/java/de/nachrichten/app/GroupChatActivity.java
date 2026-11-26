@@ -377,7 +377,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         View row = gViewById.get(m.id);
         if (row != null) row.setBackgroundColor(withAlpha(Pal.accent, 0x22));
         if (header != null) header.setVisibility(View.GONE);
-        if (selBar != null) selBar.setVisibility(View.VISIBLE);
+        if (selBar != null) Anim.reveal(selBar, -dp(6));
         if (selTrash != null) selTrash.setOnClickListener(v -> groupDeleteOptions(m));
     }
 
@@ -389,7 +389,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         clearHighlight();
         selId = null;
         if (selBar != null) selBar.setVisibility(View.GONE);
-        if (header != null) header.setVisibility(View.VISIBLE);
+        if (header != null) Anim.reveal(header, -dp(6));
     }
 
     private void groupDeleteOptions(Db.Msg m) {
@@ -495,7 +495,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
             if (pauseLbl != null) pauseLbl.setText(T.pauseRec());
             stopPlayer();
             bar.setVisibility(View.GONE);
-            recBar.setVisibility(View.VISIBLE);
+            Anim.reveal(recBar, dp(12));
             recTick = new Runnable() {
                 public void run() {
                     if (!recording) return;

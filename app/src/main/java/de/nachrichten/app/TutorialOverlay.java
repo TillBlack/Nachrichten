@@ -42,7 +42,7 @@ final class TutorialOverlay extends FrameLayout {
 
         card = new LinearLayout(a);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(a.round(Pal.card, Pal.accent, 14));
+        card.setBackground(a.roundAccent(Pal.card, 14));
         card.setPadding(a.dp(16), a.dp(14), a.dp(16), a.dp(10));
         card.setElevation(a.dp(10));
         body = a.text("", 15, Pal.text, false);
@@ -72,7 +72,11 @@ final class TutorialOverlay extends FrameLayout {
         cp.gravity = Gravity.CENTER_HORIZONTAL | Gravity.TOP;
         addView(card, cp);
 
-        post(() -> show(0));
+        setAlpha(0f);
+        post(() -> {
+            animate().alpha(1f).setDuration(220).start();   // Schleier weich einblenden
+            show(0);
+        });
     }
 
     private final RectF hole = new RectF();
@@ -85,6 +89,7 @@ final class TutorialOverlay extends FrameLayout {
         back.setEnabled(i > 0);
         back.setAlpha(i > 0 ? 1f : 0.4f);
         next.setText(i >= steps.size() - 1 ? T.tDone() : T.tNext());
+        Anim.popInNow(card);   // Karte ploppt bei jedem Schritt weich auf
 
         int[] me = new int[2], tt = new int[2];
         getLocationInWindow(me);
@@ -107,9 +112,16 @@ final class TutorialOverlay extends FrameLayout {
         });
     }
 
+    private boolean finishing;
+
     private void finish() {
+        if (finishing) return;
+        finishing = true;
         if (onDone != null) onDone.run();
-        if (getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) getParent()).removeView(this);
+        setClickable(false);
+        animate().alpha(0f).setDuration(180).withEndAction(() -> {
+            if (getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) getParent()).removeView(this);
+        }).start();
     }
 
     /** Dunkler Schleier mit ausgespartem Loch und Ring um das Ziel. */

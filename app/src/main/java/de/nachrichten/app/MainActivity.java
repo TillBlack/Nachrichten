@@ -287,6 +287,7 @@ public class MainActivity extends Base implements Net.Listener {
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.LEFT);
         lp.setMargins(dp(16), 0, 0, insetBottom + dp(31));
         root.addView(c, lp);
+        Anim.enter(c, dp(16));
         obtChip = c;
     }
 
@@ -296,7 +297,7 @@ public class MainActivity extends Base implements Net.Listener {
         if (hint != null) root.removeView(hint);
         LinearLayout h = new LinearLayout(this);
         h.setOrientation(LinearLayout.VERTICAL);
-        h.setBackground(round(Pal.card, Pal.accent, 12));
+        h.setBackground(roundAccent(Pal.card, 12));
         h.setPadding(dp(14), dp(10), dp(14), dp(10));
         h.setElevation(dp(8));
         h.addView(text(T.updateTitle() + " (" + version + ")", 14, Pal.text, true));
@@ -310,9 +311,7 @@ public class MainActivity extends Base implements Net.Listener {
         lp.setMargins(0, 0, dp(16), insetBottom + dp(96));
         root.addView(h, lp);
         hint = h;
-        h.setAlpha(0f);
-        h.setTranslationY(dp(16));
-        h.animate().alpha(1f).translationY(0).setDuration(200).start();
+        Anim.enter(h, dp(16));
         h.postDelayed(() -> {
             if (hint != h) return;
             h.animate().alpha(0f).translationY(dp(16)).setDuration(250).withEndAction(() -> {

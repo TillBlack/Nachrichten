@@ -491,7 +491,7 @@ public class ChatActivity extends Base implements Net.Listener {
         replyTo = id;
         replyName.setText(m.outgoing ? T.youName() : app.nameOf(peer));
         replyText.setText(snippet(m));
-        replyBar.setVisibility(View.VISIBLE);
+        Anim.reveal(replyBar, dp(10));
         input.requestFocus();
         android.view.inputmethod.InputMethodManager im = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (im != null) im.showSoftInput(input, 0);
@@ -814,7 +814,7 @@ public class ChatActivity extends Base implements Net.Listener {
         View row = viewById.get(m.id);
         if (row != null) row.setBackgroundColor(withAlpha(Pal.accent, 0x22));
         if (header != null) header.setVisibility(View.GONE);
-        if (selBar != null) selBar.setVisibility(View.VISIBLE);
+        if (selBar != null) Anim.reveal(selBar, -dp(6));
         if (selTrash != null) selTrash.setOnClickListener(v -> deleteOptions(m));
     }
 
@@ -826,7 +826,7 @@ public class ChatActivity extends Base implements Net.Listener {
         clearHighlight();
         selId = null;
         if (selBar != null) selBar.setVisibility(View.GONE);
-        if (header != null) header.setVisibility(View.VISIBLE);
+        if (header != null) Anim.reveal(header, -dp(6));
     }
 
     private void deleteOptions(Db.Msg m) {
@@ -852,7 +852,7 @@ public class ChatActivity extends Base implements Net.Listener {
     }
 
     private void viewImage(Db.Msg m) {
-        Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        Dialog d = new SmoothDialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         FrameLayout fl = new FrameLayout(this);
         fl.setBackgroundColor(0xFF000000);
         ImageView iv = new ImageView(this);
@@ -878,19 +878,21 @@ public class ChatActivity extends Base implements Net.Listener {
         bar.addView(open, op);
         fl.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
         d.setContentView(fl);
+        if (d.getWindow() != null) d.getWindow().setWindowAnimations(0);
         d.show();
         Anim.popIn(fl);
         Anim.autoPop(fl);
     }
 
     private void showBigAvatar(String path) {
-        Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        Dialog d = new SmoothDialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         ImageView iv = new ImageView(this);
         iv.setBackgroundColor(0xFF000000);
         iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
         iv.setImageBitmap(avatarBitmap(path));
         iv.setOnClickListener(v -> d.dismiss());
         d.setContentView(iv);
+        if (d.getWindow() != null) d.getWindow().setWindowAnimations(0);
         d.show();
         Anim.popIn(iv);
     }
@@ -948,7 +950,7 @@ public class ChatActivity extends Base implements Net.Listener {
             if (pauseLbl != null) pauseLbl.setText(T.pauseRec());
             stopPlayer();
             inputRow.setVisibility(View.GONE);
-            recBar.setVisibility(View.VISIBLE);
+            Anim.reveal(recBar, dp(12));
             recTick = new Runnable() {
                 public void run() {
                     if (!recording) return;

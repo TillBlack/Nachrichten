@@ -228,11 +228,11 @@ abstract class Base extends Activity {
             if (ch.getTop() <= y + dp(10)) label = ((TextView) ch).getText().toString();
             else break;
         }
-        if (label == null || y <= dp(6)) { floatDate.setVisibility(View.GONE); return; }
+        if (label == null || y <= dp(6)) { Anim.fadeOut(floatDate); return; }
         floatDate.setText(label);
-        floatDate.setVisibility(View.VISIBLE);
+        Anim.reveal(floatDate, -dp(6));
         floatHandler.removeCallbacksAndMessages(null);
-        floatHandler.postDelayed(() -> { if (floatDate != null) floatDate.setVisibility(View.GONE); }, 900);
+        floatHandler.postDelayed(() -> { if (floatDate != null) Anim.fadeOut(floatDate); }, 900);
     }
 
     // --- Sprachnachricht-Dateiname: "v<DauerMs>~<Wellenform>~voice.aac" ---
@@ -319,7 +319,7 @@ abstract class Base extends Activity {
     // ------------------------------------------------------------------ Dialoge
 
     Dialog dialog() {
-        Dialog d = new Dialog(this);
+        Dialog d = new SmoothDialog(this);
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
         d.setOnDismissListener(x -> Anim.dialogClosed());
         return d;
@@ -328,12 +328,13 @@ abstract class Base extends Activity {
     LinearLayout panel() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setBackground(round(Pal.card, Pal.line, 16));
+        box.setBackground(roundAccent(Pal.card, 16));
         box.setPadding(dp(20), dp(20), dp(20), dp(16));
         return box;
     }
 
     void showDialog(Dialog dlg, View content) {
+        SmoothDialog.finishFadingNow();   // ersetztes Fenster nicht doppelt abdunkeln lassen
         dlg.setContentView(content);
         Window w = dlg.getWindow();
         if (w != null) {
@@ -479,7 +480,7 @@ abstract class Base extends Activity {
         Dialog dlg = dialog();
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setBackground(round(Pal.card, Pal.line, 16));
+        box.setBackground(roundAccent(Pal.card, 16));
         box.setPadding(dp(10), dp(12), dp(10), dp(10));
         TextView title = text(T.emChoose(), 18, Pal.text, true);
         title.setPadding(dp(6), 0, 0, dp(6));
@@ -712,13 +713,14 @@ abstract class Base extends Activity {
     }
 
     void bigImage(String path) {
-        Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        Dialog d = new SmoothDialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         android.widget.ImageView iv = new android.widget.ImageView(this);
         iv.setBackgroundColor(0xFF000000);
         iv.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
         iv.setImageBitmap(avatarBitmap(path));
         iv.setOnClickListener(v -> d.dismiss());
         d.setContentView(iv);
+        if (d.getWindow() != null) d.getWindow().setWindowAnimations(0);
         d.show();
         Anim.popIn(iv);
     }

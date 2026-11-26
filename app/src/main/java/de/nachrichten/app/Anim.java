@@ -97,6 +97,13 @@ final class Anim {
         if (System.currentTimeMillis() - lastDialogClose < 350) return;
         lastPopView = new java.lang.ref.WeakReference<>(v);
         lastPopAt = System.currentTimeMillis();
+        popInNow(v);
+    }
+
+    /** Aufploppen ohne die „gerade ersetzt“-Prüfung (z. B. Tutorial-Karte bei jedem Schritt). */
+    static void popInNow(View v) {
+        if (v == null) return;
+        v.animate().cancel();
         v.setScaleX(0.86f);
         v.setScaleY(0.86f);
         v.setAlpha(0f);
@@ -105,6 +112,43 @@ final class Anim {
                 .setInterpolator(new OvershootInterpolator(1.3f))
                 .withLayer()
                 .start();
+    }
+
+    /** Neu eingefügtes Element weich einblenden (von alpha 0, leicht verschoben um dy Pixel). */
+    static void enter(View v, float dy) {
+        if (v == null) return;
+        v.animate().cancel();
+        v.setVisibility(View.VISIBLE);
+        v.setAlpha(0f);
+        v.setTranslationY(dy);
+        v.animate().alpha(1f).translationY(0f)
+                .setDuration(200)
+                .setInterpolator(new DecelerateInterpolator(1.6f))
+                .start();
+    }
+
+    /** Ausgeblendete Leiste weich einblenden; ist sie schon sichtbar, nichts tun (bricht ein Ausblenden ab). */
+    static void reveal(View v, float dy) {
+        if (v == null) return;
+        if (v.getVisibility() == View.VISIBLE && v.getAlpha() >= 0.99f) {
+            v.animate().cancel();
+            v.setTranslationY(0f);
+            return;
+        }
+        if (v.getVisibility() != View.VISIBLE) { enter(v, dy); return; }
+        // sichtbar, aber gerade am Ausblenden → zurückholen
+        v.animate().cancel();
+        v.animate().alpha(1f).translationY(0f).setDuration(150).start();
+    }
+
+    /** Weich ausblenden und danach GONE (für schwebende Elemente, die kein Layout verschieben). */
+    static void fadeOut(View v) {
+        if (v == null || v.getVisibility() != View.VISIBLE) return;
+        v.animate().cancel();
+        v.animate().alpha(0f).setDuration(160).withEndAction(() -> {
+            v.setVisibility(View.GONE);
+            v.setAlpha(1f);
+        }).start();
     }
 
     private Anim() {}
