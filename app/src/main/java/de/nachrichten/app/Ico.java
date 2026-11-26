@@ -17,6 +17,7 @@ final class Ico extends View {
     int kind;
     boolean on;
     int color;
+    float glyphScale = 1f;   // Vergrößerung für Play/Pause (z. B. bei Sprachnachrichten)
 
     void setKind(int k) { kind = k; invalidate(); }
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -280,18 +281,20 @@ final class Ico extends View {
             case PLAY: {
                 p.setStyle(Paint.Style.FILL);
                 path.reset();
-                path.moveTo(cx - 3.5f * d, cy - 5.5f * d);
-                path.lineTo(cx + 5.5f * d, cy);
-                path.lineTo(cx - 3.5f * d, cy + 5.5f * d);
+                float q = d * glyphScale;
+                path.moveTo(cx - 3.5f * q, cy - 5.5f * q);
+                path.lineTo(cx + 5.5f * q, cy);
+                path.lineTo(cx - 3.5f * q, cy + 5.5f * q);
                 path.close();
                 c.drawPath(path, p);
                 break;
             }
             case PAUSE: {
                 p.setStyle(Paint.Style.FILL);
-                r.set(cx - 4.2f * d, cy - 5.5f * d, cx - 1.2f * d, cy + 5.5f * d);
+                float q = d * glyphScale;
+                r.set(cx - 4.2f * q, cy - 5.5f * q, cx - 1.2f * q, cy + 5.5f * q);
                 c.drawRect(r, p);
-                r.set(cx + 1.2f * d, cy - 5.5f * d, cx + 4.2f * d, cy + 5.5f * d);
+                r.set(cx + 1.2f * q, cy - 5.5f * q, cx + 4.2f * q, cy + 5.5f * q);
                 c.drawRect(r, p);
                 break;
             }

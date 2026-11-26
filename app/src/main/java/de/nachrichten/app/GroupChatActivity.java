@@ -757,6 +757,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         Ico btn = new Ico(this, playingThis ? Ico.PAUSE : Ico.PLAY);
         btn.color = textColor;
+        btn.glyphScale = 1.7f;
         topRow.addView(btn, new LinearLayout.LayoutParams(dp(46), dp(46)));
         WaveView wv = new WaveView(this);
         wv.barColor = metaColor; wv.playedColor = textColor; wv.showHandle = true;
