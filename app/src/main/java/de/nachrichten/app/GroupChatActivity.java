@@ -297,10 +297,13 @@ public class GroupChatActivity extends Base implements Net.Listener {
             bub.addView(body);
         }
 
-        TextView tm = text(time(m.ts), 10, metaColor, false);
-        tm.setAlpha(m.outgoing ? 0.8f : 1f);
-        tm.setGravity(Gravity.END);
-        bub.addView(tm);
+        // Sprachnachrichten tragen die Uhrzeit schon in ihrer unteren Zeile.
+        if (!isVoice(m)) {
+            TextView tm = text(time(m.ts), 10, metaColor, false);
+            tm.setAlpha(m.outgoing ? 0.8f : 1f);
+            tm.setGravity(Gravity.END);
+            bub.addView(tm);
+        }
 
         attachMsgGestures(bub, () -> gMsgTap(m), () -> gMsgSelect(m));
 
@@ -764,9 +767,18 @@ public class GroupChatActivity extends Base implements Net.Listener {
         topRow.addView(wv, tp);
         v.addView(topRow);
 
+        // Untere Zeile: Position/Länge links, Uhrzeit rechts – in einer Zeile.
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setGravity(Gravity.CENTER_VERTICAL);
+        bottom.setPadding(dp(44), dp(3), 0, 0);
         final TextView pos = text(formatDur(totalMs), 12, metaColor, false);
-        pos.setPadding(dp(44), dp(1), 0, 0);
-        v.addView(pos);
+        bottom.addView(pos, new LinearLayout.LayoutParams(-2, -2));
+        View spacer = new View(this);
+        bottom.addView(spacer, new LinearLayout.LayoutParams(0, dp(1), 1f));
+        TextView bt = text(time(m.ts), 10, metaColor, false);
+        bt.setAlpha(m.outgoing ? 0.8f : 1f);
+        bottom.addView(bt);
+        v.addView(bottom, new LinearLayout.LayoutParams(-1, -2));
 
         wv.seekListener = f -> seekVoice(path, btn, wv, pos, totalMs, f);
         if (playingThis) { playingWave = wv; playingPos = pos; playingTotal = totalMs; }

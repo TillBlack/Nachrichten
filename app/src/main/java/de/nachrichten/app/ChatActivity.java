@@ -672,23 +672,26 @@ public class ChatActivity extends Base implements Net.Listener {
             b.addView(f, new LinearLayout.LayoutParams(-2, -2));
         }
 
-        LinearLayout meta = new LinearLayout(this);
-        meta.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        TextView tm = text(time(m.ts), 11, metaColor, false);
-        meta.addView(tm);
-        if (m.outgoing) {
-            Ico st = new Ico(this, m.status == Db.PENDING ? Ico.CLOCK : m.status == Db.SENT ? Ico.CHECK : Ico.CHECK2);
-            st.color = m.status == Db.READ ? (Pal.light ? 0xFF1E88E5 : 0xFF5BC0F8) : metaColor;
-            st.setContentDescription(m.status == Db.PENDING ? T.pendingInfo() : m.status == Db.SENT ? T.statusSent()
-                    : m.status == Db.DELIVERED ? T.statusDelivered() : T.statusRead());
-            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(dp(22), dp(16));
-            sp.setMargins(dp(3), 0, 0, 0);
-            meta.addView(st, sp);
+        // Sprachnachrichten tragen Uhrzeit/Status schon in ihrer unteren Zeile.
+        if (!isVoice(m)) {
+            LinearLayout meta = new LinearLayout(this);
+            meta.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+            TextView tm = text(time(m.ts), 11, metaColor, false);
+            meta.addView(tm);
+            if (m.outgoing) {
+                Ico st = new Ico(this, m.status == Db.PENDING ? Ico.CLOCK : m.status == Db.SENT ? Ico.CHECK : Ico.CHECK2);
+                st.color = m.status == Db.READ ? (Pal.light ? 0xFF1E88E5 : 0xFF5BC0F8) : metaColor;
+                st.setContentDescription(m.status == Db.PENDING ? T.pendingInfo() : m.status == Db.SENT ? T.statusSent()
+                        : m.status == Db.DELIVERED ? T.statusDelivered() : T.statusRead());
+                LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(dp(22), dp(16));
+                sp.setMargins(dp(3), 0, 0, 0);
+                meta.addView(st, sp);
+            }
+            LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(-2, -2);
+            mp.gravity = Gravity.END;
+            mp.setMargins(dp(24), dp(2), isImage ? dp(6) : 0, 0);
+            b.addView(meta, mp);
         }
-        LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(-2, -2);
-        mp.gravity = Gravity.END;
-        mp.setMargins(dp(24), dp(2), isImage ? dp(6) : 0, 0);
-        b.addView(meta, mp);
 
         attachMsgGestures(b, () -> msgTap(m), () -> msgSelect(m));
         return b;
@@ -1135,9 +1138,25 @@ public class ChatActivity extends Base implements Net.Listener {
         topRow.addView(wv, tp);
         v.addView(topRow);
 
+        // Untere Zeile: Position/Länge links, Uhrzeit (+ Status) rechts – in einer Zeile,
+        // damit die Blase eng am Inhalt sitzt und nichts unten übrig bleibt.
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setGravity(Gravity.CENTER_VERTICAL);
+        bottom.setPadding(dp(44), dp(3), 0, 0);
         final TextView pos = text(formatDur(totalMs), 12, metaColor, false);
-        pos.setPadding(dp(44), dp(1), 0, 0);
-        v.addView(pos);
+        bottom.addView(pos, new LinearLayout.LayoutParams(-2, -2));
+        View spacer = new View(this);
+        bottom.addView(spacer, new LinearLayout.LayoutParams(0, dp(1), 1f));
+        TextView tm = text(time(m.ts), 11, metaColor, false);
+        bottom.addView(tm);
+        if (m.outgoing) {
+            Ico st = new Ico(this, m.status == Db.PENDING ? Ico.CLOCK : m.status == Db.SENT ? Ico.CHECK : Ico.CHECK2);
+            st.color = m.status == Db.READ ? (Pal.light ? 0xFF1E88E5 : 0xFF5BC0F8) : metaColor;
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(dp(22), dp(16));
+            sp.setMargins(dp(3), 0, 0, 0);
+            bottom.addView(st, sp);
+        }
+        v.addView(bottom, new LinearLayout.LayoutParams(-1, -2));
 
         wv.seekListener = f -> seekVoice(path, btn, wv, pos, totalMs, f);
         if (playingThis) { playingWave = wv; playingPos = pos; playingTotal = totalMs; }
