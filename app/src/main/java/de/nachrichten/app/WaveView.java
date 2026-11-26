@@ -19,6 +19,8 @@ final class WaveView extends View {
     int playedColor = Pal.accent;
     boolean growFromLeft = false;        // bei der Aufnahme: neueste Werte rechts, links auffüllen
     boolean showHandle = false;          // sichtbarer Schieberegler-Punkt
+    int handleColor = 0;                 // Farbe des Spul-Kreises (0 = playedColor)
+    static final float HANDLE_R = 7f;    // Radius des Spul-Kreises in dp
     Seek seekListener;                   // gesetzt => per Finger spulbar
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -31,7 +33,7 @@ final class WaveView extends View {
     float fractionAt(float x) {
         int w = getWidth();
         if (w <= 0) return 0;
-        float inset = showHandle ? 5.5f * getResources().getDisplayMetrics().density : 0f;
+        float inset = showHandle ? (HANDLE_R + 1.5f) * getResources().getDisplayMetrics().density : 0f;
         float usable = Math.max(1f, w - 2 * inset);
         return Math.max(0f, Math.min(1f, (x - inset) / usable));
     }
@@ -56,9 +58,9 @@ final class WaveView extends View {
         int w = getWidth(), h = getHeight();
         if (w == 0 || h == 0 || amps.length == 0) return;
         float d = getResources().getDisplayMetrics().density;
-        float hr = 5.5f * d;                 // Radius des Schiebereglers
+        float hr = HANDLE_R * d;              // Radius des Schiebereglers
         float bw = 2.2f * d, gap = 2.2f * d, step = bw + gap;
-        float inset = showHandle ? hr : 0f;  // Platz lassen, damit der Punkt an den Rändern nicht abgeschnitten wird
+        float inset = showHandle ? hr + 1.5f * d : 0f;  // Platz lassen, damit der Punkt an den Rändern nicht abgeschnitten wird
         float usable = w - 2 * inset;
         int slots = Math.max(1, (int) (usable / step));
         float cy = h / 2f, maxH = h - 2f * d; // Balken symmetrisch um die Mitte
@@ -85,10 +87,11 @@ final class WaveView extends View {
         // Schieberegler-Punkt an der Wiedergabeposition (innerhalb der Ränder)
         if (showHandle && progress >= 0) {
             float hx = inset + Math.max(0f, Math.min(1f, progress)) * usable;
-            p.setColor(playedColor);
-            c.drawCircle(hx, cy, hr, p);
+            // weißer Rand + farbiger Kreis: auf jeder Blasenfarbe gut sichtbar
             p.setColor(0xFFFFFFFF);
-            c.drawCircle(hx, cy, 2.2f * d, p);
+            c.drawCircle(hx, cy, hr + 1.5f * d, p);
+            p.setColor(handleColor != 0 ? handleColor : playedColor);
+            c.drawCircle(hx, cy, hr, p);
         }
     }
 

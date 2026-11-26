@@ -757,9 +757,10 @@ public class GroupChatActivity extends Base implements Net.Listener {
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         Ico btn = new Ico(this, playingThis ? Ico.PAUSE : Ico.PLAY);
         btn.color = textColor;
-        topRow.addView(btn, new LinearLayout.LayoutParams(dp(36), dp(36)));
+        topRow.addView(btn, new LinearLayout.LayoutParams(dp(46), dp(46)));
         WaveView wv = new WaveView(this);
         wv.barColor = metaColor; wv.playedColor = textColor; wv.showHandle = true;
+        wv.handleColor = Pal.light ? 0xFF1E88E5 : 0xFF5BC0F8;
         wv.setAmps(waveFromName(m.fileName) != null ? waveFromName(m.fileName) : flatWave());
         wv.setProgress(0f);
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(dp(150), dp(30));
@@ -770,7 +771,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         // Untere Zeile: Position/Länge links, Uhrzeit rechts – in einer Zeile.
         LinearLayout bottom = new LinearLayout(this);
         bottom.setGravity(Gravity.CENTER_VERTICAL);
-        bottom.setPadding(dp(44), dp(3), 0, 0);
+        bottom.setPadding(dp(54), dp(3), 0, 0);
         final TextView pos = text(formatDur(totalMs), 12, metaColor, false);
         bottom.addView(pos, new LinearLayout.LayoutParams(-2, -2));
         View spacer = new View(this);
@@ -779,7 +780,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         bt.setAlpha(m.outgoing ? 0.8f : 1f);
         bottom.addView(bt);
         // Breite = Abspiel-/Wellenform-Zeile, damit die Blase nicht über den ganzen Bildschirm geht.
-        v.addView(bottom, new LinearLayout.LayoutParams(dp(36) + dp(8) + dp(150) + dp(4), -2));
+        v.addView(bottom, new LinearLayout.LayoutParams(dp(46) + dp(8) + dp(150) + dp(4), -2));
 
         wv.seekListener = f -> seekVoice(path, btn, wv, pos, totalMs, f);
         if (playingThis) { playingWave = wv; playingPos = pos; playingTotal = totalMs; }
