@@ -578,7 +578,8 @@ public class ChatActivity extends Base implements Net.Listener {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setGravity(m.outgoing ? Gravity.END : Gravity.START);
-        col.addView(b);
+        // Feste "wrap_content"-Breite: sonst schrumpft die Blase auf die Breite des Reaktions-Badges.
+        col.addView(b, new LinearLayout.LayoutParams(-2, -2));
         View badge = reactionBadge(m.id);
         if (badge != null) {
             LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-2, -2);
