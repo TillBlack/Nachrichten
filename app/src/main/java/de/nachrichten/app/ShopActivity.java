@@ -96,7 +96,7 @@ public class ShopActivity extends Base {
         cellBox.setOrientation(LinearLayout.VERTICAL);
         cellBox.setGravity(Gravity.CENTER_HORIZONTAL);
         cellBox.setPadding(dp(6), dp(10), dp(6), dp(10));
-        cellBox.setBackground(round(on ? withAlpha(Pal.accent, 0x22) : Pal.card, on ? Pal.accent : Pal.line, 12));
+        cellBox.setBackground(round(on ? withAlpha(Pal.accent, 0x22) : Pal.card, Pal.accent, 12));
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(w, -2);
         clp.setMargins(dp(4), dp(4), dp(4), dp(4));
         cellBox.setLayoutParams(clp);

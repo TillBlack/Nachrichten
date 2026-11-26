@@ -134,7 +134,7 @@ public class PollsActivity extends Base implements Net.Listener {
             boolean chosen = mine == i;
             LinearLayout opt = new LinearLayout(this);
             opt.setOrientation(LinearLayout.VERTICAL);
-            opt.setBackground(round(chosen ? withAlpha(Pal.accent, 0x22) : Pal.field, chosen ? Pal.accent : Pal.line, 10));
+            opt.setBackground(round(chosen ? withAlpha(Pal.accent, 0x22) : Pal.field, Pal.accent, 10));
             opt.setPadding(dp(12), dp(9), dp(12), dp(9));
             LinearLayout.LayoutParams olp = new LinearLayout.LayoutParams(-1, -2);
             olp.setMargins(0, dp(8), 0, 0);

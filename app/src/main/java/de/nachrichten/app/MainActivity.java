@@ -281,7 +281,7 @@ public class MainActivity extends Base implements Net.Listener {
         if (onboarding || fab == null || Updater.obtainium(this) || !Updater.enabled(this)) return;
         TextView c = text(T.getObtainiumChip(), 13, Pal.text, true);
         c.setPadding(dp(14), dp(10), dp(14), dp(10));
-        c.setBackground(round(Pal.card, Pal.line, 20));
+        c.setBackground(roundAccent(Pal.card, 20));
         c.setElevation(dp(4));
         c.setOnClickListener(v -> Updater.offerHelper(this, null, 0));
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.LEFT);
@@ -539,7 +539,7 @@ public class MainActivity extends Base implements Net.Listener {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         FrameLayout ic = new FrameLayout(this);
-        ic.setBackground(outline ? circle(bg, Pal.line) : circle(bg, 0));
+        ic.setBackground(outline ? circle(bg, Pal.accent) : circle(bg, 0));
         Ico f = new Ico(this, icoKind);
         f.color = fg;
         ic.addView(f, new FrameLayout.LayoutParams(-1, -1));
@@ -699,7 +699,7 @@ public class MainActivity extends Base implements Net.Listener {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(10), dp(12), dp(10));
         FrameLayout ic = new FrameLayout(this);
-        ic.setBackground(circle(Pal.field, Pal.line));
+        ic.setBackground(circle(Pal.field, Pal.accent));
         Avatar a1 = new Avatar("discover-a", "?");
         Avatar a2 = new Avatar("discover-b", "?");
         ic.addView(a1, new FrameLayout.LayoutParams(dp(26), dp(26), Gravity.TOP | Gravity.LEFT));
@@ -1795,7 +1795,7 @@ public class MainActivity extends Base implements Net.Listener {
         TextView c = text(s, 15, selected ? Pal.onAccent : Pal.text, selected);
         c.setGravity(Gravity.CENTER);
         c.setPadding(dp(12), dp(10), dp(12), dp(10));
-        c.setBackground(round(selected ? Pal.accent : Pal.field, selected ? 0 : Pal.line, 10));
+        c.setBackground(selected ? round(Pal.accent, 0, 10) : roundAccent(Pal.field, 10));
         return c;
     }
 

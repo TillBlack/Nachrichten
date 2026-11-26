@@ -50,6 +50,7 @@ abstract class Base extends Activity {
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         root = new FrameLayout(this);
         setContentView(root);
+        Anim.autoPop(root);   // alle Knöpfe bekommen die Drück-Feder
         root.setOnApplyWindowInsetsListener((v, in) -> {
             if (Build.VERSION.SDK_INT >= 30) {
                 android.graphics.Insets i = in.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime() | WindowInsets.Type.displayCutout());
@@ -135,7 +136,8 @@ abstract class Base extends Activity {
         TextView b = text(s, 15, primary ? Pal.onAccent : Pal.text, true);
         b.setPadding(dp(18), dp(11), dp(18), dp(11));
         b.setGravity(Gravity.CENTER);
-        if (primary) b.setBackground(round(Pal.accent, 0, 10));
+        b.setBackground(primary ? round(Pal.accent, 0, 10) : roundAccent(0, 10));
+        Anim.pop(b);
         return b;
     }
 
@@ -143,7 +145,8 @@ abstract class Base extends Activity {
         TextView b = text(s, 15, color, true);
         b.setPadding(dp(16), dp(12), dp(16), dp(12));
         b.setGravity(Gravity.CENTER);
-        b.setBackground(round(0, Pal.line, 10));
+        b.setBackground(roundAccent(0, 10));
+        Anim.pop(b);
         return b;
     }
 
@@ -152,6 +155,15 @@ abstract class Base extends Activity {
         g.setColor(fill);
         g.setCornerRadius(dp(radiusDp));
         if (stroke != 0) g.setStroke(Math.max(1, dp(1)), stroke);
+        return g;
+    }
+
+    /** Abgerundet mit grünem Rand (Akzentfarbe wie das „+" auf dem Startbildschirm). */
+    GradientDrawable roundAccent(int fill, int radiusDp) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(fill);
+        g.setCornerRadius(dp(radiusDp));
+        g.setStroke(Math.max(2, Math.round(1.5f * getResources().getDisplayMetrics().density)), Pal.accent);
         return g;
     }
 
@@ -276,7 +288,8 @@ abstract class Base extends Activity {
         GradientDrawable g = new GradientDrawable();
         g.setShape(GradientDrawable.OVAL);
         g.setColor(fill);
-        if (stroke != 0) g.setStroke(Math.max(1, dp(1)), stroke);
+        if (stroke == Pal.accent) g.setStroke(Math.max(2, Math.round(1.5f * getResources().getDisplayMetrics().density)), stroke);
+        else if (stroke != 0) g.setStroke(Math.max(1, dp(1)), stroke);
         return g;
     }
 
@@ -308,6 +321,7 @@ abstract class Base extends Activity {
     Dialog dialog() {
         Dialog d = new Dialog(this);
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        d.setOnDismissListener(x -> Anim.dialogClosed());
         return d;
     }
 
@@ -327,8 +341,11 @@ abstract class Base extends Activity {
             int width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(32), dp(480));
             w.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+            w.setWindowAnimations(0);   // eigene, weichere Animation statt der System-Animation
         }
         dlg.show();
+        Anim.popIn(content);
+        Anim.autoPop(content);
     }
 
     /** Scrollbarer Dialog (für lange Inhalte). */
@@ -439,7 +456,7 @@ abstract class Base extends Activity {
         plus.setTextColor(Pal.dim);
         plus.setGravity(Gravity.CENTER);
         plus.setPadding(dp(9), dp(5), dp(9), dp(5));
-        plus.setBackground(round(Pal.card, Pal.line, 18));
+        plus.setBackground(roundAccent(Pal.card, 18));
         plus.setOnClickListener(v -> openEmojiPicker(current, e -> { Emoji.use(app, e); onPick.accept(e); }));
         LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-2, -2);
         pp.setMargins(dp(4), 0, 0, 0);
@@ -459,8 +476,7 @@ abstract class Base extends Activity {
 
     /** Große Emoji-Auswahl wie auf der Tastatur: nach Kategorien, scrollbar. */
     void openEmojiPicker(String current, java.util.function.Consumer<String> onPick) {
-        Dialog dlg = new Dialog(this);
-        dlg.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        Dialog dlg = dialog();
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setBackground(round(Pal.card, Pal.line, 16));
@@ -491,8 +507,10 @@ abstract class Base extends Activity {
         if (w != null) {
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             w.setLayout(dlgW, ViewGroup.LayoutParams.WRAP_CONTENT);
+            w.setWindowAnimations(0);
         }
         dlg.show();
+        Anim.popIn(box);
     }
 
     private void addEmojiSection(LinearLayout content, String label, String[] ems, int cols, int cell, String current, java.util.function.Consumer<String> pick) {
@@ -702,6 +720,7 @@ abstract class Base extends Activity {
         iv.setOnClickListener(v -> d.dismiss());
         d.setContentView(iv);
         d.show();
+        Anim.popIn(iv);
     }
 
     // ------------------------------------------------------------------ Avatar

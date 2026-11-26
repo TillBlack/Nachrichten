@@ -71,7 +71,7 @@ public class CropActivity extends Base {
         TextView t = text(label, 16, fg, true);
         t.setGravity(Gravity.CENTER);
         t.setPadding(dp(22), dp(13), dp(22), dp(13));
-        t.setBackground(round(bg, 0, 26));
+        t.setBackground(bg == Pal.accent ? round(bg, 0, 26) : roundAccent(bg, 26));
         t.setOnClickListener(v -> run.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1f);
         t.setLayoutParams(lp);

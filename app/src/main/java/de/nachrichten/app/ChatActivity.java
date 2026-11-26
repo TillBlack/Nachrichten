@@ -866,11 +866,11 @@ public class ChatActivity extends Base implements Net.Listener {
         bar.setPadding(dp(12), dp(12), dp(12), dp(28));
         TextView save = text(T.saveFile(), 16, 0xFFFFFFFF, true);
         save.setPadding(dp(16), dp(10), dp(16), dp(10));
-        save.setBackground(round(0x66000000, 0x88FFFFFF, 20));
+        save.setBackground(roundAccent(0x66000000, 20));
         save.setOnClickListener(v -> saveFile(m));
         TextView open = text(T.openWith(), 16, 0xFFFFFFFF, true);
         open.setPadding(dp(16), dp(10), dp(16), dp(10));
-        open.setBackground(round(0x66000000, 0x88FFFFFF, 20));
+        open.setBackground(roundAccent(0x66000000, 20));
         open.setOnClickListener(v -> openFile(m));
         LinearLayout.LayoutParams op = new LinearLayout.LayoutParams(-2, -2);
         op.setMargins(dp(8), 0, 0, 0);
@@ -879,6 +879,8 @@ public class ChatActivity extends Base implements Net.Listener {
         fl.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
         d.setContentView(fl);
         d.show();
+        Anim.popIn(fl);
+        Anim.autoPop(fl);
     }
 
     private void showBigAvatar(String path) {
@@ -890,6 +892,7 @@ public class ChatActivity extends Base implements Net.Listener {
         iv.setOnClickListener(v -> d.dismiss());
         d.setContentView(iv);
         d.show();
+        Anim.popIn(iv);
     }
 
     private void openFile(Db.Msg m) {
