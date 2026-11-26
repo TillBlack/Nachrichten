@@ -54,6 +54,14 @@ jobs:
           # "neueste" bleibt für die Update-Suche älterer App-Versionen, als Vorabversion (Obtainium ignoriert sie)
           gh release delete neueste -y --cleanup-tag || true
           gh release create neueste Nachrichten.apk version.json --title "Nachrichten – latest version ($VC)" --notes "Tap Nachrichten.apk to download and install. versionCode=$VC" --prerelease
+          # Alte Versionen aufräumen – erst NACHDEM die neue online ist.
+          # Bleiben: die neue Version, "neueste" (Update-Suche) und alles, was mit "win" beginnt (Windows-.exe).
+          gh release list --limit 200 --json tagName --jq '.[].tagName' | while read -r t; do
+            case "$t" in
+              "$VN"|neueste|win*) ;;
+              *) echo "Lösche altes Release $t"; gh release delete "$t" -y --cleanup-tag || true ;;
+            esac
+          done
       - name: APK im Zweig 'apk' ablegen
         run: |
           mkdir /tmp/apk && cp Nachrichten.apk /tmp/apk/
