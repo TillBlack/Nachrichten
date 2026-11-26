@@ -1156,7 +1156,8 @@ public class ChatActivity extends Base implements Net.Listener {
             sp.setMargins(dp(3), 0, 0, 0);
             bottom.addView(st, sp);
         }
-        v.addView(bottom, new LinearLayout.LayoutParams(-1, -2));
+        // Breite = Abspiel-/Wellenform-Zeile, damit die Blase nicht über den ganzen Bildschirm geht.
+        v.addView(bottom, new LinearLayout.LayoutParams(dp(36) + dp(8) + dp(160) + dp(4), -2));
 
         wv.seekListener = f -> seekVoice(path, btn, wv, pos, totalMs, f);
         if (playingThis) { playingWave = wv; playingPos = pos; playingTotal = totalMs; }

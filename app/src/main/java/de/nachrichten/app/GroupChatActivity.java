@@ -778,7 +778,8 @@ public class GroupChatActivity extends Base implements Net.Listener {
         TextView bt = text(time(m.ts), 10, metaColor, false);
         bt.setAlpha(m.outgoing ? 0.8f : 1f);
         bottom.addView(bt);
-        v.addView(bottom, new LinearLayout.LayoutParams(-1, -2));
+        // Breite = Abspiel-/Wellenform-Zeile, damit die Blase nicht über den ganzen Bildschirm geht.
+        v.addView(bottom, new LinearLayout.LayoutParams(dp(36) + dp(8) + dp(150) + dp(4), -2));
 
         wv.seekListener = f -> seekVoice(path, btn, wv, pos, totalMs, f);
         if (playingThis) { playingWave = wv; playingPos = pos; playingTotal = totalMs; }
