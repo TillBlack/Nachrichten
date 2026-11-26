@@ -718,6 +718,23 @@ abstract class Base extends Activity {
         return b;
     }
 
+    /** Zwischenspeicher für einen Pfad leeren, wenn die Datei mit neuem Inhalt überschrieben wurde. */
+    static void evictAvatar(String path) {
+        if (path != null) AVATARS.remove(path);
+    }
+
+    /** Gesten für eine Nachrichtenblase: Tippen (onTap), sowie Auswählen per Doppeltipp oder langem Druck (onSelect). */
+    void attachMsgGestures(View v, Runnable onTap, Runnable onSelect) {
+        final android.view.GestureDetector gd = new android.view.GestureDetector(this,
+                new android.view.GestureDetector.SimpleOnGestureListener() {
+            @Override public boolean onDown(android.view.MotionEvent e) { return true; }
+            @Override public boolean onSingleTapConfirmed(android.view.MotionEvent e) { if (onTap != null) onTap.run(); return true; }
+            @Override public boolean onDoubleTap(android.view.MotionEvent e) { if (onSelect != null) onSelect.run(); return true; }
+            @Override public void onLongPress(android.view.MotionEvent e) { if (onSelect != null) onSelect.run(); }
+        });
+        v.setOnTouchListener((vv, e) -> gd.onTouchEvent(e));
+    }
+
     /** Kreis mit Anfangsbuchstaben. */
     final class Avatar extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);

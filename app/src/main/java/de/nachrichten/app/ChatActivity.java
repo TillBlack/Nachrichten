@@ -629,7 +629,6 @@ public class ChatActivity extends Base implements Net.Listener {
             android.text.SpannableString sp = new android.text.SpannableString(m.body);
             android.text.util.Linkify.addLinks(sp, android.text.util.Linkify.WEB_URLS);
             body.setText(sp, TextView.BufferType.SPANNABLE);
-            body.setOnLongClickListener(v -> { messageMenu(m); return true; });
             b.addView(body, new LinearLayout.LayoutParams(-2, -2));
         } else if (!m.complete()) {
             TextView t = text(T.receiving() + " " + (m.kind == Db.IMAGE ? T.photo() : T.fileLabel())
@@ -652,8 +651,6 @@ public class ChatActivity extends Base implements Net.Listener {
             } else {
                 b.addView(text(T.photo(), 15, textColor, false), new LinearLayout.LayoutParams(-2, -2));
             }
-            iv.setOnClickListener(v -> viewImage(m));
-            iv.setOnLongClickListener(v -> { messageMenu(m); return true; });
         } else if (isVoice(m)) {
             b.addView(voicePlayer(m, textColor, metaColor), new LinearLayout.LayoutParams(-2, -2));
         } else {
@@ -672,8 +669,6 @@ public class ChatActivity extends Base implements Net.Listener {
             ft.addView(fn);
             ft.addView(text(size(m.fileSize), 12, metaColor, false));
             f.addView(ft);
-            f.setOnClickListener(v -> openFile(m));
-            f.setOnLongClickListener(v -> { messageMenu(m); return true; });
             b.addView(f, new LinearLayout.LayoutParams(-2, -2));
         }
 
@@ -695,9 +690,20 @@ public class ChatActivity extends Base implements Net.Listener {
         mp.setMargins(dp(24), dp(2), isImage ? dp(6) : 0, 0);
         b.addView(meta, mp);
 
-        b.setOnLongClickListener(v -> { messageMenu(m); return true; });
-        if (m.kind == Db.FILE && m.complete() && !isVoice(m) && m.deleted == 0) b.setOnClickListener(v -> openFile(m));
+        attachMsgGestures(b, () -> msgTap(m), () -> msgSelect(m));
         return b;
+    }
+
+    /** Einfaches Tippen: Auswahl aufheben, sonst Datei/Bild öffnen. */
+    private void msgTap(Db.Msg m) {
+        if (selId != null) { clearSelection(); return; }
+        if (m.kind == Db.IMAGE && m.complete()) viewImage(m);
+        else if (m.kind == Db.FILE && m.complete() && !isVoice(m) && m.deleted == 0) openFile(m);
+    }
+
+    /** Doppeltipp oder langer Druck: markieren – oder, wenn schon markiert, Auswahl aufheben. */
+    private void msgSelect(Db.Msg m) {
+        if (m.id.equals(selId)) clearSelection(); else messageMenu(m);
     }
 
     private View quote(String id, boolean inOutgoing, int maxW) {
@@ -1136,7 +1142,7 @@ public class ChatActivity extends Base implements Net.Listener {
         wv.seekListener = f -> seekVoice(path, btn, wv, pos, totalMs, f);
         if (playingThis) { playingWave = wv; playingPos = pos; playingTotal = totalMs; }
         btn.setOnClickListener(x -> togglePlay(path, btn, wv, pos, totalMs));
-        v.setOnLongClickListener(x -> { messageMenu(m); return true; });
+        attachMsgGestures(v, () -> msgTap(m), () -> msgSelect(m));
         return v;
     }
 

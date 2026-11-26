@@ -284,14 +284,12 @@ public class GroupChatActivity extends Base implements Net.Listener {
                 iv.setImageBitmap(bm);
                 iv.setAdjustViewBounds(true);
                 iv.setMaxWidth(maxW);
-                iv.setOnClickListener(x -> bigImage(m.filePath));
                 bub.addView(iv, new LinearLayout.LayoutParams(-2, -2));
             } else bub.addView(text(T.photo(), 15, textColor, false));
         } else if (isVoice(m)) {
             bub.addView(voicePlayer(m, textColor, metaColor), new LinearLayout.LayoutParams(-2, -2));
         } else if (m.kind == Db.FILE) {
             TextView ft = text(m.fileName != null ? m.fileName : T.fileLabel(), 15, textColor, true);
-            ft.setOnClickListener(x -> openFile(m));
             bub.addView(ft);
         } else {
             TextView body = text(m.body, 16, textColor, false);
@@ -304,7 +302,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
         tm.setGravity(Gravity.END);
         bub.addView(tm);
 
-        bub.setOnLongClickListener(v -> { groupMsgMenu(m); return true; });
+        attachMsgGestures(bub, () -> gMsgTap(m), () -> gMsgSelect(m));
 
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -342,6 +340,18 @@ public class GroupChatActivity extends Base implements Net.Listener {
         t.setPadding(dp(4), dp(13), dp(4), dp(13));
         t.setOnClickListener(v -> { dlg.dismiss(); run.run(); });
         box.addView(t, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    /** Einfaches Tippen: Auswahl aufheben, sonst Datei/Bild öffnen. */
+    private void gMsgTap(Db.Msg m) {
+        if (selId != null) { clearSelection(); return; }
+        if (m.kind == Db.IMAGE && m.complete()) bigImage(m.filePath);
+        else if (m.kind == Db.FILE && m.complete() && !isVoice(m)) openFile(m);
+    }
+
+    /** Doppeltipp oder langer Druck: markieren – oder, wenn schon markiert, Auswahl aufheben. */
+    private void gMsgSelect(Db.Msg m) {
+        if (m.id.equals(selId)) clearSelection(); else groupMsgMenu(m);
     }
 
     /** Lang gedrückt: nur die Emoji-Leiste zeigen und die Nachricht markieren. */
@@ -838,11 +848,7 @@ public class GroupChatActivity extends Base implements Net.Listener {
             }
             byte[] jpg = compressGroupPic(data);
             if (jpg == null) { runOnUiThread(() -> toast(T.readError())); return; }
-            File f = new File(app.mediaDir(), "groupav_" + gid + ".jpg");
-            try (FileOutputStream out = new FileOutputStream(f)) { out.write(jpg); }
-            app.db.setGroupAvatar(gid, f.getAbsolutePath());
-            app.net.pushGroup(gid);
-            runOnUiThread(this::reload);
+            saveGroupAvatar(jpg);
         } catch (Throwable t) {
             runOnUiThread(() -> toast(T.readError()));
         }
@@ -854,9 +860,22 @@ public class GroupChatActivity extends Base implements Net.Listener {
             if (data == null) { runOnUiThread(() -> toast(T.readError())); return; }
             byte[] jpg = compressGroupPic(data);
             if (jpg == null) { runOnUiThread(() -> toast(T.readError())); return; }
-            File f = new File(app.mediaDir(), "groupav_" + gid + ".jpg");
+            saveGroupAvatar(jpg);
+        } catch (Throwable t) {
+            runOnUiThread(() -> toast(T.readError()));
+        }
+    }
+
+    /** Gruppenbild speichern: eindeutiger Dateiname (Zeitstempel), damit das Gerät, das es
+     *  geändert hat, sofort das neue Bild sieht (sonst zeigt der Zwischenspeicher das alte). */
+    private void saveGroupAvatar(byte[] jpg) {
+        try {
+            Db.Group g = app.db.group(gid);
+            String old = g != null ? g.avatar : null;
+            File f = new File(app.mediaDir(), "groupav_" + gid + "_" + System.currentTimeMillis() + ".jpg");
             try (FileOutputStream out = new FileOutputStream(f)) { out.write(jpg); }
             app.db.setGroupAvatar(gid, f.getAbsolutePath());
+            if (old != null && !old.equals(f.getAbsolutePath())) { evictAvatar(old); new File(old).delete(); }
             app.net.pushGroup(gid);
             runOnUiThread(this::reload);
         } catch (Throwable t) {
