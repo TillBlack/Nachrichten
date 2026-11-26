@@ -187,6 +187,7 @@ final class Net {
             for (String raw : app.db.pendingRaw()) enqueue("[\"EVENT\"," + raw + "]");
             worker.postDelayed(() -> publishDirectory(false), 4000);
             worker.postDelayed(() -> maybePresence(), 3000);
+            worker.postDelayed(Net.this::maybeSendHello, 6000);
             status();
         }
 
@@ -259,6 +260,11 @@ final class Net {
         }
         String admin = App.SUGGEST_PUBKEY.isEmpty() ? ""
                 : ",{\"kinds\":[" + Proto.KIND_ADMIN + "],\"authors\":[\"" + App.SUGGEST_PUBKEY + "\"],\"limit\":3000}";
+        if (app.isDev()) {
+            long hs = app.prefs.getLong("helloSince", 0);
+            admin += ",{\"kinds\":[" + Proto.KIND_HELLO + "],\"#p\":[\"" + App.SUGGEST_PUBKEY + "\"]"
+                    + (hs > 0 ? ",\"since\":" + hs : "") + ",\"limit\":5000}";
+        }
         String groups = "";
         java.util.List<String> gids = app.db.gids();
         if (!gids.isEmpty()) {
@@ -311,7 +317,8 @@ final class Net {
         int kind = o.optInt("kind");
         if (kind != 4 && kind != Proto.KIND_RECEIPT && kind != Proto.KIND_TYPING
                 && kind != Proto.KIND_PRESENCE && kind != Proto.KIND_SUGGEST && kind != Proto.KIND_GROUP
-                && kind != Proto.KIND_POLL && kind != Proto.KIND_VOTE && kind != Proto.KIND_ADMIN) return;
+                && kind != Proto.KIND_POLL && kind != Proto.KIND_VOTE && kind != Proto.KIND_ADMIN
+                && kind != Proto.KIND_HELLO) return;
         String id = o.getString("id");
         if (seen.contains(id)) return;
         seen.add(id);
@@ -324,6 +331,7 @@ final class Net {
         if (kind == Proto.KIND_POLL) { handlePoll(o, author); return; }
         if (kind == Proto.KIND_VOTE) { handleVote(o, author); return; }
         if (kind == Proto.KIND_ADMIN) { handleAdmin(o, author); return; }
+        if (kind == Proto.KIND_HELLO) { handleHello(o, author); return; }
         String p = null;
         JSONArray tags = o.optJSONArray("tags");
         if (tags != null) for (int i = 0; i < tags.length(); i++) {
@@ -1272,6 +1280,10 @@ final class Net {
             long until = j.optLong("until", 0);
             String value = j.optString("value", "");
             long ts = o.optLong("created_at") * 1000L;
+            if (applyDeviceOp(op, target, until, value, ts)) {
+                main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
+                return;
+            }
             switch (op) {
                 case "ban":   app.db.setBan(target, until, ts); break;
                 case "unban": app.db.setBan(target, 0, ts); break;
@@ -1294,6 +1306,8 @@ final class Net {
      */
     void adminCommand(String op, String target, long until, String value) {
         if (!app.isDev() || target == null || !target.matches("[0-9a-f]{64}")) return;
+        // das eigene (Admin-)Gerät niemals sperren
+        if ("bandev".equals(op) && target.equals(app.deviceHash())) return;
         final String v = value == null ? "" : value;
         worker.post(() -> {
             try {
@@ -1313,6 +1327,17 @@ final class Net {
                 broadcast(e.toJson());
                 // lokal gleich anwenden
                 long tsMs = ts * 1000L;
+                if (applyDeviceOp(op, target, until, v, tsMs)) {
+                    main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
+                    return;
+                }
+                // Konto-Bann: alle bekannten Geräte dieses Kontos mitsperren bzw. mit entsperren
+                if ("ban".equals(op) || "unban".equals(op)) {
+                    for (String dev : app.db.devicesOf(target)) {
+                        if (dev.equals(app.deviceHash())) continue;
+                        adminCommand("ban".equals(op) ? "bandev" : "unbandev", dev, "ban".equals(op) ? until : 0, "");
+                    }
+                }
                 switch (op) {
                     case "ban":   app.db.setBan(target, until, tsMs); break;
                     case "unban": app.db.setBan(target, 0, tsMs); break;
@@ -1326,6 +1351,116 @@ final class Net {
                 main.post(() -> { for (Listener l : listeners) l.onChanged(null); });
             } catch (Exception ignored) { }
         });
+    }
+
+    /** Geräte-Sperren und Freischalten der Nutzerliste. true, wenn der Befehl hier behandelt wurde. */
+    private boolean applyDeviceOp(String op, String target, long until, String value, long tsMs) {
+        switch (op) {
+            case "bandev":   app.db.setBan("d:" + target, until, tsMs); return true;
+            case "unbandev": app.db.setBan("d:" + target, 0, tsMs); return true;
+            case "listopen":
+                if (tsMs >= app.prefs.getLong("listOpenTs", 0)) {
+                    app.prefs.edit().putBoolean("listOpen", "1".equals(value)).putLong("listOpenTs", tsMs).apply();
+                }
+                return true;
+            default: return false;
+        }
+    }
+
+    // ------------------------------------------------------------------ Nutzerzählung („Ich bin ein Nutzer“)
+
+    private static final long HELLO_EVERY_MS = 3L * 24 * 3600 * 1000;   // alle 3 Tage erneut melden
+    private static final String ZERO64 = "0000000000000000000000000000000000000000000000000000000000000000";
+    private volatile boolean helloRunning;
+
+    /**
+     * Meldet dieses Gerät unsichtbar beim Admin (verschlüsselt, nur der Admin kann es lesen).
+     * Inhalt: Geräte-Hash + App-Version. Signiert mit dem eigenen Schlüssel und mit Rechenaufwand (NIP-13):
+     * Jede gefälschte Meldung kostet rund eine Million Hash-Versuche; Wiederholungen desselben Kontos zählen nicht doppelt.
+     * Wird auch im Bann gesendet – so kann der Admin ältere Kontosperren aufs Gerät ausweiten.
+     */
+    void maybeSendHello() {
+        if (App.SUGGEST_PUBKEY.isEmpty() || !app.keys.has() || helloRunning) return;
+        if (app.isDev()) {   // das Admin-Gerät zählt sich selbst direkt
+            app.db.addDevice(app.deviceHash(), app.keys.pubHex(), System.currentTimeMillis() / 1000, (int) Updater.installedVersion(app));
+            maybePublishListOpen();
+            return;
+        }
+        if (System.currentTimeMillis() - app.prefs.getLong("helloTs", 0) < HELLO_EVERY_MS) return;
+        helloRunning = true;
+        Thread t = new Thread(() -> {
+            try {
+                byte[] priv = app.keys.priv();
+                String payload = "{\"d\":\"" + app.deviceHash() + "\",\"v\":" + Updater.installedVersion(app) + "}";
+                Event e = new Event();
+                e.kind = Proto.KIND_HELLO;
+                e.createdAt = System.currentTimeMillis() / 1000;
+                e.content = Nip44.encrypt(payload, Nip44.conversationKey(priv, Event.unhex(App.SUGGEST_PUBKEY)));
+                e.pubkey = Event.hex(Secp.publicKey(priv));
+                long nonce = new java.security.SecureRandom().nextInt(1 << 30);
+                String target = String.valueOf(Proto.HELLO_POW);
+                while (true) {
+                    e.tags = new String[][]{{"p", App.SUGGEST_PUBKEY}, {"nonce", String.valueOf(nonce), target}};
+                    if (leadingZeroBits(e.computeId()) >= Proto.HELLO_POW) break;
+                    nonce++;
+                }
+                e.sign(priv);
+                broadcast(e.toJson());
+                app.prefs.edit().putLong("helloTs", System.currentTimeMillis()).apply();
+            } catch (Throwable ignored) {
+            } finally {
+                helloRunning = false;
+            }
+        }, "hello-pow");
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.start();
+    }
+
+    static int leadingZeroBits(byte[] h) {
+        if (h == null) return 0;
+        int n = 0;
+        for (byte b : h) {
+            if (b == 0) { n += 8; continue; }
+            n += Integer.numberOfLeadingZeros(b & 0xff) - 24;
+            break;
+        }
+        return n;
+    }
+
+    /** Nur Admin: eine Geräte-Meldung prüfen und zählen. */
+    private void handleHello(JSONObject o, String author) {
+        try {
+            if (!app.isDev() || !author.matches("[0-9a-f]{64}")) return;
+            if (!verifyPublic(o)) return;                                                  // Signatur + ID echt
+            if (leadingZeroBits(Event.unhex(o.getString("id"))) < Proto.HELLO_POW) return; // Rechenaufwand geleistet
+            byte[] sp = app.sugPriv();
+            if (sp == null) return;
+            // Entschlüsseln klappt nur, wenn der Absender wirklich den privaten Schlüssel zu „author“ hat.
+            String plain = Nip44.decrypt(o.optString("content"), Nip44.conversationKey(sp, Event.unhex(author)));
+            if (plain == null) return;
+            JSONObject j = new JSONObject(plain);
+            String dev = j.optString("d", "");
+            if (!dev.matches("[0-9a-f]{64}")) return;
+            long ts = o.optLong("created_at");
+            if (ts > System.currentTimeMillis() / 1000 + 600) return;                      // nicht aus der Zukunft
+            app.db.addDevice(dev, author, ts, j.optInt("v", 0));
+            long hs = app.prefs.getLong("helloSince", 0);
+            if (ts - 2L * 24 * 3600 > hs) app.prefs.edit().putLong("helloSince", ts - 2L * 24 * 3600).apply();
+            // Konto ist gesperrt, das Gerät noch nicht → Sperre aufs Gerät ausweiten
+            if (app.db.isBanned(author) && !app.db.isBanned("d:" + dev) && !dev.equals(app.deviceHash())) {
+                adminCommand("bandev", dev, app.db.banUntil(author), "");
+            }
+            maybePublishListOpen();
+        } catch (Exception ignored) { }
+    }
+
+    /** Nur Admin: Nutzerliste ab 1.000 Geräten freischalten (bzw. wieder sperren). Sendet nur bei Änderung. */
+    void maybePublishListOpen() {
+        if (!app.isDev()) return;
+        boolean want = app.db.deviceStats()[0] >= App.LIST_OPEN_AT;
+        if (app.prefs.contains("listOpenPublished") && app.prefs.getBoolean("listOpenPublished", false) == want) return;
+        app.prefs.edit().putBoolean("listOpenPublished", want).apply();
+        adminCommand("listopen", ZERO64, 0, want ? "1" : "0");
     }
 
     // ------------------------------------------------------------------ Umfragen

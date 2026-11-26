@@ -129,6 +129,7 @@ public class DirectoryActivity extends Base implements Net.DirListener {
     protected void onResume() {
         super.onResume();
         app.net.acquire("ui");
+        if (!app.listOpen()) { render(); return; }   // Liste erst ab 1.000 Nutzern
         // Verbindungen brauchen evtl. einen Moment
         root.postDelayed(() -> app.net.loadDirectory(this), 600);
         root.postDelayed(() -> { if (!loaded) { loaded = true; render(); } }, 6000);
@@ -159,6 +160,17 @@ public class DirectoryActivity extends Base implements Net.DirListener {
         list.removeAllViews();
         if (visTg != null) { visTg.on = app.selfListed(); visTg.invalidate(); }
         String myPub = app.keys.has() ? app.keys.pubHex() : null;
+        if (!app.listOpen()) {
+            // Noch gesperrt: eigenes Profil und Sichtbarkeits-Schalter bleiben, andere Nutzer werden nicht gezeigt.
+            status.setText(T.listLockedSub());
+            if (myPub != null) list.addView(selfRow());
+            TextView info = text(T.listLockedInfo(), 15, Pal.dim, false);
+            info.setGravity(Gravity.CENTER);
+            info.setLineSpacing(0, 1.25f);
+            info.setPadding(dp(20), dp(28), dp(20), dp(20));
+            list.addView(info, new LinearLayout.LayoutParams(-1, -2));
+            return;
+        }
         List<Net.DirEntry> all = new ArrayList<>();
         for (Net.DirEntry e : entries.values()) {
             if (myPub != null && e.pub.equals(myPub)) continue;

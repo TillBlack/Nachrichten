@@ -88,6 +88,30 @@ final class T {
     static String cancel() { return s("Cancel", "Abbrechen", "Cancelar", "Отмена", "Odustani"); }
     static String ok() { return s("OK", "OK", "OK", "ОК", "U redu"); }
     static String done() { return s("Done", "Fertig", "Listo", "Готово", "Gotovo"); }
+    static String listLockedSub() { return s("Unlocks at 1,000 users", "Wird ab 1.000 Nutzern freigeschaltet", "Se desbloquea con 1.000 usuarios", "Откроется при 1 000 пользователей", "Otključava se na 1.000 korisnika"); }
+    static String listLockedInfo() { return s(
+            "The user list unlocks once the app has 1,000 users. You can already choose here whether you want to appear in it later.",
+            "Die Nutzerliste wird freigeschaltet, sobald die App 1.000 Nutzer hat. Ob du später darin erscheinen willst, kannst du hier schon einstellen.",
+            "La lista de usuarios se desbloquea cuando la app tenga 1.000 usuarios. Ya puedes elegir aquí si quieres aparecer en ella más adelante.",
+            "Список пользователей откроется, когда у приложения будет 1 000 пользователей. Уже сейчас можно выбрать, появляться ли в нём позже.",
+            "Popis korisnika otključava se kad aplikacija dosegne 1.000 korisnika. Već sada ovdje možeš odabrati želiš li se kasnije pojaviti u njemu."); }
+    static String deviceBannedInfo() { return s(
+            "This device is blocked – a new account on it is blocked too.",
+            "Dieses Gerät ist gesperrt – auch ein neues Konto darauf ist gesperrt.",
+            "Este dispositivo está bloqueado: una cuenta nueva en él también lo está.",
+            "Это устройство заблокировано — новый аккаунт на нём тоже заблокирован.",
+            "Ovaj uređaj je blokiran – i novi račun na njemu je blokiran."); }
+    static String adminUserStats(long dev, long acc, long active) {
+        String d = String.format(java.util.Locale.GERMANY, "%,d", dev), a = String.format(java.util.Locale.GERMANY, "%,d", acc),
+               x = String.format(java.util.Locale.GERMANY, "%,d", active);
+        return s("Users: " + d + " devices · " + a + " accounts · " + x + " active (30 days)",
+                "Nutzer: " + d + " Geräte · " + a + " Konten · " + x + " aktiv (30 Tage)",
+                "Usuarios: " + d + " dispositivos · " + a + " cuentas · " + x + " activos (30 días)",
+                "Пользователи: " + d + " устройств · " + a + " аккаунтов · " + x + " активны (30 дней)",
+                "Korisnici: " + d + " uređaja · " + a + " računa · " + x + " aktivnih (30 dana)"); }
+    static String listStateOpen() { return s("User list: unlocked", "Nutzerliste: freigeschaltet", "Lista de usuarios: desbloqueada", "Список пользователей: открыт", "Popis korisnika: otključan"); }
+    static String listStateLocked(int n) { return s("User list: locked until " + n + " devices", "Nutzerliste: gesperrt bis " + n + " Geräte",
+            "Lista de usuarios: bloqueada hasta " + n + " dispositivos", "Список пользователей: закрыт до " + n + " устройств", "Popis korisnika: zaključan do " + n + " uređaja"); }
     static String emChoose() { return s("Choose emoji", "Emoji auswählen", "Elegir emoji", "Выбрать эмодзи", "Odaberi emoji"); }
     static String emRecent() { return s("Recently used", "Zuletzt verwendet", "Usados recientemente", "Недавние", "Nedavno korišteni"); }
     static String emSmileys() { return s("Smileys & people", "Smileys & Personen", "Emoticonos y personas", "Смайлы и люди", "Smajlići i ljudi"); }

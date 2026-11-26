@@ -710,9 +710,10 @@ public class MainActivity extends Base implements Net.Listener {
         t.setOrientation(LinearLayout.VERTICAL);
         t.setPadding(dp(14), 0, 0, 0);
         t.addView(text(T.discover(), 17, Pal.text, true));
+        boolean open = app.listOpen();
         int dc = app.net.directoryCount();
         int total = dc < 0 ? -1 : dc + (app.selfListed() ? 1 : 0);
-        t.addView(text(total >= 0 ? T.discoverCount(total) : T.discoverSub(), 14, Pal.dim, false));
+        t.addView(text(!open ? T.listLockedSub() : total >= 0 ? T.discoverCount(total) : T.discoverSub(), 14, Pal.dim, false));
         r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         Ico arrow = new Ico(this, Ico.BACK);
         arrow.color = Pal.dim;
@@ -1118,6 +1119,17 @@ public class MainActivity extends Base implements Net.Listener {
         TextView ver = text(T.versionLabel() + " " + appVersion(), 13, Pal.dim, false);
         ver.setPadding(0, dp(3), 0, 0);
         box.addView(ver);
+        if (app.isDev()) {   // nur für den Admin: echte Nutzerzahl (auch private / nicht gelistete)
+            long[] st = app.db.deviceStats();
+            TextView us = text(T.adminUserStats(st[0], st[1], st[2]), 13, Pal.accent, true);
+            us.setPadding(0, dp(6), 0, 0);
+            box.addView(us);
+            TextView lo = text(app.prefs.getBoolean("listOpenPublished", false)
+                    ? T.listStateOpen() : T.listStateLocked(App.LIST_OPEN_AT), 12, Pal.dim, false);
+            lo.setPadding(0, dp(2), 0, 0);
+            box.addView(lo);
+            app.net.maybePublishListOpen();
+        }
 
         settingsDlg = dlg;
         box.addView(label(T.language()));

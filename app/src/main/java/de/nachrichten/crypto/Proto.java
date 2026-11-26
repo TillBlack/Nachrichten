@@ -66,6 +66,10 @@ public final class Proto {
     public static final int KIND_VOTE = 4450;
     /** Admin-Befehl (öffentlich, nur vom Admin-Schlüssel signiert): Bann, Namen/Bio überschreiben, Verwarnung. */
     public static final int KIND_ADMIN = 4451;
+    /** „Ich bin ein Nutzer“: verschlüsselt nur an den Admin, vom eigenen Schlüssel signiert, mit Rechenaufwand (NIP-13). */
+    public static final int KIND_HELLO = 4452;
+    /** Nötige führende Null-Bits der Ereignis-ID (Rechenaufwand gegen massenhaft gefälschte Meldungen). */
+    public static final int HELLO_POW = 20;
 
     /** Steuernachricht (über 1:1 verschickt): voller Stand einer Gruppe – Name, Schlüssel, Mitglieder, Admins. */
     public static String groupSync(String gid, String name, String gkey, String owner, java.util.List<String> members, java.util.Set<String> admins) {

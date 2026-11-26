@@ -45,7 +45,7 @@ final class Db extends SQLiteOpenHelper {
         boolean complete() { return kind == TEXT || (filePath != null && have >= total); }
     }
 
-    Db(Context c) { super(c, "nachrichten.db", null, 17); }
+    Db(Context c) { super(c, "nachrichten.db", null, 18); }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -70,6 +70,13 @@ final class Db extends SQLiteOpenHelper {
         upgradeTo15(db);
         upgradeTo16(db);
         upgradeTo17(db);
+        upgradeTo18(db);
+    }
+
+    /** Nur auf dem Admin-Gerät befüllt: welche Geräte-Kennung (Hash) zu welchem Konto gehört – für die
+     *  Nutzerzählung und Gerätesperren. ts = letzte Meldung (Sekunden). */
+    private static void upgradeTo18(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE devices (dev TEXT NOT NULL, pub TEXT NOT NULL, ts INTEGER NOT NULL, ver INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(dev, pub))");
     }
 
     /** Reaktionen (Emoji) auf Nachrichten: je Nutzer eine pro Nachricht. */
@@ -183,6 +190,53 @@ final class Db extends SQLiteOpenHelper {
         if (o < 15) upgradeTo15(db);
         if (o < 16) upgradeTo16(db);
         if (o < 17) upgradeTo17(db);
+        if (o < 18) upgradeTo18(db);
+    }
+
+    // ------------------------------------------------------------------ Geräte (nur Admin)
+
+    /** Meldung eines Geräts speichern/aktualisieren. true, wenn das Gerät/Konto-Paar neu ist. */
+    synchronized boolean addDevice(String dev, String pub, long tsSec, int ver) {
+        SQLiteDatabase db = getWritableDatabase();
+        try (Cursor c = db.rawQuery("SELECT ts FROM devices WHERE dev = ? AND pub = ?", new String[]{dev, pub})) {
+            if (c.moveToFirst()) {
+                if (tsSec > c.getLong(0)) {
+                    ContentValues v = new ContentValues();
+                    v.put("ts", tsSec);
+                    v.put("ver", ver);
+                    db.update("devices", v, "dev = ? AND pub = ?", new String[]{dev, pub});
+                }
+                return false;
+            }
+        }
+        ContentValues v = new ContentValues();
+        v.put("dev", dev);
+        v.put("pub", pub);
+        v.put("ts", tsSec);
+        v.put("ver", ver);
+        db.insert("devices", null, v);
+        return true;
+    }
+
+    /** Alle bekannten Geräte-Kennungen eines Kontos. */
+    synchronized java.util.List<String> devicesOf(String pub) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT DISTINCT dev FROM devices WHERE pub = ?", new String[]{pub})) {
+            while (c.moveToNext()) out.add(c.getString(0));
+        }
+        return out;
+    }
+
+    /** {Geräte gesamt, Konten gesamt, Geräte aktiv in den letzten 30 Tagen}. */
+    synchronized long[] deviceStats() {
+        long since = System.currentTimeMillis() / 1000 - 30L * 24 * 3600;
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT COUNT(DISTINCT dev), COUNT(DISTINCT pub), "
+                + "(SELECT COUNT(DISTINCT dev) FROM devices WHERE ts >= ?) FROM devices",
+                new String[]{String.valueOf(since)})) {
+            if (c.moveToFirst()) return new long[]{c.getLong(0), c.getLong(1), c.getLong(2)};
+        }
+        return new long[]{0, 0, 0};
     }
 
     /** Reaktion setzen (leeres Emoji = entfernen). Zeitstempel verhindert, dass alte Ereignisse neuere überschreiben. */
@@ -570,6 +624,7 @@ final class Db extends SQLiteOpenHelper {
         try (Cursor c = getReadableDatabase().rawQuery("SELECT pub, ban_until FROM mods", null)) {
             while (c.moveToNext()) {
                 long until = c.getLong(1);
+                if (c.getString(0).startsWith("d:")) continue;   // Gerätesperren nicht als Nutzer listen
                 if (until == -1 || until > now) out.add(c.getString(0));
             }
         }

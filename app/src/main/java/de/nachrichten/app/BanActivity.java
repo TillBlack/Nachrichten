@@ -95,6 +95,15 @@ public class BanActivity extends Base {
         du.setGravity(Gravity.CENTER);
         col.addView(du, new LinearLayout.LayoutParams(-1, -2));
 
+        // Gerätesperre: erklären, warum auch ein neues Konto gesperrt ist
+        if (app.deviceBanned()) {
+            TextView dv = text(T.deviceBannedInfo(), 13, Pal.dim, false);
+            dv.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-1, -2);
+            dl.setMargins(0, dp(8), 0, 0);
+            col.addView(dv, dl);
+        }
+
         // Verwarnung, falls vorhanden
         String[] warn = app.db.warnFor(app.keys.pubHex());
         if (warn != null && warn[0] != null && !warn[0].isEmpty()) {

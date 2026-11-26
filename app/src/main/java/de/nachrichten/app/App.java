@@ -189,14 +189,62 @@ public final class App extends Application {
     }
 
     /** Anzeigename eines Kontakts (oder Kurzform des Codes). */
-    /** Bin ich selbst gebannt? */
-    boolean amBanned() { return keys.has() && db.isBanned(keys.pubHex()); }
-    /** Bann-Ablauf für mich (-1 dauerhaft, 0 nicht gebannt). */
-    long myBanUntil() { return keys.has() ? db.banUntil(keys.pubHex()) : 0; }
+    /** Bin ich selbst gebannt – mein Konto oder dieses Gerät? (Das Admin-Gerät nie.) */
+    boolean amBanned() {
+        if (!keys.has()) return false;
+        return db.isBanned(keys.pubHex()) || deviceBanned();
+    }
+
+    /** Ist dieses Gerät gesperrt (unabhängig vom Konto)? */
+    boolean deviceBanned() { return !isDev() && db.isBanned("d:" + deviceHash()); }
+
+    /** Bann-Ablauf für mich (-1 dauerhaft, 0 nicht gebannt) – der längere aus Konto- und Gerätesperre. */
+    long myBanUntil() {
+        if (!keys.has()) return 0;
+        long a = db.isBanned(keys.pubHex()) ? db.banUntil(keys.pubHex()) : 0;
+        long b = deviceBanned() ? db.banUntil("d:" + deviceHash()) : 0;
+        if (a == -1 || b == -1) return -1;
+        return Math.max(a, b);
+    }
+
+    private String devHash;
+
+    /**
+     * Geräte-Kennung für Sperren: Hash der Android-ID. Die Android-ID ist pro App-Signatur und Gerät
+     * fest – sie bleibt bei Neuinstallation, neuem Konto und VPN gleich, ändert sich erst beim Zurücksetzen
+     * des Geräts. Es wird nur der Hash verwendet, nie die ID selbst.
+     */
+    synchronized String deviceHash() {
+        if (devHash == null) {
+            String id = null;
+            try { id = android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ANDROID_ID); }
+            catch (Throwable ignored) { }
+            if (id == null || id.isEmpty()) {
+                // Rückfall: einmal zufällig erzeugen und merken
+                id = prefs.getString("devFallback", null);
+                if (id == null) {
+                    byte[] r = new byte[16];
+                    new java.security.SecureRandom().nextBytes(r);
+                    id = de.nachrichten.crypto.Event.hex(r);
+                    prefs.edit().putString("devFallback", id).apply();
+                }
+            }
+            devHash = de.nachrichten.crypto.Event.hex(de.nachrichten.crypto.Secp.sha256(
+                    ("nachrichten-device-v1:" + id).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        }
+        return devHash;
+    }
+
+    /** Nutzerliste freigeschaltet? (Der Admin schaltet sie ab 1.000 Nutzern frei; der Admin sieht sie immer.) */
+    boolean listOpen() { return isDev() || prefs.getBoolean("listOpen", false); }
+
+    /** Ab so vielen Geräten wird die Nutzerliste freigeschaltet. */
+    static final int LIST_OPEN_AT = 1000;
 
     // --- Einspruch im Bann: höchstens 2 Nachrichten an den Admin, 1 an einen Kontakt (pro Bann). ---
     private void resetAppealIfNewBan() {
-        long banTs = keys.has() ? db.modTs(keys.pubHex(), "ban_ts") : 0;
+        long banTs = keys.has() ? Math.max(db.modTs(keys.pubHex(), "ban_ts"),
+                deviceBanned() ? db.modTs("d:" + deviceHash(), "ban_ts") : 0) : 0;
         if (prefs.getLong("appealBanTs", -1) != banTs) {
             prefs.edit().putLong("appealBanTs", banTs).putInt("appealAdmin", 0).putInt("appealContact", 0).apply();
         }
